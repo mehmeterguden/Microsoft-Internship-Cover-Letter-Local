@@ -1,8 +1,8 @@
 # ════════════════════════════════════════════════════════════════
 #  Cover Letter Local — .gitignore
 #  Public repo. Internal working docs, secrets, runtime data, build
-#  artifacts, and local dev conveniences stay local. The public repo
-#  is kept clean — no placeholder clutter.
+#  artifacts, and local dev conveniences stay local. Empty source
+#  folders are kept with .gitkeep so the structure stays visible.
 # ════════════════════════════════════════════════════════════════
 
 # ─── Internal working docs — NOT published to GitHub ─────────────
@@ -14,8 +14,6 @@
 # ─── Local dev conveniences (kept out of the public repo) ────────
 # commit template — wired via local git config, not published
 /.gitmessage
-# empty-dir placeholders — no empty-folder clutter on GitHub
-.gitkeep
 *.local.md
 
 # ─── Secrets / environment ───────────────────────────────────────
