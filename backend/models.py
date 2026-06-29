@@ -50,6 +50,14 @@ class SkillEntity(str, Enum):
     training = "training"
 
 
+class LanguageLevel(str, Enum):
+    native = "native"
+    fluent = "fluent"
+    professional = "professional"
+    intermediate = "intermediate"
+    basic = "basic"
+
+
 class JobStatus(str, Enum):
     draft = "draft"
     sent = "sent"
@@ -109,7 +117,23 @@ class Profile(BaseModel):
     phone: str | None = None
     linkedin: str | None = None
     github: str | None = None
+    summary: str | None = None           # short professional summary / headline
     style_profile: StyleProfile | None = None
+
+
+class Link(BaseModel):
+    """A personal link (website, portfolio, blog, Stack Overflow, …) with a note."""
+
+    id: int | None = None
+    label: str                           # e.g. "Portfolio", "Blog", "Stack Overflow"
+    url: str
+    description: str | None = None       # user's note about the link
+
+
+class Language(BaseModel):
+    id: int | None = None
+    name: str
+    proficiency: LanguageLevel | None = None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -121,6 +145,7 @@ class Skill(BaseModel):
     name: str
     category: str | None = None
     self_rating: Rating | None = None
+    years_experience: float | None = None  # years of experience (optional)
     cv_mentioned: bool = False
     note: str | None = None              # where learned / context to mention when using it
 
@@ -142,9 +167,9 @@ class GithubRepo(BaseModel):
     id: int | None = None
     repo_name: str
     url: str | None = None
-    language: str | None = None          # fetched: primary language
     stars: int | None = None             # fetched: star count
-    technologies: list[str] = []
+    last_updated: str | None = None      # fetched: repo's last push/update date
+    technologies: list[str] = []         # languages + tools
     description: str | None = None       # AI-generated: deep analysis of the project
     contribution: str | None = None      # what the user did
     involvement_rating: Rating | None = None
@@ -159,6 +184,7 @@ class Project(BaseModel):
     url: str | None = None
     start_date: str | None = None
     end_date: str | None = None
+    github_repo_id: int | None = None    # optional link to a github_repos row
 
 
 class Experience(BaseModel):
@@ -219,7 +245,7 @@ class PastCoverLetter(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────
-#  Phase B (applications) — defined, not used during onboarding
+#  Job applications & generated cover letters
 # ─────────────────────────────────────────────────────────────
 
 class Job(BaseModel):
