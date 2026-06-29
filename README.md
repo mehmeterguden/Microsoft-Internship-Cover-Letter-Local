@@ -1,2 +1,16 @@
-# Microsoft-Internship-Cover-Letter-Local
-Privacy-first cover letter generator that runs 100% locally — RAG pipeline, writing style learning, and company research. No cloud, no subscription. Built during Microsoft AI Engineering Internship, Summer 2026.
+# Cover Letter Local
+
+A privacy-first, fully local AI job-application assistant. Learns your writing
+style, profiles your skills, researches companies, and generates personalized
+cover letters — all running on your own machine.
+
+> 🚧 **Early development.** Being built step by step. This README will be filled
+> in (setup, screenshots, usage) once there's something to run.
+
+## Stack
+
+Python · FastAPI · ChromaDB · local LLM (Ollama / Foundry Local) · React · Vite · TypeScript
+
+## License
+
+MIT — see [LICENSE](LICENSE).
