@@ -25,7 +25,7 @@
 secrets.*
 
 # ─── Runtime data — ChromaDB + SQLite, never commit ──────────────
-/data/
+data/
 *.db
 *.sqlite
 *.sqlite3
