@@ -97,8 +97,10 @@ class GithubRepo(BaseModel):
     id: int | None = None
     repo_name: str
     description: str | None = None
-    language: str | None = None
+    language: str | None = None          # primary language
+    technologies: list[str] = []         # what the user used on the project
     url: str | None = None
+    contribution: str | None = None      # what the user did
     involvement_rating: Rating | None = None
 
 
@@ -127,4 +129,13 @@ class CoverLetter(BaseModel):
     job_id: int
     content: str
     version: int = 1
+    created_at: datetime | None = None
+
+
+class PastCoverLetter(BaseModel):
+    """An onboarding writing sample — a letter the user wrote before, rated 1–5."""
+
+    id: int | None = None
+    content: str
+    rating: Rating | None = None
     created_at: datetime | None = None
