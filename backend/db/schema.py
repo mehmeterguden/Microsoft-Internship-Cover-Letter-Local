@@ -16,7 +16,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/covercraft.db")
+DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/cover_letter_local.db")
 
 SCHEMA = """
 -- ── Identity ─────────────────────────────────────────────────────
