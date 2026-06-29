@@ -43,8 +43,10 @@ CREATE TABLE IF NOT EXISTS github_repos (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     repo_name          TEXT NOT NULL,
     description        TEXT,
-    language           TEXT,
+    language           TEXT,                               -- primary language
+    technologies       TEXT,                               -- JSON: list[str] (what was used)
     url                TEXT,
+    contribution       TEXT,                               -- what the user did on the project
     involvement_rating INTEGER CHECK (involvement_rating BETWEEN 1 AND 5),
     created_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -72,6 +74,16 @@ CREATE TABLE IF NOT EXISTS cover_letters (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cover_letters_job ON cover_letters(job_id);
+
+-- Onboarding writing samples: letters the user wrote before, rated 1–5.
+-- Not tied to a job. Also embedded into the `cover_letters` ChromaDB collection
+-- so the writing style can be learned from the highly-rated ones.
+CREATE TABLE IF NOT EXISTS past_cover_letters (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    content    TEXT NOT NULL,
+    rating     INTEGER CHECK (rating BETWEEN 1 AND 5),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
