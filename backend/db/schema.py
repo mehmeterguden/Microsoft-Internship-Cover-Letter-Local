@@ -28,17 +28,34 @@ CREATE TABLE IF NOT EXISTS profile (
     phone         TEXT,
     linkedin      TEXT,
     github        TEXT,
+    summary       TEXT,                                   -- short professional summary / headline
     style_profile TEXT                                    -- JSON: StyleProfile
+);
+
+-- Personal links (website, portfolio, blog, Stack Overflow, …), each with a note.
+CREATE TABLE IF NOT EXISTS links (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    label       TEXT NOT NULL,                            -- e.g. "Portfolio", "Blog"
+    url         TEXT NOT NULL,
+    description TEXT                                      -- user's note about the link
+);
+
+-- Spoken languages with proficiency.
+CREATE TABLE IF NOT EXISTS languages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    proficiency TEXT                                      -- native|fluent|professional|intermediate|basic
 );
 
 -- ── Skills ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS skills (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    name         TEXT NOT NULL,
-    category     TEXT,
-    self_rating  INTEGER CHECK (self_rating BETWEEN 1 AND 5),
-    cv_mentioned INTEGER NOT NULL DEFAULT 0,              -- boolean 0/1
-    note         TEXT                                     -- user's note: where learned / context
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    category         TEXT,
+    self_rating      INTEGER CHECK (self_rating BETWEEN 1 AND 5),
+    years_experience REAL,                                -- years of experience (optional)
+    cv_mentioned     INTEGER NOT NULL DEFAULT 0,          -- boolean 0/1
+    note             TEXT                                 -- where learned / context
 );
 
 -- ── GitHub repositories (auto-fetched + AI-analyzed) ─────────────
@@ -46,9 +63,9 @@ CREATE TABLE IF NOT EXISTS github_repos (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     repo_name          TEXT NOT NULL,                     -- fetched
     url                TEXT,                              -- fetched
-    language           TEXT,                              -- fetched, primary language
     stars              INTEGER,                           -- fetched, star count
-    technologies       TEXT,                              -- JSON: list[str]
+    last_updated       TEXT,                              -- fetched, repo's last push/update date
+    technologies       TEXT,                              -- JSON: list[str] (languages + tools)
     description        TEXT,                              -- AI-generated: deep analysis of the project
     contribution       TEXT,                              -- what the user did
     involvement_rating INTEGER CHECK (involvement_rating BETWEEN 1 AND 5)
@@ -56,14 +73,15 @@ CREATE TABLE IF NOT EXISTS github_repos (
 
 -- ── Projects (general; may be non-GitHub) ────────────────────────
 CREATE TABLE IF NOT EXISTS projects (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    name         TEXT NOT NULL,
-    description  TEXT,
-    role         TEXT,                                    -- the user's role on the project
-    technologies TEXT,                                    -- JSON: list[str]
-    url          TEXT,
-    start_date   TEXT,
-    end_date     TEXT
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT NOT NULL,
+    description    TEXT,
+    role           TEXT,                                  -- the user's role on the project
+    technologies   TEXT,                                  -- JSON: list[str]
+    url            TEXT,
+    start_date     TEXT,
+    end_date       TEXT,
+    github_repo_id INTEGER REFERENCES github_repos(id) ON DELETE SET NULL  -- optional link
 );
 
 -- ── Work / internship experience ─────────────────────────────────
@@ -138,7 +156,7 @@ CREATE TABLE IF NOT EXISTS past_cover_letters (
     user_rating INTEGER CHECK (user_rating BETWEEN 1 AND 5)
 );
 
--- ── Phase B (applications) — defined, not used during onboarding ──
+-- ── Job applications & generated cover letters ───────────────────
 CREATE TABLE IF NOT EXISTS jobs (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     company          TEXT NOT NULL,
