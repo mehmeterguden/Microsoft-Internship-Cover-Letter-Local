@@ -1,22 +1,61 @@
 """Pydantic domain models — the typed shapes of the app's data.
 
-Shared across layers (api, core, db). These mirror the SQLite tables in
-`db/schema.py` and the structured JSON that is stored inside their TEXT columns.
-No ORM: these models describe data, they do not persist it.
+Shared across layers (api, core, db). They mirror the SQLite tables in
+`db/schema.py` and the JSON stored inside their TEXT columns. No ORM, no record
+timestamps, single user. Row `id`s identify list items (skills, projects, …); the
+singleton `Profile` has no id.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import Enum
 from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-# 1–5 self-assessment, used by skills and repos.
 Rating = Annotated[int, Field(ge=1, le=5)]
-# 0–100 match score.
 Score = Annotated[int, Field(ge=0, le=100)]
+
+
+# ─────────────────────────────────────────────────────────────
+#  Enums
+# ─────────────────────────────────────────────────────────────
+
+class EmploymentType(str, Enum):
+    full_time = "full_time"
+    part_time = "part_time"
+    internship = "internship"
+    freelance = "freelance"
+    volunteer = "volunteer"
+    other = "other"
+
+
+class CertificateType(str, Enum):
+    professional = "professional"   # e.g. AWS / Azure certification
+    course = "course"               # course completion (Coursera, Udemy, …)
+    exam = "exam"                   # exam-based / standardized
+    language = "language"           # language proficiency
+    award = "award"                 # competition / award
+    bootcamp = "bootcamp"
+    other = "other"
+
+
+class SkillEntity(str, Enum):
+    """What a skill can be linked to as evidence."""
+
+    repo = "repo"
+    project = "project"
+    experience = "experience"
+    certificate = "certificate"
+    training = "training"
+
+
+class JobStatus(str, Enum):
+    draft = "draft"
+    sent = "sent"
+    interview = "interview"
+    rejected = "rejected"
+    offer = "offer"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -24,17 +63,14 @@ Score = Annotated[int, Field(ge=0, le=100)]
 # ─────────────────────────────────────────────────────────────
 
 class StyleProfile(BaseModel):
-    """Writing-style traits learned from highly-rated past cover letters.
+    """Writing-style traits learned from highly-rated past cover letters."""
 
-    Stored on `profile.style_profile`; injected into the generation prompt.
-    """
-
-    tone: str                       # e.g. "professional", "warm", "direct"
-    length: str                     # "short" | "medium" | "long"
+    tone: str
+    length: str
     word_count: int | None = None
-    opening_style: str              # "question" | "statement" | "achievement"
-    pronoun_style: str              # "frequent" | "minimal"
-    sentence_style: str             # "simple" | "complex"
+    opening_style: str
+    pronoun_style: str
+    sentence_style: str
 
 
 class TechnicalSkillsMatch(BaseModel):
@@ -49,8 +85,6 @@ class ExperienceMatch(BaseModel):
 
 
 class MatchBreakdown(BaseModel):
-    """Realistic match analysis stored on `jobs.match_breakdown`."""
-
     overall_score: Score
     technical_skills: TechnicalSkillsMatch
     experience_level: ExperienceMatch
@@ -58,26 +92,19 @@ class MatchBreakdown(BaseModel):
 
 
 class CompanyResearch(BaseModel):
-    """Cached Tavily research, stored on `jobs.company_research`.
-
-    Only the company name is ever sent to Tavily — never the CV or profile.
-    """
-
     company: str
     summary: str
     culture: str | None = None
     recent_news: list[str] = []
-    researched_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────
-#  Core entities — one model per SQLite table
+#  Profile (single user)
 # ─────────────────────────────────────────────────────────────
 
 class Profile(BaseModel):
-    """The single user's profile (one row in `profile`)."""
-
     name: str | None = None
+    surname: str | None = None
     email: str | None = None
     phone: str | None = None
     linkedin: str | None = None
@@ -85,32 +112,115 @@ class Profile(BaseModel):
     style_profile: StyleProfile | None = None
 
 
+# ─────────────────────────────────────────────────────────────
+#  Skills + evidence links
+# ─────────────────────────────────────────────────────────────
+
 class Skill(BaseModel):
     id: int | None = None
     name: str
     category: str | None = None
     self_rating: Rating | None = None
     cv_mentioned: bool = False
+    note: str | None = None              # where learned / context to mention when using it
 
+
+class SkillLink(BaseModel):
+    """Links a skill to evidence: a repo, project, experience, certificate, or training."""
+
+    id: int | None = None
+    skill_id: int
+    entity_type: SkillEntity
+    entity_id: int
+
+
+# ─────────────────────────────────────────────────────────────
+#  Portfolio entities
+# ─────────────────────────────────────────────────────────────
 
 class GithubRepo(BaseModel):
     id: int | None = None
     repo_name: str
-    description: str | None = None
-    language: str | None = None          # primary language
-    technologies: list[str] = []         # what the user used on the project
     url: str | None = None
+    language: str | None = None          # fetched: primary language
+    stars: int | None = None             # fetched: star count
+    technologies: list[str] = []
+    description: str | None = None       # AI-generated: deep analysis of the project
     contribution: str | None = None      # what the user did
     involvement_rating: Rating | None = None
 
 
-class JobStatus(str, Enum):
-    draft = "draft"
-    sent = "sent"
-    interview = "interview"
-    rejected = "rejected"
-    offer = "offer"
+class Project(BaseModel):
+    id: int | None = None
+    name: str
+    description: str | None = None
+    role: str | None = None
+    technologies: list[str] = []
+    url: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
 
+
+class Experience(BaseModel):
+    id: int | None = None
+    company: str
+    title: str
+    employment_type: EmploymentType | None = None
+    location: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None          # None while current
+    is_current: bool = False
+    description: str | None = None
+
+
+class Education(BaseModel):
+    id: int | None = None
+    institution: str
+    degree: str | None = None
+    field: str | None = None
+    location: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    is_current: bool = False
+    gpa: str | None = None
+
+
+class Training(BaseModel):
+    id: int | None = None
+    name: str
+    provider: str | None = None
+    description: str | None = None
+    completion_date: str | None = None
+    url: str | None = None
+
+
+class Certificate(BaseModel):
+    id: int | None = None
+    name: str
+    issuer: str | None = None
+    cert_type: CertificateType | None = None
+    issue_date: str | None = None
+    expiry_date: str | None = None       # None = no expiry
+    credential_id: str | None = None
+    url: str | None = None
+
+
+# ─────────────────────────────────────────────────────────────
+#  Cover letters
+# ─────────────────────────────────────────────────────────────
+
+class PastCoverLetter(BaseModel):
+    """Onboarding writing sample — rated by us (ai_rating) and optionally the user."""
+
+    id: int | None = None
+    content: str
+    ai_rating: Rating | None = None
+    user_rating: Rating | None = None
+
+
+# ─────────────────────────────────────────────────────────────
+#  Phase B (applications) — defined, not used during onboarding
+# ─────────────────────────────────────────────────────────────
 
 class Job(BaseModel):
     id: int | None = None
@@ -121,7 +231,6 @@ class Job(BaseModel):
     match_breakdown: MatchBreakdown | None = None
     company_research: CompanyResearch | None = None
     status: JobStatus = JobStatus.draft
-    created_at: datetime | None = None
 
 
 class CoverLetter(BaseModel):
@@ -129,13 +238,3 @@ class CoverLetter(BaseModel):
     job_id: int
     content: str
     version: int = 1
-    created_at: datetime | None = None
-
-
-class PastCoverLetter(BaseModel):
-    """An onboarding writing sample — a letter the user wrote before, rated 1–5."""
-
-    id: int | None = None
-    content: str
-    rating: Rating | None = None
-    created_at: datetime | None = None
