@@ -9,7 +9,7 @@ cover letters — all running on your own machine.
 
 ## Stack
 
-Python · FastAPI · ChromaDB · local LLM (Ollama / Foundry Local) · React · Vite · TypeScript
+Python · FastAPI · ChromaDB · local LLM (Microsoft Foundry Local) · React · Vite · TypeScript
 
 ## License
 
