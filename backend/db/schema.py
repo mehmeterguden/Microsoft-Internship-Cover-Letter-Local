@@ -1,11 +1,13 @@
 """SQLite schema and database initialization.
 
-Single-user app — no auth, no concurrency. We use the standard-library `sqlite3`
-module directly (no ORM). Structured records live here; free text that needs
-semantic search lives in ChromaDB (see `core/vector_store.py`).
+Single-user, local app — no auth, no multi-user, no `id` on the singleton profile,
+and no record timestamps (created_at/updated_at). We use the standard-library
+`sqlite3` module directly (no ORM).
 
-Timestamps are stored as ISO text via SQLite's `datetime('now')`. Columns marked
-"JSON" hold a serialized Pydantic model from `models.py`.
+Structured records live here; free text that needs semantic search lives in
+ChromaDB (see `core/vector_store.py`). Columns marked "JSON" hold a serialized
+Pydantic model / list from `models.py`. Date columns (start_date, issue_date, …)
+are real data — stored as ISO text ("YYYY-MM" or "YYYY-MM-DD"), not record metadata.
 """
 
 from __future__ import annotations
@@ -17,73 +19,148 @@ from pathlib import Path
 DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/covercraft.db")
 
 SCHEMA = """
--- Single user: exactly one row, pinned to id = 1.
+-- ── Identity ─────────────────────────────────────────────────────
+-- Single user: exactly one row, managed by the app (no id needed).
 CREATE TABLE IF NOT EXISTS profile (
-    id            INTEGER PRIMARY KEY CHECK (id = 1),
     name          TEXT,
+    surname       TEXT,
     email         TEXT,
     phone         TEXT,
     linkedin      TEXT,
     github        TEXT,
-    style_profile TEXT,                                  -- JSON: StyleProfile
-    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    style_profile TEXT                                    -- JSON: StyleProfile
 );
 
+-- ── Skills ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS skills (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT NOT NULL,
     category     TEXT,
     self_rating  INTEGER CHECK (self_rating BETWEEN 1 AND 5),
-    cv_mentioned INTEGER NOT NULL DEFAULT 0,             -- boolean 0/1
-    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    cv_mentioned INTEGER NOT NULL DEFAULT 0,              -- boolean 0/1
+    note         TEXT                                     -- user's note: where learned / context
 );
 
+-- ── GitHub repositories (auto-fetched + AI-analyzed) ─────────────
 CREATE TABLE IF NOT EXISTS github_repos (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    repo_name          TEXT NOT NULL,
-    description        TEXT,
-    language           TEXT,                               -- primary language
-    technologies       TEXT,                               -- JSON: list[str] (what was used)
-    url                TEXT,
-    contribution       TEXT,                               -- what the user did on the project
-    involvement_rating INTEGER CHECK (involvement_rating BETWEEN 1 AND 5),
-    created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    repo_name          TEXT NOT NULL,                     -- fetched
+    url                TEXT,                              -- fetched
+    language           TEXT,                              -- fetched, primary language
+    stars              INTEGER,                           -- fetched, star count
+    technologies       TEXT,                              -- JSON: list[str]
+    description        TEXT,                              -- AI-generated: deep analysis of the project
+    contribution       TEXT,                              -- what the user did
+    involvement_rating INTEGER CHECK (involvement_rating BETWEEN 1 AND 5)
 );
 
+-- ── Projects (general; may be non-GitHub) ────────────────────────
+CREATE TABLE IF NOT EXISTS projects (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL,
+    description  TEXT,
+    role         TEXT,                                    -- the user's role on the project
+    technologies TEXT,                                    -- JSON: list[str]
+    url          TEXT,
+    start_date   TEXT,
+    end_date     TEXT
+);
+
+-- ── Work / internship experience ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS experiences (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    company         TEXT NOT NULL,
+    title           TEXT NOT NULL,
+    employment_type TEXT,                                 -- full_time|part_time|internship|freelance|volunteer|other
+    location        TEXT,
+    start_date      TEXT,
+    end_date        TEXT,                                 -- NULL while current
+    is_current      INTEGER NOT NULL DEFAULT 0,
+    description     TEXT
+);
+
+-- ── Education ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS education (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    institution TEXT NOT NULL,
+    degree      TEXT,
+    field       TEXT,
+    location    TEXT,
+    start_date  TEXT,
+    end_date    TEXT,
+    is_current  INTEGER NOT NULL DEFAULT 0,
+    gpa         TEXT
+);
+
+-- ── Trainings / courses ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS trainings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    provider        TEXT,
+    description     TEXT,
+    completion_date TEXT,
+    url             TEXT
+);
+
+-- ── Certificates (typed) ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS certificates (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    issuer        TEXT,
+    cert_type     TEXT,                                   -- professional|course|exam|language|award|bootcamp|other
+    issue_date    TEXT,
+    expiry_date   TEXT,                                   -- NULL = no expiry
+    credential_id TEXT,
+    url           TEXT
+);
+
+-- ── Skill ↔ evidence links (polymorphic) ─────────────────────────
+-- Connects a skill to where it was used or proven: a repo, project,
+-- experience, certificate, or training. entity_id points at that
+-- table's id (not FK-enforced because the target table varies).
+CREATE TABLE IF NOT EXISTS skill_links (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    skill_id    INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN
+                   ('repo', 'project', 'experience', 'certificate', 'training')),
+    entity_id   INTEGER NOT NULL,
+    UNIQUE (skill_id, entity_type, entity_id)
+);
+
+-- ── Onboarding writing samples ───────────────────────────────────
+-- Letters the user wrote before. Two ratings: ours (ai_rating) and an
+-- optional one from the user (user_rating). Also embedded into the
+-- `cover_letters` ChromaDB collection so style is learned from the best.
+CREATE TABLE IF NOT EXISTS past_cover_letters (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    content     TEXT NOT NULL,
+    ai_rating   INTEGER CHECK (ai_rating BETWEEN 1 AND 5),
+    user_rating INTEGER CHECK (user_rating BETWEEN 1 AND 5)
+);
+
+-- ── Phase B (applications) — defined, not used during onboarding ──
 CREATE TABLE IF NOT EXISTS jobs (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     company          TEXT NOT NULL,
     role             TEXT NOT NULL,
     job_description  TEXT,
     match_score      INTEGER CHECK (match_score BETWEEN 0 AND 100),
-    match_breakdown  TEXT,                               -- JSON: MatchBreakdown
-    company_research TEXT,                               -- JSON: CompanyResearch
+    match_breakdown  TEXT,                                -- JSON: MatchBreakdown
+    company_research TEXT,                                -- JSON: CompanyResearch
     status           TEXT NOT NULL DEFAULT 'draft'
-                       CHECK (status IN ('draft', 'sent', 'interview', 'rejected', 'offer')),
-    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+                       CHECK (status IN ('draft', 'sent', 'interview', 'rejected', 'offer'))
 );
 
 CREATE TABLE IF NOT EXISTS cover_letters (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id     INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    content    TEXT NOT NULL,
-    version    INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id  INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_cover_letters_job ON cover_letters(job_id);
-
--- Onboarding writing samples: letters the user wrote before, rated 1–5.
--- Not tied to a job. Also embedded into the `cover_letters` ChromaDB collection
--- so the writing style can be learned from the highly-rated ones.
-CREATE TABLE IF NOT EXISTS past_cover_letters (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    content    TEXT NOT NULL,
-    rating     INTEGER CHECK (rating BETWEEN 1 AND 5),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+CREATE INDEX IF NOT EXISTS idx_skill_links_skill ON skill_links(skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_links_entity ON skill_links(entity_type, entity_id);
 """
 
 
