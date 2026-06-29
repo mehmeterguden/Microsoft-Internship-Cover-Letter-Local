@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Load .env before importing modules that read storage paths at import time.
 load_dotenv()
 
+from api import api_router  # noqa: E402
 from core.vector_store import init_collections  # noqa: E402
 from db.schema import init_db  # noqa: E402
 
@@ -50,3 +51,7 @@ app.add_middleware(
 def health() -> dict[str, str]:
     """Liveness check."""
     return {"status": "ok"}
+
+
+# Onboarding data endpoints (profile, skills, projects, experience, …).
+app.include_router(api_router)
