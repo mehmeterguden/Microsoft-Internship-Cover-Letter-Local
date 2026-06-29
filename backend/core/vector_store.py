@@ -7,14 +7,16 @@ explicitly, so collections are created WITHOUT an embedding function.
 The metadata contracts below are part of the data model: retrieval filters on
 these keys, so keep them stable.
 
-    profile        documents: CV / experience chunks
-                   metadata:  {"source": "cv"|"experience"|"skill", "section": str}
+    profile        documents: profile text chunks (CV, experience, projects,
+                              education, certificates, skill notes)
+                   metadata:  {"source": "cv"|"experience"|"project"|"education"
+                                          |"certificate"|"skill", "ref_id": int|None}
 
     cover_letters  documents: past (rated) and generated letters
-                   metadata:  {"type": "past"|"generated", "rating": int|None,
-                               "job_type": str|None, "letter_id": int|None}
+                   metadata:  {"type": "past"|"generated", "ai_rating": int|None,
+                               "user_rating": int|None, "letter_id": int|None}
 
-    companies      documents: company research summaries (cache)
+    companies      documents: company research summaries (cache)  [Phase B]
                    metadata:  {"company": str, "researched_at": str}  # ISO date
 """
 
