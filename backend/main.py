@@ -51,6 +51,12 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "cv_demo.html")
 
 
+@app.get("/github", include_in_schema=False)
+def github_page() -> FileResponse:
+    """Serve the GitHub import demo."""
+    return FileResponse(STATIC_DIR / "github_demo.html")
+
+
 @app.get("/dev", include_in_schema=False)
 def dev_page() -> FileResponse:
     """Serve the raw text-extraction dev page."""
