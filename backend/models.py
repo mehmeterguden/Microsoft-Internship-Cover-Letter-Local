@@ -66,6 +66,16 @@ class JobStatus(str, Enum):
     offer = "offer"
 
 
+class LLMProvider(str, Enum):
+    """Which LLM backend the user has selected."""
+
+    foundry_local = "foundry_local"   # local, private (default)
+    ollama = "ollama"                 # local, private
+    openai = "openai"                 # cloud
+    anthropic = "anthropic"           # cloud (Claude)
+    gemini = "gemini"                 # cloud
+
+
 # ─────────────────────────────────────────────────────────────
 #  Structured JSON — stored as TEXT inside SQLite columns
 # ─────────────────────────────────────────────────────────────
@@ -113,9 +123,12 @@ class CompanyResearch(BaseModel):
 class Settings(BaseModel):
     """Runtime config the user can change from the frontend (DB-backed, not env)."""
 
-    llm_base_url: str                    # OpenAI-compatible base URL (Foundry Local)
-    llm_model: str                       # model name to request
-    llm_api_key: str = ""                # usually empty for Foundry Local
+    llm_provider: LLMProvider = LLMProvider.foundry_local  # which backend to use
+    llm_base_url: str                    # base URL for local providers (Foundry/Ollama)
+    llm_model: str                       # model name/id to request
+    openai_api_key: str = ""             # key for the OpenAI provider
+    anthropic_api_key: str = ""          # key for the Claude provider
+    gemini_api_key: str = ""             # key for the Gemini provider
     embedding_model: str                 # sentence-transformers model (later phases)
     tavily_api_key: str = ""             # company research key (only external call)
 

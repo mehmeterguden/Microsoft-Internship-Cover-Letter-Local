@@ -26,5 +26,5 @@ def get_settings() -> Settings:
 @router.put("", response_model=Settings)
 def update_settings(settings: Settings) -> Settings:
     """Replace settings with the submitted values."""
-    queries.save_settings(settings.model_dump())
+    queries.save_settings(settings.model_dump(mode="json"))
     return settings
