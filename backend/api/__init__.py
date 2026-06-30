@@ -15,15 +15,21 @@ from api.routers import (
     github_repos,
     languages,
     links,
+    llm,
     past_cover_letters,
     profile,
     projects,
+    settings,
     skill_links,
     skills,
     trainings,
 )
 
 api_router = APIRouter(prefix="/api")
+
+# Config and model health.
+api_router.include_router(settings.router)
+api_router.include_router(llm.router)
 
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)

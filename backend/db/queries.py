@@ -147,6 +147,35 @@ def delete(table: str, row_id: int) -> bool:
         conn.close()
 
 
+# ── Settings (singleton — id always 1, seeded at init) ───────────
+
+def get_settings() -> dict[str, Any]:
+    """Return the settings row (without its id). Always exists after init_db."""
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
+        data = dict(row)
+        data.pop("id", None)
+        return data
+    finally:
+        conn.close()
+
+
+def save_settings(data: dict[str, Any]) -> None:
+    """Update the single settings row in place."""
+    cols = list(data.keys())
+    assignments = ", ".join(f"{c} = ?" for c in cols)
+    conn = get_connection()
+    try:
+        conn.execute(
+            f"UPDATE settings SET {assignments} WHERE id = 1",
+            tuple(data[c] for c in cols),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ── Profile (singleton — exactly one row, no id) ─────────────────
 
 def get_profile() -> dict[str, Any] | None:

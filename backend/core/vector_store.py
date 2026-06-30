@@ -22,15 +22,16 @@ these keys, so keep them stable.
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 import chromadb
 
+import config
+
 if TYPE_CHECKING:
     from chromadb.api.models.Collection import Collection
 
-CHROMA_PATH = os.getenv("CHROMA_PATH", "./data/chroma")
+CHROMA_PATH = config.CHROMA_PATH
 
 # Collection names — the only valid collections in the app.
 PROFILE = "profile"

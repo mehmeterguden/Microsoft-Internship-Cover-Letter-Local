@@ -17,9 +17,10 @@
 *.local.md
 
 # ─── Secrets / environment ───────────────────────────────────────
+# Config now lives in the DB `settings` table, not .env. These stay ignored
+# in case anyone adds a local .env override for infra paths.
 .env
 .env.*
-!.env.example
 *.key
 *.pem
 secrets.*
