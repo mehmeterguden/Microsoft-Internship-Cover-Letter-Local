@@ -51,6 +51,14 @@ is given use "YYYY"; if a date is absent use null. For an ongoing role/study set
 - Keep text faithful to the source — light cleanup only (whitespace, obvious line-break \
 splits). Do not rewrite or embellish. Preserve the CV's original language.
 - Split distinct roles, schools, projects, and certificates into separate list items.
+- links: capture EVERY personal URL in the CV — portfolio/personal website, LinkedIn, \
+GitHub, blog, etc. (often in the header). Give each a short label ("Website", "LinkedIn", \
+"GitHub"). Add "https://" if the scheme is missing.
+- skills: if the CV has a dedicated skills section, list those. Otherwise, populate skills \
+from the distinct technologies, programming languages, frameworks, and tools that are \
+EXPLICITLY named in the experience and project descriptions (e.g. Python, React, Node.js, \
+TypeScript). Use only items literally written in the CV — never add related or implied ones. \
+Deduplicate.
 
 Schema:
 {CV_JSON_SCHEMA}"""
