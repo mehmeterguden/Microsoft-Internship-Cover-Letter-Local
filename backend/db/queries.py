@@ -147,6 +147,18 @@ def delete(table: str, row_id: int) -> bool:
         conn.close()
 
 
+def clear(table: str) -> int:
+    """Delete every row in a table. Returns how many were removed."""
+    _check(table)
+    conn = get_connection()
+    try:
+        cur = conn.execute(f"DELETE FROM {table}")
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
 # ── Settings (singleton — id always 1, seeded at init) ───────────
 
 def get_settings() -> dict[str, Any]:
