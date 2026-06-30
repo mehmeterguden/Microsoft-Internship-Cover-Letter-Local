@@ -130,6 +130,7 @@
           loadingMsg = $("loadingMsg"), loadingSub = $("loadingSub"), result = $("result");
 
     let provider = "AI";
+    let lastImport = null;  // the import response, used by Save
     fetch("/api/settings").then(r => r.json()).then(s => provider = s.llm_provider || "AI").catch(() => {});
 
     drop.addEventListener("click", () => fileInput.click());
@@ -187,6 +188,7 @@
     }
 
     function render(filename, data) {
+      lastImport = data;
       // `data.data` carries per-item confidence; `data.structured` is the clean validated copy.
       const s = data.data || data.structured, p = s.profile || {};
       const pc = p.confidence || {};
@@ -258,8 +260,9 @@
         <div class="chips">${s.links.map(l => chip(l.label + " ↗", l.confidence, "link")).join("")}</div></section>`);
 
       out.push(`<div class="actions">
+        <button class="btn" id="saveBtn" onclick="saveAll()">Save to profile</button>
         <button class="btn ghost" onclick="reset()">Import another</button>
-        <span class="muted">⚠ marks values to double-check. Editing & saving to your profile is the next step.</span>
+        <span id="saveStatus" class="muted">⚠ marks values to double-check. Edit any field above, then save.</span>
       </div>`);
 
       result.innerHTML = out.join("");
@@ -280,6 +283,34 @@
         ${low ? `<div class="low-note">⚠ This entry may contain errors — please review (${conf}% confident)</div>` : ""}</div>`;
     }
     window.reset = reset;
+
+    window.saveAll = async function () {
+      if (!lastImport) return;
+      const btn = $("saveBtn"), status = $("saveStatus");
+      btn.disabled = true; status.textContent = "Saving…";
+
+      // Profile from the (possibly edited) inputs; lists from the validated structured data.
+      const profile = {};
+      result.querySelectorAll("input[data-k]").forEach(i => { profile[i.dataset.k] = i.value.trim() || null; });
+      const d = lastImport.structured;
+      const payload = {
+        profile, skills: d.skills, experiences: d.experiences, education: d.education,
+        projects: d.projects, languages: d.languages, links: d.links,
+      };
+      try {
+        const res = await fetch("/api/cv/save", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        const s = data.saved;
+        status.innerHTML = `<span class="ok" style="color:var(--ok);font-weight:600">✓ Saved to your profile —
+          ${s.skills} skills, ${s.experiences} experience, ${s.education} education,
+          ${s.projects} projects, ${s.links} links</span>`;
+      } catch (e) {
+        status.textContent = "Error saving: " + e.message; btn.disabled = false;
+      }
+    };
   </script>
 </body>
 </html>

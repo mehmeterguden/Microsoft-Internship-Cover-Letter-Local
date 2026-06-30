@@ -13,12 +13,14 @@ install instructions when the binary is missing.
 
 from __future__ import annotations
 
+import sqlite3
+
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from core import cv_structuring, document_parser
 from db import queries
-from models import Document
+from models import CVExtraction, Document
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
@@ -139,6 +141,40 @@ def structure_cv(req: StructureRequest) -> dict:
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"LLM request failed ({type(exc).__name__}): {exc}",
         ) from exc
+
+
+@router.post("/save")
+def save_structured(cv: CVExtraction, replace: bool = True) -> dict:
+    """Persist structured CV data into the profile/skills/experience/... tables.
+
+    `replace=True` (default) clears each list table first so re-importing a CV
+    doesn't pile up duplicates; the profile is a singleton and is always replaced.
+    Returns how many rows were written per section.
+    """
+    queries.save_profile(cv.profile.model_dump(mode="json"))
+    saved: dict[str, int] = {"profile": 1}
+
+    sections: dict[str, list] = {
+        "skills": cv.skills,
+        "experiences": cv.experiences,
+        "education": cv.education,
+        "projects": cv.projects,
+        "languages": cv.languages,
+        "links": cv.links,
+    }
+    for table, items in sections.items():
+        if replace:
+            queries.clear(table)
+        written = 0
+        for item in items:
+            try:
+                queries.insert(table, item.model_dump(mode="json", exclude={"id"}))
+                written += 1
+            except sqlite3.IntegrityError:
+                pass  # skip rows that violate a constraint (e.g. a stale FK)
+        saved[table] = written
+
+    return {"ok": True, "saved": saved}
 
 
 @router.post("/documents", response_model=Document, status_code=status.HTTP_201_CREATED)
