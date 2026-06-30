@@ -131,6 +131,7 @@ class Settings(BaseModel):
     gemini_api_key: str = ""             # key for the Gemini provider
     embedding_model: str                 # sentence-transformers model (later phases)
     tavily_api_key: str = ""             # company research key (only external call)
+    ocr_enabled: bool = False            # optional feature: read images via OCR (needs tesseract)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -261,6 +262,16 @@ class Certificate(BaseModel):
 # ─────────────────────────────────────────────────────────────
 #  Cover letters
 # ─────────────────────────────────────────────────────────────
+
+class Document(BaseModel):
+    """An uploaded CV/supporting file kept after text extraction."""
+
+    id: int | None = None
+    filename: str
+    source_type: str | None = None       # pdf | image | word
+    num_pages: int | None = None
+    content: str                         # extracted text (pages joined)
+
 
 class PastCoverLetter(BaseModel):
     """Onboarding writing sample — rated by us (ai_rating) and optionally the user."""
