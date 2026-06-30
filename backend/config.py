@@ -25,9 +25,9 @@ CHROMA_PATH = os.getenv("CHROMA_PATH", str(DATA_DIR / "chroma"))
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
 # ── Seed defaults for the `settings` table (the choices WE make by default) ──
-# Microsoft Foundry Local, OpenAI-compatible endpoint.
+# Default to the local, private provider: Microsoft Foundry Local.
+DEFAULT_LLM_PROVIDER = "foundry_local"  # foundry_local | ollama | openai | anthropic | gemini
 DEFAULT_LLM_BASE_URL = "http://localhost:5273/v1"
 DEFAULT_LLM_MODEL = "phi-4-mini"
-DEFAULT_LLM_API_KEY = ""  # Foundry Local needs none; kept for OpenAI-compatible servers that do
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 DEFAULT_TAVILY_API_KEY = ""
