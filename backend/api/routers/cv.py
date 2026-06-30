@@ -14,8 +14,9 @@ install instructions when the binary is missing.
 from __future__ import annotations
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from pydantic import BaseModel
 
-from core import document_parser
+from core import cv_structuring, document_parser
 from db import queries
 from models import Document
 
@@ -84,6 +85,29 @@ async def parse_document(file: UploadFile = File(...)) -> dict:
         ) from exc
 
     return {"filename": file.filename, "size_bytes": len(data), **extraction}
+
+
+class StructureRequest(BaseModel):
+    text: str
+
+
+@router.post("/structure")
+def structure_cv(req: StructureRequest) -> dict:
+    """Turn extracted CV text into structured JSON via the configured LLM.
+
+    Always returns the model's `raw_output`; `ok` says whether it parsed and
+    validated, with `structured` (success) or `error` (failure). 503 if the LLM
+    itself is unreachable.
+    """
+    if not req.text.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No text to structure.")
+    try:
+        return cv_structuring.structure(req.text)
+    except Exception as exc:  # noqa: BLE001 — LLM connection/provider failure
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM request failed ({type(exc).__name__}): {exc}",
+        ) from exc
 
 
 @router.post("/documents", response_model=Document, status_code=status.HTTP_201_CREATED)
