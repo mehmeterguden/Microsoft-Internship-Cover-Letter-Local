@@ -33,7 +33,20 @@ CREATE TABLE IF NOT EXISTS settings (
     anthropic_api_key TEXT NOT NULL DEFAULT '',             -- key for the Claude provider
     gemini_api_key    TEXT NOT NULL DEFAULT '',             -- key for the Gemini provider
     embedding_model   TEXT NOT NULL,                        -- sentence-transformers model (later phases)
-    tavily_api_key    TEXT NOT NULL DEFAULT ''              -- company research (only external call)
+    tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
+    ocr_enabled       INTEGER NOT NULL DEFAULT 0            -- optional: read images via OCR (needs tesseract)
+);
+
+-- ── Uploaded documents (extracted text) ─────────────────────────
+-- A CV / supporting file (PDF, image, or Word) the user uploaded and chose to
+-- keep. Stores the extracted plain text; LLM structuring into profile/skills
+-- comes in a later phase.
+CREATE TABLE IF NOT EXISTS documents (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename    TEXT NOT NULL,
+    source_type TEXT,                                     -- pdf|image|word
+    num_pages   INTEGER,
+    content     TEXT NOT NULL                             -- extracted text (pages joined)
 );
 
 -- ── Identity ─────────────────────────────────────────────────────
@@ -214,6 +227,7 @@ _SETTINGS_COLUMNS_ADDED = {
     "openai_api_key": "TEXT NOT NULL DEFAULT ''",
     "anthropic_api_key": "TEXT NOT NULL DEFAULT ''",
     "gemini_api_key": "TEXT NOT NULL DEFAULT ''",
+    "ocr_enabled": "INTEGER NOT NULL DEFAULT 0",
 }
 
 

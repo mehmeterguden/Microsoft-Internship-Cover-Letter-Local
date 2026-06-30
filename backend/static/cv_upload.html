@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Document Parser — dev test</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
+    h1 { font-size: 1.25rem; }
+    .hint { color: #888; font-size: .9rem; }
+    fieldset { border: 1px solid #8884; border-radius: 8px; margin: 1rem 0; }
+    legend { padding: 0 .4rem; color: #888; font-size: .85rem; }
+    #drop { border: 2px dashed #999; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; }
+    #drop.over { border-color: #2b7; background: rgba(34,187,119,.08); }
+    button { font: inherit; padding: .5rem 1rem; border-radius: 6px; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    .summary { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0; }
+    .summary b { display: block; font-size: 1.3rem; }
+    .summary span { color: #888; font-size: .8rem; }
+    pre { background: #1113; padding: 1rem; border-radius: 8px; overflow: auto; max-height: 60vh; font-size: .82rem; }
+    code { background: #8882; padding: .1rem .35rem; border-radius: 4px; }
+    .err { color: #c33; white-space: pre-wrap; }
+    .ok { color: #2a7; }
+    .warn { color: #c83; }
+    .badge { font-size: .85rem; margin-left: .5rem; }
+    #ocrInstall { margin-top: .6rem; font-size: .88rem; }
+    label.file { display: inline-block; margin-top: .75rem; }
+  </style>
+</head>
+<body>
+  <h1>Document Parser — developer test</h1>
+  <p class="hint">Upload a <b>PDF</b> or <b>Word (.docx)</b> — text is extracted directly. <b>Images</b>
+  (screenshots/photos) need the optional OCR feature below. Press <b>Save to database</b> to keep a result.</p>
+
+  <fieldset>
+    <legend>Settings · Image OCR (optional)</legend>
+    <label><input type="checkbox" id="ocrToggle" /> Read images via OCR</label>
+    <span id="ocrBadge" class="badge"></span>
+    <div id="ocrInstall" hidden></div>
+  </fieldset>
+
+  <div id="drop">
+    <div>Drop a file here, or</div>
+    <label class="file"><input type="file" id="file" accept=".pdf,.docx,image/*" /></label>
+  </div>
+
+  <p>
+    <button id="go" disabled>Parse</button>
+    <button id="save" disabled>Save to database</button>
+    <span id="status" class="hint"></span>
+  </p>
+
+  <div id="summary" class="summary" hidden></div>
+  <pre id="out" hidden></pre>
+  <p id="error" class="err"></p>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const drop = $("drop"), fileInput = $("file"), goBtn = $("go"), saveBtn = $("save");
+    const statusEl = $("status"), summaryEl = $("summary"), outEl = $("out"), errEl = $("error");
+    const ocrToggle = $("ocrToggle"), ocrBadge = $("ocrBadge"), ocrInstall = $("ocrInstall");
+
+    let selected = null, parsed = null;
+
+    // ── Optional OCR feature: status + toggle (persisted to the DB settings) ──
+    async function loadOcr() {
+      const s = await (await fetch("/api/cv/ocr-status")).json();
+      ocrToggle.checked = s.enabled;
+      if (s.ready) ocrBadge.innerHTML = '<span class="ok">✓ ready</span>';
+      else if (s.enabled) ocrBadge.innerHTML = '<span class="warn">⚠ enabled, but Tesseract is not installed</span>';
+      else ocrBadge.innerHTML = '<span class="hint">off — images can\'t be read</span>';
+
+      if (s.enabled && !s.available) {
+        ocrInstall.hidden = false;
+        ocrInstall.innerHTML = "Install the Tesseract engine, then restart the server:<br>" +
+          Object.entries(s.install).map(([os, cmd]) => `<b>${os}:</b> <code>${cmd}</code>`).join("<br>");
+      } else {
+        ocrInstall.hidden = true;
+      }
+    }
+    ocrToggle.addEventListener("change", async () => {
+      // full-replace PUT: load current settings, flip the flag, send back
+      const settings = await (await fetch("/api/settings")).json();
+      settings.ocr_enabled = ocrToggle.checked;
+      await fetch("/api/settings", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings),
+      });
+      await loadOcr();
+    });
+    loadOcr();
+
+    // ── Upload + parse ──
+    function pick(f) {
+      selected = f; parsed = null;
+      goBtn.disabled = !f; saveBtn.disabled = true;
+      statusEl.textContent = f ? `selected: ${f.name} (${(f.size / 1024).toFixed(0)} KB)` : "";
+    }
+    const fullText = d => typeof d.text === "string"
+      ? d.text : (d.pages || []).map(p => `--- Page ${p.page} ---\n${p.text}`).join("\n\n");
+    const totalWords = d => typeof d.word_count === "number"
+      ? d.word_count : (d.pages || []).reduce((n, p) => n + p.word_count, 0);
+    const totalChars = d => typeof d.char_count === "number"
+      ? d.char_count : (d.pages || []).reduce((n, p) => n + p.char_count, 0);
+
+    fileInput.addEventListener("change", () => pick(fileInput.files[0] || null));
+    drop.addEventListener("click", () => fileInput.click());
+    ["dragover", "dragenter"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", ev => pick(ev.dataTransfer.files[0] || null));
+
+    goBtn.addEventListener("click", async () => {
+      if (!selected) return;
+      errEl.textContent = ""; summaryEl.hidden = outEl.hidden = true; saveBtn.disabled = true;
+      statusEl.textContent = "parsing…"; goBtn.disabled = true;
+      const body = new FormData(); body.append("file", selected);
+      try {
+        const res = await fetch("/api/cv/parse", { method: "POST", body });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        parsed = data;
+        summaryEl.innerHTML = `
+          <div><b>${data.source_type}</b><span>type</span></div>
+          <div><b>${data.num_pages}</b><span>page(s)</span></div>
+          <div><b>${totalWords(data)}</b><span>words</span></div>
+          <div><b>${totalChars(data)}</b><span>characters</span></div>
+          <div><b>${(data.size_bytes / 1024).toFixed(0)} KB</b><span>${data.filename}</span></div>`;
+        outEl.textContent = JSON.stringify(data, null, 2);
+        summaryEl.hidden = outEl.hidden = false; saveBtn.disabled = false; statusEl.textContent = "done";
+      } catch (e) {
+        errEl.textContent = "Error: " + e.message; statusEl.textContent = "";
+      } finally {
+        goBtn.disabled = false;
+      }
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      if (!parsed) return;
+      errEl.textContent = ""; saveBtn.disabled = true; statusEl.textContent = "saving…";
+      try {
+        const res = await fetch("/api/cv/documents", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: parsed.filename, source_type: parsed.source_type,
+            num_pages: parsed.num_pages, content: fullText(parsed),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        statusEl.innerHTML = `<span class="ok">saved to database (id ${data.id})</span>`;
+      } catch (e) {
+        errEl.textContent = "Error: " + e.message; statusEl.textContent = ""; saveBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

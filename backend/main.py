@@ -11,14 +11,18 @@ Run from the backend/ directory:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 import config
 from api import api_router
 from core.vector_store import init_collections
 from db.schema import init_db
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
@@ -39,6 +43,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """Serve the dev CV-upload test page (same origin as the API)."""
+    return FileResponse(STATIC_DIR / "cv_upload.html")
 
 
 @app.get("/health")
