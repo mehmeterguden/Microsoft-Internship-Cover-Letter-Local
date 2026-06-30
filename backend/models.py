@@ -302,3 +302,25 @@ class CoverLetter(BaseModel):
     job_id: int
     content: str
     version: int = 1
+
+
+# ─────────────────────────────────────────────────────────────
+#  CV structuring (LLM output)
+# ─────────────────────────────────────────────────────────────
+
+class CVExtraction(BaseModel):
+    """Structured CV data produced by the LLM from raw CV text.
+
+    Composed from the entity models above so it validates against the same shapes
+    the database stores. The LLM fills what it finds; everything is optional/empty
+    by default.
+    """
+
+    profile: Profile = Field(default_factory=Profile)
+    skills: list[Skill] = []
+    experiences: list[Experience] = []
+    education: list[Education] = []
+    projects: list[Project] = []
+    certificates: list[Certificate] = []
+    languages: list[Language] = []
+    links: list[Link] = []

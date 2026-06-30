@@ -47,6 +47,7 @@
 
   <p>
     <button id="go" disabled>Parse</button>
+    <button id="structure" disabled>Structure with AI</button>
     <button id="save" disabled>Save to database</button>
     <span id="status" class="hint"></span>
   </p>
@@ -57,7 +58,7 @@
 
   <script>
     const $ = id => document.getElementById(id);
-    const drop = $("drop"), fileInput = $("file"), goBtn = $("go"), saveBtn = $("save");
+    const drop = $("drop"), fileInput = $("file"), goBtn = $("go"), saveBtn = $("save"), structureBtn = $("structure");
     const statusEl = $("status"), summaryEl = $("summary"), outEl = $("out"), errEl = $("error");
     const ocrToggle = $("ocrToggle"), ocrBadge = $("ocrBadge"), ocrInstall = $("ocrInstall");
 
@@ -93,7 +94,7 @@
     // ── Upload + parse ──
     function pick(f) {
       selected = f; parsed = null;
-      goBtn.disabled = !f; saveBtn.disabled = true;
+      goBtn.disabled = !f; saveBtn.disabled = true; structureBtn.disabled = true;
       statusEl.textContent = f ? `selected: ${f.name} (${(f.size / 1024).toFixed(0)} KB)` : "";
     }
     const fullText = d => typeof d.text === "string"
@@ -111,7 +112,7 @@
 
     goBtn.addEventListener("click", async () => {
       if (!selected) return;
-      errEl.textContent = ""; summaryEl.hidden = outEl.hidden = true; saveBtn.disabled = true;
+      errEl.textContent = ""; summaryEl.hidden = outEl.hidden = true; saveBtn.disabled = true; structureBtn.disabled = true;
       statusEl.textContent = "parsing…"; goBtn.disabled = true;
       const body = new FormData(); body.append("file", selected);
       try {
@@ -126,11 +127,33 @@
           <div><b>${totalChars(data)}</b><span>characters</span></div>
           <div><b>${(data.size_bytes / 1024).toFixed(0)} KB</b><span>${data.filename}</span></div>`;
         outEl.textContent = JSON.stringify(data, null, 2);
-        summaryEl.hidden = outEl.hidden = false; saveBtn.disabled = false; statusEl.textContent = "done";
+        summaryEl.hidden = outEl.hidden = false; saveBtn.disabled = false; structureBtn.disabled = false; statusEl.textContent = "done";
       } catch (e) {
         errEl.textContent = "Error: " + e.message; statusEl.textContent = "";
       } finally {
         goBtn.disabled = false;
+      }
+    });
+
+    structureBtn.addEventListener("click", async () => {
+      if (!parsed) return;
+      errEl.textContent = ""; statusEl.textContent = "structuring with AI…"; structureBtn.disabled = true;
+      try {
+        const res = await fetch("/api/cv/structure", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: fullText(parsed) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        outEl.textContent = JSON.stringify(data, null, 2);
+        outEl.hidden = false;
+        statusEl.innerHTML = data.ok
+          ? '<span class="ok">structured ✓</span>'
+          : '<span class="warn">model replied, but JSON didn\'t validate — see raw_output</span>';
+      } catch (e) {
+        errEl.textContent = "Error: " + e.message; statusEl.textContent = "";
+      } finally {
+        structureBtn.disabled = false;
       }
     });
 
