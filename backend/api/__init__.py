@@ -10,6 +10,7 @@ from fastapi import APIRouter
 
 from api.routers import (
     certificates,
+    cv,
     education,
     experiences,
     github_repos,
@@ -27,9 +28,10 @@ from api.routers import (
 
 api_router = APIRouter(prefix="/api")
 
-# Config and model health.
+# Config, model health, and CV parsing.
 api_router.include_router(settings.router)
 api_router.include_router(llm.router)
+api_router.include_router(cv.router)
 
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)
