@@ -132,6 +132,7 @@ class Settings(BaseModel):
     embedding_model: str                 # sentence-transformers model (later phases)
     tavily_api_key: str = ""             # company research key (only external call)
     ocr_enabled: bool = False            # optional feature: read images via OCR (needs tesseract)
+    github_token: str = ""               # optional: GitHub PAT to import repos from the connected account
 
 
 # ─────────────────────────────────────────────────────────────
@@ -198,9 +199,10 @@ class GithubRepo(BaseModel):
     stars: int | None = None             # fetched: star count
     last_updated: str | None = None      # fetched: repo's last push/update date
     technologies: list[str] = []         # languages + tools
-    description: str | None = None       # AI-generated: deep analysis of the project
+    description: str | None = None       # AI-generated: short useful context for the project
     contribution: str | None = None      # what the user did
     involvement_rating: Rating | None = None
+    readme: str | None = None            # raw README, saved alongside the AI summary
 
 
 class Project(BaseModel):

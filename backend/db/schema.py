@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS settings (
     gemini_api_key    TEXT NOT NULL DEFAULT '',             -- key for the Gemini provider
     embedding_model   TEXT NOT NULL,                        -- sentence-transformers model (later phases)
     tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
-    ocr_enabled       INTEGER NOT NULL DEFAULT 0            -- optional: read images via OCR (needs tesseract)
+    ocr_enabled       INTEGER NOT NULL DEFAULT 0,           -- optional: read images via OCR (needs tesseract)
+    github_token      TEXT NOT NULL DEFAULT ''              -- optional: connect GitHub account (PAT) for repo import
 );
 
 -- ── Uploaded documents (extracted text) ─────────────────────────
@@ -96,9 +97,10 @@ CREATE TABLE IF NOT EXISTS github_repos (
     stars              INTEGER,                           -- fetched, star count
     last_updated       TEXT,                              -- fetched, repo's last push/update date
     technologies       TEXT,                              -- JSON: list[str] (languages + tools)
-    description        TEXT,                              -- AI-generated: deep analysis of the project
+    description        TEXT,                              -- AI-generated: short useful context for the project
     contribution       TEXT,                              -- what the user did
-    involvement_rating INTEGER CHECK (involvement_rating BETWEEN 1 AND 5)
+    involvement_rating INTEGER CHECK (involvement_rating BETWEEN 1 AND 5),
+    readme             TEXT                               -- raw README, saved alongside the AI summary
 );
 
 -- ── Projects (general; may be non-GitHub) ────────────────────────
@@ -220,23 +222,30 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-# Settings columns added after the table first shipped. ALTER ADD COLUMN
-# backfills existing rows with the DEFAULT, so older local DBs upgrade in place.
-_SETTINGS_COLUMNS_ADDED = {
-    "llm_provider": "TEXT NOT NULL DEFAULT 'foundry_local'",
-    "openai_api_key": "TEXT NOT NULL DEFAULT ''",
-    "anthropic_api_key": "TEXT NOT NULL DEFAULT ''",
-    "gemini_api_key": "TEXT NOT NULL DEFAULT ''",
-    "ocr_enabled": "INTEGER NOT NULL DEFAULT 0",
+# Columns added to a table after it first shipped. ALTER ADD COLUMN backfills
+# existing rows with the DEFAULT, so older local DBs upgrade in place.
+_COLUMNS_ADDED = {
+    "settings": {
+        "llm_provider": "TEXT NOT NULL DEFAULT 'foundry_local'",
+        "openai_api_key": "TEXT NOT NULL DEFAULT ''",
+        "anthropic_api_key": "TEXT NOT NULL DEFAULT ''",
+        "gemini_api_key": "TEXT NOT NULL DEFAULT ''",
+        "ocr_enabled": "INTEGER NOT NULL DEFAULT 0",
+        "github_token": "TEXT NOT NULL DEFAULT ''",
+    },
+    "github_repos": {
+        "readme": "TEXT",  # raw README, saved alongside the AI summary
+    },
 }
 
 
-def _migrate_settings(conn: sqlite3.Connection) -> None:
-    """Add any settings columns missing from an older database."""
-    existing = {row["name"] for row in conn.execute("PRAGMA table_info(settings)")}
-    for column, declaration in _SETTINGS_COLUMNS_ADDED.items():
-        if column not in existing:
-            conn.execute(f"ALTER TABLE settings ADD COLUMN {column} {declaration}")
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add any columns missing from an older database."""
+    for table, columns in _COLUMNS_ADDED.items():
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for column, declaration in columns.items():
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
 
 
 def init_db() -> None:
@@ -245,7 +254,7 @@ def init_db() -> None:
     conn = get_connection()
     try:
         conn.executescript(SCHEMA)
-        _migrate_settings(conn)
+        _migrate(conn)
         # Seed the single settings row with our defaults the first time only.
         # INSERT OR IGNORE leaves an existing (user-edited) row untouched.
         conn.execute(
