@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cover Letter Local — Import GitHub repos</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg:#f4f5fb; --card:#fff; --ink:#1a1c2b; --muted:#6b7194; --line:#e7e9f3;
+      --accent:#5b5bf0; --accent-soft:#ececff; --ok:#18a957;
+      --shadow:0 1px 2px rgba(20,22,43,.04), 0 8px 24px rgba(20,22,43,.06);
+    }
+    body { margin:0; background:radial-gradient(1200px 500px at 50% -200px, #e9eaff, var(--bg)); color:var(--ink);
+           font-family:ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; line-height:1.5; min-height:100vh; }
+    .wrap { max-width:780px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+    header.top { display:flex; align-items:center; gap:.65rem; }
+    .logo { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--accent),#8a5bf0);
+            display:grid; place-items:center; color:#fff; font-weight:700; }
+    h1 { font-size:1.35rem; margin:0; letter-spacing:-.02em; }
+    .sub { color:var(--muted); margin:.15rem 0 1.5rem; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); }
+
+    .tabs { display:flex; gap:.5rem; margin-bottom:1rem; }
+    .tab { flex:1; padding:.7rem; text-align:center; border:1px solid var(--line); border-radius:12px; background:#fff;
+           cursor:pointer; font-weight:600; color:var(--muted); }
+    .tab.active { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+    .pane { padding:1.25rem; display:none; } .pane.active { display:block; }
+    .row { display:flex; gap:.6rem; flex-wrap:wrap; }
+    input[type=text], input[type=password] { flex:1; min-width:200px; font:inherit; padding:.6rem .8rem;
+           border:1px solid var(--line); border-radius:10px; background:#fbfbfe; color:var(--ink); }
+    input:focus { outline:none; border-color:var(--accent); background:#fff; }
+    .btn { background:var(--accent); color:#fff; border:none; padding:.6rem 1.1rem; border-radius:10px; font:inherit; font-weight:600; cursor:pointer; }
+    .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+    .btn:disabled { opacity:.55; cursor:default; }
+    .hint { color:var(--muted); font-size:.85rem; margin-top:.6rem; }
+    .badge { font-size:.8rem; padding:.15rem .5rem; border-radius:999px; }
+    .badge.on { background:#eafaf0; color:#14693a; } .badge.off { background:#f0eefb; color:var(--muted); }
+
+    #status { margin:1rem 0; min-height:1.2rem; }
+    .spinner { width:30px; height:30px; border:3px solid var(--accent-soft); border-top-color:var(--accent);
+               border-radius:50%; margin:1.5rem auto; animation:spin .8s linear infinite; display:none; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .err { color:#c0392b; background:#fdecea; border:1px solid #f6c9c2; padding:.85rem 1.1rem; border-radius:12px; }
+
+    .profile { display:flex; align-items:center; gap:1rem; padding:1.1rem 1.25rem; margin:1rem 0; }
+    .profile img { width:54px; height:54px; border-radius:50%; }
+    .profile .pn { font-weight:700; font-size:1.1rem; }
+    .profile .pm { color:var(--muted); font-size:.9rem; }
+
+    .toolbar { display:flex; align-items:center; justify-content:space-between; margin:1rem 0 .5rem; gap:.5rem; flex-wrap:wrap; }
+    .repo { border:1px solid var(--line); border-radius:12px; padding:.9rem 1rem; margin-bottom:.7rem; background:#fff;
+            display:flex; gap:.8rem; align-items:flex-start; animation:rise .4s ease both; }
+    @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .repo input[type=checkbox] { margin-top:.25rem; width:18px; height:18px; accent-color:var(--accent); }
+    .repo .name { font-weight:700; }
+    .repo .name a { color:inherit; text-decoration:none; }
+    .repo .meta { color:var(--muted); font-size:.82rem; margin-left:.5rem; }
+    .repo .desc { color:#3a3d55; font-size:.9rem; margin:.3rem 0; }
+    .chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+    .chip { background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:.2rem .6rem; font-size:.78rem; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top"><div class="logo">CL</div><h1>Import GitHub repositories</h1></header>
+    <p class="sub">Two ways to import — by username, or from your connected account.</p>
+
+    <div class="tabs">
+      <div class="tab active" data-pane="byname">By username / link</div>
+      <div class="tab" data-pane="account">Connected account</div>
+    </div>
+
+    <div class="card">
+      <div class="pane active" id="pane-byname">
+        <div class="row">
+          <input type="text" id="username" placeholder="e.g. mehmeterguden  or  github.com/mehmeterguden" />
+          <button class="btn" id="fetchName">Fetch repos</button>
+        </div>
+        <div class="hint">Reads the public profile and repositories — no login needed.</div>
+      </div>
+
+      <div class="pane" id="pane-account">
+        <div id="acctConnected" style="display:none">
+          <div class="row" style="align-items:center">
+            <span class="badge on">● Account connected</span>
+            <button class="btn" id="fetchAcct">Fetch my repos</button>
+            <button class="btn ghost" id="disconnect">Disconnect</button>
+          </div>
+          <div class="hint">Imports your repos, including private ones, at a higher rate limit.</div>
+        </div>
+        <div id="acctConnect">
+          <div class="row">
+            <input type="password" id="token" placeholder="Paste a GitHub personal access token (repo scope)" />
+            <button class="btn" id="connect">Connect</button>
+          </div>
+          <div class="hint">Create one at github.com/settings/tokens. Stored locally in your settings — never leaves your machine except to GitHub.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spinner" id="spinner"></div>
+    <div id="status"></div>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const spinner = $("spinner"), statusEl = $("status"), result = $("result");
+    let fetched = null;
+
+    // Tabs
+    document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+      document.querySelectorAll(".pane").forEach(x => x.classList.remove("active"));
+      t.classList.add("active"); $("pane-" + t.dataset.pane).classList.add("active");
+    }));
+
+    async function refreshStatus() {
+      try {
+        const s = await (await fetch("/api/github/status")).json();
+        $("acctConnected").style.display = s.account_connected ? "block" : "none";
+        $("acctConnect").style.display = s.account_connected ? "none" : "block";
+      } catch {}
+    }
+    refreshStatus();
+
+    async function putSettings(patch) {
+      const s = await (await fetch("/api/settings")).json();
+      Object.assign(s, patch);
+      await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+    }
+
+    $("connect").addEventListener("click", async () => {
+      const tok = $("token").value.trim(); if (!tok) return;
+      $("connect").disabled = true;
+      await putSettings({ github_token: tok });
+      $("token").value = "";
+      await refreshStatus();
+      $("connect").disabled = false;
+      // jump to the connected view and fetch right away
+      await fetchRepos({ use_account: true });
+    });
+    $("disconnect").addEventListener("click", async () => { await putSettings({ github_token: "" }); await refreshStatus(); });
+
+    $("fetchName").addEventListener("click", () => fetchRepos({ username: $("username").value }));
+    $("username").addEventListener("keydown", e => { if (e.key === "Enter") fetchRepos({ username: $("username").value }); });
+    $("fetchAcct").addEventListener("click", () => fetchRepos({ use_account: true }));
+
+    async function fetchRepos(payload) {
+      statusEl.innerHTML = ""; result.innerHTML = ""; spinner.style.display = "block";
+      try {
+        const res = await fetch("/api/github/fetch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        spinner.style.display = "none";
+        if (!res.ok) { statusEl.innerHTML = `<div class="err">${esc(data.detail || res.status)}</div>`; return; }
+        fetched = data; renderRepos(data);
+      } catch (e) { spinner.style.display = "none"; statusEl.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+    }
+
+    function renderRepos(data) {
+      const p = data.profile, out = [];
+      out.push(`<div class="card profile">
+        ${p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : ""}
+        <div><div class="pn">${esc(p.name || p.login)}</div>
+        <div class="pm">@${esc(p.login)} · ${data.count} repositories${p.bio ? " · " + esc(p.bio) : ""}</div></div></div>`);
+
+      out.push(`<div class="toolbar">
+        <label class="hint"><input type="checkbox" id="selAll" checked> Select all (${data.count})</label>
+        <button class="btn" id="analyzeSel">Analyze selected with AI</button></div>`);
+
+      data.repos.forEach((r, i) => {
+        out.push(`<div class="card repo" style="animation-delay:${i * 0.03}s">
+          <input type="checkbox" class="pick" data-i="${i}" checked>
+          <div style="flex:1">
+            <div><span class="name"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.repo_name)}</a></span>
+              <span class="meta">⭐ ${r.stars} · updated ${esc(r.last_updated || "—")}</span></div>
+            ${r.description ? `<div class="desc">${esc(r.description)}</div>` : `<div class="desc" style="color:#aaa">No description</div>`}
+            ${r.technologies?.length ? `<div class="chips">${r.technologies.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
+          </div></div>`);
+      });
+      result.innerHTML = out.join("");
+
+      $("selAll").addEventListener("change", e => document.querySelectorAll(".pick").forEach(c => c.checked = e.target.checked));
+      $("analyzeSel").addEventListener("click", analyzeSelected);
+    }
+
+    let analyzed = null;
+    async function analyzeSelected() {
+      const picks = [...document.querySelectorAll(".pick:checked")].map(c => +c.dataset.i);
+      const repos = picks.map(i => { const { fork, ...clean } = fetched.repos[i]; return clean; });
+      if (!repos.length) { statusEl.textContent = "Select at least one repo."; return; }
+      const btn = $("analyzeSel");
+      btn.disabled = true;
+      const slow = provider !== "gemini" && provider !== "openai" && provider !== "anthropic";
+      const t0 = Date.now();
+      const tick = () => {
+        const s = Math.round((Date.now() - t0) / 1000);
+        btn.textContent = `Analyzing… ${s}s`;
+        statusEl.innerHTML = `<b>Reading READMEs and analyzing ${repos.length} repo(s) with ${esc(provider)}… (${s}s)</b>`
+          + `<span class="hint"> ${slow ? "— the local model is slow, ~1–2 min per repo, please wait" : "— almost there"}</span>`;
+      };
+      tick();
+      const timer = setInterval(tick, 1000);
+      const stop = () => { clearInterval(timer); btn.disabled = false; btn.textContent = "Analyze selected with AI"; };
+      spinner.style.display = "block"; result.style.opacity = ".4";
+      statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      try {
+        const res = await fetch("/api/github/analyze", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ login: fetched.profile.login, repos }),
+        });
+        const data = await res.json();
+        clearInterval(timer);
+        spinner.style.display = "none"; result.style.opacity = "1";
+        if (!res.ok) { stop(); statusEl.innerHTML = `<div class="err">${esc(data.detail || res.status)}</div>`; return; }
+        statusEl.textContent = "";
+        analyzed = data; renderAnalyzed(data);
+      } catch (e) {
+        stop();
+        spinner.style.display = "none"; result.style.opacity = "1";
+        statusEl.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+      }
+    }
+
+    function stars(n) { return n ? "★".repeat(n) + "☆".repeat(5 - n) : ""; }
+
+    function renderAnalyzed(data) {
+      const out = [];
+      out.push(`<div class="toolbar"><div class="hint">AI analysis of ${data.repos.length} repositories</div>
+        <button class="btn" id="saveAnalyzed">Save to profile</button></div>`);
+
+      if (data.skills?.length) out.push(`<div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem">
+        <div class="hint" style="margin-bottom:.5rem">Skills found across these projects (${data.skills.length})</div>
+        <div class="chips">${data.skills.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></div>`);
+
+      data.repos.forEach((r, i) => {
+        out.push(`<div class="card repo" style="animation-delay:${i * 0.03}s;display:block">
+          <div><span class="name"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.repo_name)}</a></span>
+            <span class="meta">⭐ ${r.stars} · ${r.involvement_rating ? `<span title="involvement">${stars(r.involvement_rating)}</span>` : ""}</span></div>
+          <div class="desc">${esc(r.description) || `<span style="color:#aaa">No summary</span>`}</div>
+          ${r.contribution ? `<div class="desc"><b>Contribution:</b> ${esc(r.contribution)}</div>` : ""}
+          ${r.technologies?.length ? `<div class="chips">${r.technologies.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
+          </div>`);
+      });
+      result.innerHTML = out.join("");
+      $("saveAnalyzed").addEventListener("click", saveAnalyzed);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function saveAnalyzed() {
+      if (!analyzed) return;
+      $("saveAnalyzed").disabled = true; statusEl.textContent = "Saving…";
+      try {
+        const res = await fetch("/api/github/save", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repos: analyzed.repos, skills: analyzed.skills }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.status);
+        statusEl.innerHTML = `<span style="color:var(--ok);font-weight:600">✓ Saved ${data.saved_repos} repositories and added ${data.added_skills} new skills to your profile</span>`;
+      } catch (e) { statusEl.innerHTML = `<div class="err">${esc(e.message)}</div>`; $("saveAnalyzed").disabled = false; }
+    }
+  </script>
+</body>
+</html>

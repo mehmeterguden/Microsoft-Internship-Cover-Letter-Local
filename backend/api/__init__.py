@@ -13,6 +13,7 @@ from api.routers import (
     cv,
     education,
     experiences,
+    github,
     github_repos,
     languages,
     links,
@@ -28,10 +29,11 @@ from api.routers import (
 
 api_router = APIRouter(prefix="/api")
 
-# Config, model health, and CV parsing.
+# Config, model health, CV parsing, and GitHub import.
 api_router.include_router(settings.router)
 api_router.include_router(llm.router)
 api_router.include_router(cv.router)
+api_router.include_router(github.router)
 
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)
