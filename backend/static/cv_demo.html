@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cover Letter Local — Import your CV</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #f4f5fb; --card: #ffffff; --ink: #1a1c2b; --muted: #6b7194;
+      --line: #e7e9f3; --accent: #5b5bf0; --accent-soft: #ececff; --ok: #18a957;
+      --shadow: 0 1px 2px rgba(20,22,43,.04), 0 8px 24px rgba(20,22,43,.06);
+    }
+    body {
+      margin: 0; background: radial-gradient(1200px 500px at 50% -200px, #e9eaff, var(--bg));
+      color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      line-height: 1.5; min-height: 100vh;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    header.top { display: flex; align-items: center; gap: .65rem; margin-bottom: .35rem; }
+    .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #8a5bf0);
+            display: grid; place-items: center; color: #fff; font-weight: 700; }
+    h1 { font-size: 1.35rem; margin: 0; letter-spacing: -.02em; }
+    .sub { color: var(--muted); margin: .15rem 0 1.75rem; }
+
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+
+    /* Drop zone */
+    #drop { padding: 2.75rem 1.5rem; text-align: center; border-style: dashed; border-width: 2px;
+            border-color: #cdd0e6; cursor: pointer; transition: .15s; }
+    #drop:hover, #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+    #drop .big { font-size: 1.05rem; font-weight: 600; }
+    #drop .small { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+    .pickbtn { margin-top: 1rem; display: inline-block; background: var(--accent); color: #fff; border: none;
+               padding: .6rem 1.1rem; border-radius: 10px; font: inherit; font-weight: 600; cursor: pointer; }
+
+    /* Loading */
+    #loading { padding: 2.5rem; text-align: center; display: none; }
+    .spinner { width: 34px; height: 34px; border: 3px solid var(--accent-soft); border-top-color: var(--accent);
+               border-radius: 50%; margin: 0 auto 1rem; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loadingMsg { font-weight: 600; }
+    #loadingSub { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+
+    /* Result */
+    #result { display: none; }
+    .banner { display: flex; align-items: center; gap: .6rem; padding: .85rem 1.1rem; margin-bottom: 1rem;
+              background: #eafaf0; border: 1px solid #c7ecd5; border-radius: 12px; color: #14693a; font-size: .92rem; }
+    .banner .dot { color: var(--ok); font-weight: 700; }
+    .actions { display: flex; gap: .6rem; align-items: center; margin: 1.25rem 0 .25rem; flex-wrap: wrap; }
+    .btn { background: var(--accent); color: #fff; border: none; padding: .65rem 1.2rem; border-radius: 10px;
+           font: inherit; font-weight: 600; cursor: pointer; }
+    .btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .btn:disabled { opacity: .55; cursor: default; }
+
+    section.block { padding: 1.1rem 1.25rem; margin-bottom: 1rem; animation: rise .45s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .block h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+                margin: 0 0 .9rem; display: flex; align-items: center; gap: .5rem; }
+    .count { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0 .5rem;
+             font-size: .72rem; font-weight: 700; }
+
+    /* Profile head */
+    .phead { display: flex; align-items: center; gap: 1rem; }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8a5bf0);
+              color: #fff; display: grid; place-items: center; font-size: 1.25rem; font-weight: 700; flex: none; }
+    .pname { font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; }
+    .pmeta { color: var(--muted); font-size: .9rem; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .field { display: flex; flex-direction: column; gap: .3rem; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { font-size: .72rem; color: var(--muted); font-weight: 600; }
+    .field input, .field textarea { font: inherit; padding: .55rem .7rem; border: 1px solid var(--line);
+                  border-radius: 9px; background: #fbfbfe; color: var(--ink); }
+    .field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
+    .filled { animation: flash 1s ease; }
+    @keyframes flash { 0% { background: var(--accent-soft); } 100% { background: #fbfbfe; } }
+
+    .chips { display: flex; flex-wrap: wrap; gap: .45rem; }
+    .chip { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: .3rem .7rem;
+            font-size: .85rem; font-weight: 600; animation: pop .3s ease both; }
+    @keyframes pop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+    .chip.link { background: #eef0fb; color: var(--ink); }
+
+    .entry { border: 1px solid var(--line); border-radius: 12px; padding: .85rem 1rem; margin-bottom: .7rem; background: #fbfbfe; }
+    .entry .row1 { display: flex; justify-content: space-between; gap: .75rem; align-items: baseline; flex-wrap: wrap; }
+    .entry .title { font-weight: 700; }
+    .entry .org { color: var(--accent); font-weight: 600; }
+    .entry .dates { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+    .entry .desc { color: #3a3d55; font-size: .92rem; margin-top: .35rem; }
+    .entry .tech { margin-top: .55rem; }
+    .err { color: #c0392b; background: #fdecea; border: 1px solid #f6c9c2; padding: .9rem 1.1rem; border-radius: 12px; white-space: pre-wrap; }
+    .muted { color: var(--muted); }
+    /* low-confidence flags */
+    .warnbanner { background: #fff8e1; border: 1px solid #f0d98a; color: #8a6d00; }
+    .low-note { color: #9a6700; font-size: .78rem; margin-top: .35rem; }
+    .field input.low, .field textarea.low { border-color: #e6b800; background: #fffbe6; }
+    .chip.low { background: #fff5d6; color: #9a6700; border: 1px solid #f0d98a; }
+    .entry.low { border-color: #f0d98a; background: #fffdf3; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="logo">CL</div>
+      <h1>Cover Letter Local</h1>
+    </header>
+    <p class="sub">Drop your CV — we read it and fill in your profile automatically.</p>
+
+    <div class="card" id="drop">
+      <div class="big">Drop your CV here</div>
+      <div class="small">PDF, image, or Word (.docx)</div>
+      <button class="pickbtn" type="button">Choose file</button>
+      <input type="file" id="file" accept=".pdf,.docx,image/*" hidden />
+    </div>
+
+    <div class="card" id="loading">
+      <div class="spinner"></div>
+      <div id="loadingMsg">Reading your CV…</div>
+      <div id="loadingSub"></div>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const drop = $("drop"), fileInput = $("file"), loading = $("loading"),
+          loadingMsg = $("loadingMsg"), loadingSub = $("loadingSub"), result = $("result");
+
+    let provider = "AI";
+    fetch("/api/settings").then(r => r.json()).then(s => provider = s.llm_provider || "AI").catch(() => {});
+
+    drop.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => fileInput.files[0] && go(fileInput.files[0]));
+    ["dragover", "dragenter"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", ev => ev.dataTransfer.files[0] && go(ev.dataTransfer.files[0]));
+
+    const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const initials = (n, s) => ((n || "?")[0] + (s || "")[0] || "?").toUpperCase();
+    const val = v => v == null ? "" : v;
+    const TH = 70;  // below this confidence, flag the value for the user to review
+    const isLow = c => c != null && c < TH;
+    function chip(text, conf, cls = "") {
+      const low = isLow(conf);
+      return `<span class="chip ${cls} ${low ? "low" : ""}" ${low ? `title="confidence ${conf}%"` : ""}>${esc(text)}${low ? " ⚠" : ""}</span>`;
+    }
+
+    let cycle;
+    function startLoading(name) {
+      drop.style.display = "none"; result.style.display = "none"; loading.style.display = "block";
+      loadingMsg.textContent = "Reading your CV…";
+      const steps = ["Extracting the text…", `Structuring with ${provider}…`, "Identifying experience & education…",
+                     "Detecting skills and links…", "Almost there…"];
+      let i = 0; loadingSub.textContent = `${name}`;
+      cycle = setInterval(() => { loadingMsg.textContent = steps[i % steps.length]; i++; }, 2600);
+    }
+    function stopLoading() { clearInterval(cycle); loading.style.display = "none"; }
+
+    async function go(f) {
+      startLoading(f.name);
+      const body = new FormData(); body.append("file", f);
+      try {
+        const res = await fetch("/api/cv/import", { method: "POST", body });
+        const data = await res.json();
+        stopLoading();
+        if (!res.ok) return showError(data.detail || `HTTP ${res.status}`);
+        if (!data.ok) return showError("The model replied but the JSON didn't validate:\n\n" + (data.error || "") + "\n\n" + (data.raw_output || "").slice(0, 600));
+        render(f.name, data);
+      } catch (e) { stopLoading(); showError(e.message); }
+    }
+
+    function showError(msg) {
+      result.style.display = "block";
+      result.innerHTML = `<div class="err"><b>Couldn't import</b><br>${esc(msg)}</div>
+        <div class="actions"><button class="btn ghost" onclick="reset()">Try another file</button></div>`;
+    }
+    function reset() { result.style.display = "none"; result.innerHTML = ""; drop.style.display = "block"; fileInput.value = ""; }
+
+    function field(label, value, key, conf) {
+      const low = isLow(conf);
+      return `<div class="field"><label>${label}${low ? ' <span title="low confidence">⚠</span>' : ""}</label>
+        <input class="filled ${low ? "low" : ""}" data-k="${key}" value="${esc(value)}" />
+        ${low ? `<div class="low-note">⚠ Please double-check (${conf}% confident)</div>` : ""}</div>`;
+    }
+
+    function render(filename, data) {
+      // `data.data` carries per-item confidence; `data.structured` is the clean validated copy.
+      const s = data.data || data.structured, p = s.profile || {};
+      const pc = p.confidence || {};
+      const out = [];
+
+      // Count everything flagged low so we can warn up top.
+      let low = 0;
+      for (const k of ["name", "surname", "email", "phone", "linkedin", "github", "summary"])
+        if (p[k] && isLow(pc[k])) low++;
+      for (const key of ["skills", "experiences", "education", "projects", "languages", "links"])
+        (s[key] || []).forEach(x => { if (isLow(x.confidence)) low++; });
+
+      out.push(`<div class="banner"><span class="dot">✓</span> Imported from <b>${esc(filename)}</b> —
+        ${data.num_pages} page(s), structured by <b>${esc(provider)}</b>.</div>`);
+      if (low) out.push(`<div class="banner warnbanner"><span>⚠</span> ${low} field(s) look uncertain
+        and are marked below — please review them before saving.</div>`);
+
+      // Profile
+      out.push(`<section class="block card" style="animation-delay:0s">
+        <div class="phead">
+          <div class="avatar">${esc(initials(p.name, p.surname))}</div>
+          <div><div class="pname">${esc([p.name, p.surname].filter(Boolean).join(" ")) || "—"}</div>
+          <div class="pmeta">${esc([p.email, p.phone].filter(Boolean).join("  ·  "))}</div></div>
+        </div>
+        <div class="grid" style="margin-top:1rem">
+          ${field("First name", p.name, "name", pc.name)}
+          ${field("Last name", p.surname, "surname", pc.surname)}
+          ${field("Email", p.email, "email", pc.email)}
+          ${field("Phone", p.phone, "phone", pc.phone)}
+          ${field("LinkedIn", p.linkedin, "linkedin", pc.linkedin)}
+          ${field("GitHub", p.github, "github", pc.github)}
+          ${field("Summary", p.summary, "summary", pc.summary)}
+        </div></section>`);
+
+      // Skills
+      if (s.skills?.length) out.push(`<section class="block card" style="animation-delay:.06s">
+        <h2>Skills <span class="count">${s.skills.length}</span></h2>
+        <div class="chips">${s.skills.map(x => chip(x.name, x.confidence)).join("")}</div></section>`);
+
+      // Experience
+      if (s.experiences?.length) out.push(`<section class="block card" style="animation-delay:.12s">
+        <h2>Experience <span class="count">${s.experiences.length}</span></h2>
+        ${s.experiences.map(e => entry(e.title, e.company, e.start_date, e.end_date, e.is_current, e.description, e.confidence)).join("")}</section>`);
+
+      // Education
+      if (s.education?.length) out.push(`<section class="block card" style="animation-delay:.18s">
+        <h2>Education <span class="count">${s.education.length}</span></h2>
+        ${s.education.map(e => entry([e.degree, e.field].filter(Boolean).join(", "), e.institution, e.start_date, e.end_date, e.is_current, e.gpa ? "GPA: " + e.gpa : "", e.confidence)).join("")}</section>`);
+
+      // Projects
+      if (s.projects?.length) out.push(`<section class="block card" style="animation-delay:.24s">
+        <h2>Projects <span class="count">${s.projects.length}</span></h2>
+        ${s.projects.map(pr => `<div class="entry ${isLow(pr.confidence) ? "low" : ""}"><div class="row1"><span class="title">${esc(pr.name)}</span>
+          <span class="dates">${esc(dates(pr.start_date, pr.end_date, false))}</span></div>
+          ${pr.role ? `<div class="org">${esc(pr.role)}</div>` : ""}
+          ${pr.description ? `<div class="desc">${esc(pr.description)}</div>` : ""}
+          ${pr.technologies?.length ? `<div class="chips tech">${pr.technologies.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
+          ${isLow(pr.confidence) ? `<div class="low-note">⚠ Please review (${pr.confidence}% confident)</div>` : ""}
+          </div>`).join("")}</section>`);
+
+      // Languages
+      if (s.languages?.length) out.push(`<section class="block card" style="animation-delay:.3s">
+        <h2>Languages <span class="count">${s.languages.length}</span></h2>
+        <div class="chips">${s.languages.map(l => chip(l.name + (l.proficiency ? " · " + l.proficiency : ""), l.confidence)).join("")}</div></section>`);
+
+      // Links
+      if (s.links?.length) out.push(`<section class="block card" style="animation-delay:.36s">
+        <h2>Links <span class="count">${s.links.length}</span></h2>
+        <div class="chips">${s.links.map(l => chip(l.label + " ↗", l.confidence, "link")).join("")}</div></section>`);
+
+      out.push(`<div class="actions">
+        <button class="btn ghost" onclick="reset()">Import another</button>
+        <span class="muted">⚠ marks values to double-check. Editing & saving to your profile is the next step.</span>
+      </div>`);
+
+      result.innerHTML = out.join("");
+      result.style.display = "block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function dates(start, end, current) {
+      if (!start && !end && !current) return "";
+      return [start || "", current ? "Present" : (end || "")].filter(Boolean).join(" – ");
+    }
+    function entry(title, org, start, end, current, desc, conf) {
+      const low = isLow(conf);
+      return `<div class="entry ${low ? "low" : ""}"><div class="row1">
+        <span><span class="title">${esc(title) || "—"}</span>${org ? ` <span class="org">· ${esc(org)}</span>` : ""}</span>
+        <span class="dates">${esc(dates(start, end, current))}</span></div>
+        ${desc ? `<div class="desc">${esc(desc)}</div>` : ""}
+        ${low ? `<div class="low-note">⚠ This entry may contain errors — please review (${conf}% confident)</div>` : ""}</div>`;
+    }
+    window.reset = reset;
+  </script>
+</body>
+</html>

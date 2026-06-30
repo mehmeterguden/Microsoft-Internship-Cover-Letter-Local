@@ -46,9 +46,8 @@ def ocr_status() -> dict:
     }
 
 
-@router.post("/parse")
-async def parse_document(file: UploadFile = File(...)) -> dict:
-    """Extract text from an uploaded PDF, image, or Word file."""
+async def _read_and_extract(file: UploadFile) -> tuple[bytes, dict]:
+    """Validate an upload, read it, and extract text. Raises HTTPException on problems."""
     source_type = document_parser.detect_type(file.filename, file.content_type)
     if source_type is None:
         raise HTTPException(
@@ -83,8 +82,40 @@ async def parse_document(file: UploadFile = File(...)) -> dict:
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Could not read the file ({type(exc).__name__}): {exc}",
         ) from exc
+    return data, extraction
 
+
+@router.post("/parse")
+async def parse_document(file: UploadFile = File(...)) -> dict:
+    """Extract text from an uploaded PDF, image, or Word file."""
+    data, extraction = await _read_and_extract(file)
     return {"filename": file.filename, "size_bytes": len(data), **extraction}
+
+
+@router.post("/import")
+async def import_cv(file: UploadFile = File(...)) -> dict:
+    """Upload a CV → extract text → structure it with the LLM, in one call.
+
+    Returns the document meta plus the structuring result (`ok`, `structured` or
+    `error`, `raw_output`). Used by the import demo page.
+    """
+    data, extraction = await _read_and_extract(file)
+    text = extraction.get("text") or "\n\n".join(p["text"] for p in extraction.get("pages", []))
+    try:
+        result = cv_structuring.structure(text)
+    except Exception as exc:  # noqa: BLE001 — LLM connection/provider failure
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM request failed ({type(exc).__name__}): {exc}",
+        ) from exc
+
+    return {
+        "filename": file.filename,
+        "source_type": extraction.get("source_type"),
+        "num_pages": extraction.get("num_pages"),
+        "char_count": len(text),
+        **result,
+    }
 
 
 class StructureRequest(BaseModel):
