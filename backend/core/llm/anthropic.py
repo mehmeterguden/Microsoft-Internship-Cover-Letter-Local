@@ -34,15 +34,10 @@ class ClaudeProvider(LLMProvider):
     provider_id = "anthropic"
 
     def __init__(self, settings: dict) -> None:
-        self._api_key = settings["anthropic_api_key"]
         self._model = settings["llm_model"]
-
-    @property
-    def model(self) -> str:
-        return self._model
-
-    def _client(self) -> anthropic.Anthropic:
-        return anthropic.Anthropic(api_key=self._api_key)
+        # Build the client once and keep a reference (a throwaway client can be
+        # garbage-collected mid-call and close its underlying HTTP client).
+        self._client = anthropic.Anthropic(api_key=settings["anthropic_api_key"] or "not-set")
 
     def complete(self, messages, *, temperature=0.7, max_tokens=None) -> str:
         system, conversation = _split_system(messages)
@@ -53,7 +48,7 @@ class ClaudeProvider(LLMProvider):
         }
         if system:
             kwargs["system"] = system
-        response = self._client().messages.create(**kwargs)
+        response = self._client.messages.create(**kwargs)
         return "".join(block.text for block in response.content if block.type == "text")
 
     def stream(self, messages, *, temperature=0.7) -> Iterator[str]:
@@ -65,5 +60,5 @@ class ClaudeProvider(LLMProvider):
         }
         if system:
             kwargs["system"] = system
-        with self._client().messages.stream(**kwargs) as stream:
+        with self._client.messages.stream(**kwargs) as stream:
             yield from stream.text_stream
