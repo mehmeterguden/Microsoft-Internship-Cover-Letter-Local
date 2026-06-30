@@ -25,7 +25,7 @@ from db.schema import get_connection
 _TABLES = frozenset({
     "profile", "links", "languages", "skills", "github_repos", "projects",
     "experiences", "education", "trainings", "certificates", "skill_links",
-    "past_cover_letters",
+    "past_cover_letters", "documents",
 })
 
 # Columns stored as JSON text — (de)serialized transparently.
