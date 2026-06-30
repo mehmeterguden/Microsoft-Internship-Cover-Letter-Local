@@ -47,7 +47,13 @@ app.add_middleware(
 
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    """Serve the dev CV-upload test page (same origin as the API)."""
+    """Serve the CV import demo (same origin as the API)."""
+    return FileResponse(STATIC_DIR / "cv_demo.html")
+
+
+@app.get("/dev", include_in_schema=False)
+def dev_page() -> FileResponse:
+    """Serve the raw text-extraction dev page."""
     return FileResponse(STATIC_DIR / "cv_upload.html")
 
 
