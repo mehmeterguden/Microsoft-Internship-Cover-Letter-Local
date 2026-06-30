@@ -37,15 +37,14 @@ class GeminiProvider(LLMProvider):
     provider_id = "gemini"
 
     def __init__(self, settings: dict) -> None:
-        self._api_key = settings["gemini_api_key"]
         self._model = settings["llm_model"]
+        # Build the client once and keep a reference — a throwaway client gets
+        # garbage-collected mid-call, closing its httpx client ("client has been closed").
+        self._client = genai.Client(api_key=settings["gemini_api_key"] or "not-set")
 
     @property
     def model(self) -> str:
         return self._model
-
-    def _client(self) -> genai.Client:
-        return genai.Client(api_key=self._api_key)
 
     def complete(self, messages, *, temperature=0.7, max_tokens=None) -> str:
         system, contents = _to_gemini(messages)
@@ -53,16 +52,21 @@ class GeminiProvider(LLMProvider):
             temperature=temperature,
             max_output_tokens=max_tokens,
             system_instruction=system,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),  # skip reasoning → full budget to the answer
         )
-        response = self._client().models.generate_content(
+        response = self._client.models.generate_content(
             model=self._model, contents=contents, config=config
         )
         return response.text or ""
 
     def stream(self, messages, *, temperature=0.7) -> Iterator[str]:
         system, contents = _to_gemini(messages)
-        config = types.GenerateContentConfig(temperature=temperature, system_instruction=system)
-        for chunk in self._client().models.generate_content_stream(
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            system_instruction=system,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        )
+        for chunk in self._client.models.generate_content_stream(
             model=self._model, contents=contents, config=config
         ):
             if chunk.text:
