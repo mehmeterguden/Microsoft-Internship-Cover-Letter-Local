@@ -107,6 +107,20 @@ class CompanyResearch(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────
+#  Settings (single row — user-editable config, no id exposed)
+# ─────────────────────────────────────────────────────────────
+
+class Settings(BaseModel):
+    """Runtime config the user can change from the frontend (DB-backed, not env)."""
+
+    llm_base_url: str                    # OpenAI-compatible base URL (Foundry Local)
+    llm_model: str                       # model name to request
+    llm_api_key: str = ""                # usually empty for Foundry Local
+    embedding_model: str                 # sentence-transformers model (later phases)
+    tavily_api_key: str = ""             # company research key (only external call)
+
+
+# ─────────────────────────────────────────────────────────────
 #  Profile (single user)
 # ─────────────────────────────────────────────────────────────
 

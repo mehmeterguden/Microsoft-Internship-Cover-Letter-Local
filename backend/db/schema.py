@@ -12,13 +12,27 @@ are real data — stored as ISO text ("YYYY-MM" or "YYYY-MM-DD"), not record met
 
 from __future__ import annotations
 
-import os
 import sqlite3
 from pathlib import Path
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "./data/cover_letter_local.db")
+import config
+
+DATABASE_PATH = config.DATABASE_PATH
 
 SCHEMA = """
+-- ── App settings ─────────────────────────────────────────────────
+-- Single row (id always 1). User-editable config that used to live in env:
+-- the LLM endpoint/model and API tokens, changeable from the frontend.
+-- Seeded with our defaults on first init (see init_db).
+CREATE TABLE IF NOT EXISTS settings (
+    id              INTEGER PRIMARY KEY CHECK (id = 1),  -- enforce a single row
+    llm_base_url    TEXT NOT NULL,                       -- OpenAI-compatible base URL (Foundry Local)
+    llm_model       TEXT NOT NULL,                       -- model name to request
+    llm_api_key     TEXT NOT NULL DEFAULT '',            -- usually empty for Foundry Local
+    embedding_model TEXT NOT NULL,                       -- sentence-transformers model (later phases)
+    tavily_api_key  TEXT NOT NULL DEFAULT ''             -- company research (only external call)
+);
+
 -- ── Identity ─────────────────────────────────────────────────────
 -- Single user: exactly one row, managed by the app (no id needed).
 CREATE TABLE IF NOT EXISTS profile (
@@ -191,11 +205,25 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Create all tables if missing. Idempotent — safe to call on every startup."""
+    """Create all tables if missing and seed the settings row. Idempotent."""
     Path(DATABASE_PATH).parent.mkdir(parents=True, exist_ok=True)
     conn = get_connection()
     try:
         conn.executescript(SCHEMA)
+        # Seed the single settings row with our defaults the first time only.
+        # INSERT OR IGNORE leaves an existing (user-edited) row untouched.
+        conn.execute(
+            """INSERT OR IGNORE INTO settings
+                   (id, llm_base_url, llm_model, llm_api_key, embedding_model, tavily_api_key)
+               VALUES (1, ?, ?, ?, ?, ?)""",
+            (
+                config.DEFAULT_LLM_BASE_URL,
+                config.DEFAULT_LLM_MODEL,
+                config.DEFAULT_LLM_API_KEY,
+                config.DEFAULT_EMBEDDING_MODEL,
+                config.DEFAULT_TAVILY_API_KEY,
+            ),
+        )
         conn.commit()
     finally:
         conn.close()
