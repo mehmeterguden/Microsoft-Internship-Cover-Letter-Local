@@ -23,10 +23,12 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
 
+from core.research import fit as fit_engine
 from core.research.agent_base import Agent, AgentContext, AgentResult
 from core.research.agents import FLEET
 from core.research.schema import (
     CompanyIntelReport,
+    Culture,
     Firmographics,
     Overview,
     ReportMeta,
@@ -51,8 +53,8 @@ async def stream_research(
     yield {
         "type": "phase",
         "phase": "gather",
-        "agents": [a.name for a in fleet],
-        "total": len(fleet),
+        "agents": [a.name for a in fleet] + ["fit"],  # fit is a local step, shown as a chip
+        "total": len(fleet) + 1,
     }
 
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -76,6 +78,24 @@ async def stream_research(
         await driver  # propagate any unexpected error from the runner
 
     report = _assemble(company_name, role_title, results, started_at)
+
+    # Local analysis phase — private, on-device, no LLM, no network.
+    yield {"type": "phase", "phase": "analyze", "agents": ["fit"], "total": 1}
+    yield {"type": "agent_started", "agent": "fit", "section": "fit"}
+    fit, tech_annotated = await asyncio.to_thread(
+        fit_engine.compute_fit, report.role, report.tech_stack
+    )
+    report.fit = fit
+    report.tech_stack = tech_annotated
+    yield {
+        "type": "agent_done",
+        "agent": "fit",
+        "section": "fit",
+        "data": fit.model_dump(mode="json"),
+        "sources": [{"label": "on-device · your profile (never sent)", "url": None}],
+    }
+
+    report.meta.duration_s = round(time.perf_counter() - started_at, 2)
     yield {
         "type": "done",
         "report": report.model_dump(mode="json"),
@@ -106,7 +126,11 @@ def _assemble(
         role_title=role_title,
         firmographics=section("firmographics", Firmographics()),
         overview=section("overview", Overview()),
+        values=section("values", []),
+        culture=section("culture", Culture()),
+        tech_stack=section("tech_stack", []),
         signals=section("signals", []),
+        interview=section("interview", []),
         role=section("jd_analyst", RoleAnalysis()),
         meta=ReportMeta(
             sources=_dedupe(sources),

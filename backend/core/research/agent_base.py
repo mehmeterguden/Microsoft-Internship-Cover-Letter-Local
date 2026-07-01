@@ -155,15 +155,30 @@ class Agent(ABC):
 # ─────────────────────────────────────────────────────────────
 
 def _complete(messages: list[Message]) -> str:
-    """Call the LLM, retrying with backoff on transient provider errors (503/429)."""
+    """Call the LLM, retrying on transient overload only.
+
+    Overload (503 / "UNAVAILABLE" / "overloaded" / timeouts) is retried with
+    backoff. A quota error (429 / "RESOURCE_EXHAUSTED") is permanent for now —
+    retrying just wastes time and more quota — so it fails fast.
+    """
     last: Exception | None = None
     for attempt in range(_RETRIES):
         try:
             return llm.complete(messages, temperature=0.0, max_tokens=1500)
-        except Exception as exc:  # noqa: BLE001 — transient overload/timeout; back off and retry
+        except Exception as exc:  # noqa: BLE001 — inspect the message to decide
             last = exc
+            if not _is_transient(exc):
+                raise
             time.sleep(1.5 * (attempt + 1))
     raise last  # type: ignore[misc]
+
+
+def _is_transient(exc: Exception) -> bool:
+    """True for retryable overload/timeout errors; False for quota/auth/bad-request."""
+    msg = str(exc).lower()
+    if "resource_exhausted" in msg or "quota" in msg:
+        return False
+    return any(m in msg for m in ("503", "unavailable", "overload", "timeout", "timed out", "500"))
 
 
 def _extract_json(text: str) -> str:
