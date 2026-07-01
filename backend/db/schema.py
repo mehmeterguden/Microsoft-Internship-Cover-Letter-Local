@@ -208,6 +208,16 @@ CREATE TABLE IF NOT EXISTS cover_letters (
     version INTEGER NOT NULL DEFAULT 1
 );
 
+-- ── Company research cache (keyed by company+role, expires after a TTL) ──
+CREATE TABLE IF NOT EXISTS company_research_cache (
+    cache_key    TEXT PRIMARY KEY,                        -- normalized "company|role"
+    company_name TEXT NOT NULL,
+    role_title   TEXT,
+    report       TEXT NOT NULL,                           -- JSON: CompanyIntelReport
+    created_at   TEXT NOT NULL,                           -- ISO timestamp
+    expires_at   TEXT NOT NULL                            -- ISO timestamp
+);
+
 CREATE INDEX IF NOT EXISTS idx_cover_letters_job ON cover_letters(job_id);
 CREATE INDEX IF NOT EXISTS idx_skill_links_skill ON skill_links(skill_id);
 CREATE INDEX IF NOT EXISTS idx_skill_links_entity ON skill_links(entity_type, entity_id);

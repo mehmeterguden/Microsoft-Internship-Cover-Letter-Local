@@ -178,9 +178,11 @@
     const AGENTS = { firmographics:{label:"Firmographics",icon:"building-2"}, overview:{label:"Overview",icon:"file-text"},
       values:{label:"Values",icon:"award"}, culture:{label:"Culture",icon:"users"}, tech_stack:{label:"Tech stack",icon:"layers"},
       signals:{label:"Signals",icon:"newspaper"}, interview:{label:"Interview",icon:"messages-square"},
-      jd_analyst:{label:"Role analysis",icon:"target"}, fit:{label:"Fit (local)",icon:"gauge"} };
+      jd_analyst:{label:"Role analysis",icon:"target"}, fit:{label:"Fit (local)",icon:"gauge"}, ammo:{label:"Letter hooks",icon:"sparkles"} };
     const SECT = { firmographics:renderFirmo, overview:renderOverview, values:renderValues, culture:renderCulture,
-      tech_stack:renderTech, signals:renderSignals, interview:renderInterview, role:renderRole, fit:renderFit };
+      tech_stack:renderTech, signals:renderSignals, interview:renderInterview, role:renderRole, fit:renderFit, ammo:renderAmmo };
+    const ORDER = ["firmographics","overview","values","culture","tech_stack","signals","interview","role","fit","ammo"];
+    const rendered = new Set();
 
     let t0 = 0, timer = null, total = 0, done = 0;
 
@@ -199,13 +201,16 @@
       else if (ev.type === "agent_done") { chipState(ev.agent, "done"); done++; $("bar").style.width = (done/total*100)+"%";
         renderSection(ev.section, ev.data, ev.sources); }
       else if (ev.type === "agent_error") { chipState(ev.agent, "error"); done++; $("bar").style.width = (done/total*100)+"%"; }
+      else if (ev.type === "cached") { $("phase").textContent = "Loaded from cache"; }
       else if (ev.type === "done") finish(ev);
       else if (ev.type === "fatal") { $("phase").innerHTML = `<span style="color:var(--danger)">Error: ${esc(ev.error)}</span>`; }
     }
 
     function renderSection(section, data, sources) {
+      if (rendered.has(section)) return;
       const fn = SECT[section]; if (!fn) return;
       const html = fn(data); if (!html) return;
+      rendered.add(section);
       const div = document.createElement("div"); div.className = "card";
       div.innerHTML = html + renderSources(sources);
       $("report").appendChild(div); lucide.createIcons();
@@ -287,6 +292,12 @@
            ${d.gaps?.length?`<div class="col"><h4><i data-lucide="alert-triangle"></i> Gaps to address</h4><div class="chips">${chips(d.gaps,"gap")}</div></div>`:""}
          </div>`;
     }
+    function renderAmmo(list) {
+      if (!list || !list.length) return "";
+      return head("sparkles","Letter hooks — use these when you write") + list.map(h =>
+        `<div class="istep" style="border-bottom:1px dashed var(--border)"><span class="num"><i data-lucide="pen-line"></i></span>
+         <div><div class="area">${esc(h.hook)}</div>${h.use_in_letter?`<div class="note">${esc(h.use_in_letter)}</div>`:""}</div></div>`).join("");
+    }
     function renderRole(d) {
       if (!d || (!d.responsibilities?.length && !d.must_haves?.length && !d.keywords?.length)) return "";
       const chips = (arr, cls="") => (arr||[]).map(x => `<span class="tag ${cls}">${esc(x)}</span>`).join("");
@@ -299,12 +310,22 @@
 
     function finish(ev) {
       clearInterval(timer); $("live").classList.remove("on");
-      const m = ev.report.meta;
+      const r = ev.report, m = r.meta;
+      // Render any sections not already streamed in (e.g. a cached report arrives whole).
+      const ss = m.section_sources || {};
+      ORDER.forEach(k => renderSection(k, r[k], ss[k]));
+      $("bar").style.width = "100%";
+      const cached = m.from_cache
+        ? `<span class="badge" style="color:var(--info);background:rgba(91,141,239,.12);border-color:rgba(91,141,239,.3)"><i data-lucide="database"></i> from cache</span>`
+        : `<span>· ${ev.duration_s}s</span>`;
+      const missing = (m.missing && m.missing.length)
+        ? `<span style="color:#e0a12b">· missing: ${m.missing.map(esc).join(", ")}</span>` : "";
       $("meta").className = "meta on";
       $("meta").innerHTML = `<span class="badge"><i data-lucide="shield-check"></i> researched publicly · CV never sent</span>
         <span>confidence ${Math.round((m.confidence||0)*100)}%</span>
+        <span>· complete ${Math.round((m.completeness||0)*100)}%</span>
         <span>· ${m.sources.length} sources</span>
-        <span>· ${ev.duration_s}s</span>`;
+        ${cached} ${missing}`;
       lucide.createIcons();
     }
 
@@ -312,7 +333,7 @@
       const company = $("company").value.trim(); if (!company) return;
       $("run").disabled = true; $("report").innerHTML = ""; $("agents").innerHTML = "";
       $("meta").className = "meta"; $("live").classList.add("on"); $("bar").style.width = "0";
-      done = 0; t0 = Date.now();
+      rendered.clear(); done = 0; t0 = Date.now();
       $("phase").textContent = "Starting…";
       timer = setInterval(() => $("elapsed").textContent = ((Date.now()-t0)/1000).toFixed(1)+"s", 100);
       try {
