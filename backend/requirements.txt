@@ -18,8 +18,14 @@ google-genai>=0.3.0 # Gemini
 # ── Local vector store ──
 chromadb>=0.5.0
 
+# ── Company research (Phase 1: free data sources) ──
+trafilatura>=1.8.0   # robust HTML → clean text extraction (web_fetch)
+# Web search uses Tavily's free tier via REST (no client dep) with a keyless
+# DuckDuckGo fallback; firmographics/news use keyless Wikidata/GDELT APIs.
+
+# ── Dev / tests ──
+pytest>=8.0.0
+
 # Added in later phases as features need them:
 #   sentence-transformers   (embeddings)
-#   pdfplumber              (CV parsing)
 #   python-docx, reportlab  (export)
-#   tavily-python           (company research)
