@@ -91,8 +91,11 @@ def _assemble(
 ) -> CompanyIntelReport:
     """Fold successful agent sections into one report; missing sections stay empty."""
     sources: list[Source] = []
+    section_sources: dict[str, list[Source]] = {}
     for result in results.values():
         sources.extend(result.sources)
+        if result.ok and result.sources:
+            section_sources[result.section] = result.sources
 
     def section(name: str, default: Any) -> Any:
         result = results.get(name)
@@ -107,6 +110,7 @@ def _assemble(
         role=section("jd_analyst", RoleAnalysis()),
         meta=ReportMeta(
             sources=_dedupe(sources),
+            section_sources=section_sources,
             confidence=_confidence(results),
             gathered_at=datetime.now(timezone.utc).isoformat(),
             duration_s=round(time.perf_counter() - started_at, 2),
