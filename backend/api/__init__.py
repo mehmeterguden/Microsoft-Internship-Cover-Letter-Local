@@ -10,6 +10,7 @@ from fastapi import APIRouter
 
 from api.routers import (
     certificates,
+    cover_letter,
     cv,
     education,
     experiences,
@@ -36,6 +37,7 @@ api_router.include_router(llm.router)
 api_router.include_router(cv.router)
 api_router.include_router(github.router)
 api_router.include_router(research.router)  # dev demo for Phase 1 tools
+api_router.include_router(cover_letter.router)  # streaming cover-letter generation
 
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)
