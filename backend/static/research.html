@@ -102,6 +102,44 @@
     .badge{display:inline-flex;align-items:center;gap:.4rem;color:var(--live);background:rgba(61,220,132,.1);
       border:1px solid rgba(61,220,132,.3);border-radius:999px;padding:.25rem .6rem}
     .nav{font-family:var(--mono);font-size:.8rem;margin-bottom:1.5rem}.nav a{color:var(--faint);text-decoration:none;margin-right:1rem}.nav a:hover{color:var(--accent)}
+
+    /* values — weighted bars */
+    .valrow{display:flex;align-items:center;gap:.8rem;padding:.45rem 0}
+    .valrow .nm{min-width:170px;font-weight:600;font-size:.95rem}
+    .valrow .bar{flex:1;height:7px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+    .valrow .bar>div{height:100%;background:linear-gradient(90deg,var(--info),#7ba9ff);border-radius:999px;transition:width .8s var(--ease)}
+    .valrow .n{font-family:var(--mono);font-size:.82rem;color:var(--info);min-width:34px;text-align:right}
+    ul.check{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+    ul.check li{display:flex;gap:.6rem;align-items:flex-start;color:var(--text)}
+    ul.check li i{color:var(--live);flex:none;margin-top:.15rem}
+    .legend{font-family:var(--mono);font-size:.74rem;color:var(--faint);margin-top:.7rem;display:flex;gap:1rem}
+    .dotk{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:.3rem}
+    .dotn{width:8px;height:8px;border-radius:50%;border:1px solid var(--border-2);display:inline-block;margin-right:.3rem}
+    .tag.know{color:var(--accent);border-color:rgba(255,91,46,.4);background:rgba(255,91,46,.1)}
+    .istep{display:flex;gap:.8rem;padding:.6rem 0;border-bottom:1px dashed var(--border)}.istep:last-child{border:none}
+    .istep .num{width:26px;height:26px;flex:none;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);
+      font-size:.8rem;background:var(--surface-2);border:1px solid var(--border-2);color:var(--accent)}
+    .istep .area{font-weight:600}.istep .note{color:var(--muted);font-size:.9rem;margin-top:.1rem}
+    .fit-top{display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
+    .ring{--p:0;width:104px;height:104px;flex:none;border-radius:50%;display:grid;place-items:center;
+      background:conic-gradient(var(--accent) calc(var(--p)*1%), var(--surface-2) 0)}
+    .ring .inner{width:82px;height:82px;border-radius:50%;background:var(--surface);display:grid;place-items:center;text-align:center}
+    .ring .sc{font-size:1.7rem;font-weight:800;line-height:1}.ring .of{font-family:var(--mono);font-size:.62rem;color:var(--faint)}
+    .fit-v .vd{display:inline-block;font-weight:700;font-size:.8rem;letter-spacing:.04em;padding:.3rem .7rem;border-radius:999px;
+      background:rgba(61,220,132,.13);color:var(--live);border:1px solid rgba(61,220,132,.3)}
+    .fit-v .vd.stretch{background:rgba(224,161,43,.13);color:#e0a12b;border-color:rgba(224,161,43,.3)}
+    .fit-v .vd.none{background:var(--surface-2);color:var(--muted);border-color:var(--border)}
+    .fit-v .rec{color:var(--muted);margin-top:.6rem;max-width:52ch}
+    .dims{margin-top:1.2rem;display:flex;flex-direction:column;gap:.7rem}
+    .dim{display:flex;align-items:center;gap:.8rem}.dim .dn{min-width:140px;font-size:.9rem}
+    .dim .dbar{flex:1;height:8px;border-radius:999px;background:var(--surface-2);position:relative;overflow:hidden}
+    .dim .dbar>.you{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:999px;transition:width .8s var(--ease)}
+    .dim .dbar>.need{position:absolute;top:-3px;width:2px;height:14px;background:var(--text);opacity:.55}
+    .dim .dv{font-family:var(--mono);font-size:.78rem;color:var(--muted);min-width:34px;text-align:right}
+    .mg{display:flex;gap:1.4rem;flex-wrap:wrap;margin-top:1.2rem}
+    .mg .col{flex:1;min-width:200px}.mg h4{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+    .tag.matched{color:var(--live);border-color:rgba(61,220,132,.35);background:rgba(61,220,132,.08)}
+    .tag.gap{color:var(--danger);border-color:rgba(229,72,77,.35);background:rgba(229,72,77,.08)}
   </style>
 </head>
 <body>
@@ -138,8 +176,11 @@
     const $ = id => document.getElementById(id);
     const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
     const AGENTS = { firmographics:{label:"Firmographics",icon:"building-2"}, overview:{label:"Overview",icon:"file-text"},
-      signals:{label:"Signals",icon:"newspaper"}, jd_analyst:{label:"Role analysis",icon:"target"} };
-    const SECT = { firmographics:renderFirmo, overview:renderOverview, signals:renderSignals, role:renderRole };
+      values:{label:"Values",icon:"award"}, culture:{label:"Culture",icon:"users"}, tech_stack:{label:"Tech stack",icon:"layers"},
+      signals:{label:"Signals",icon:"newspaper"}, interview:{label:"Interview",icon:"messages-square"},
+      jd_analyst:{label:"Role analysis",icon:"target"}, fit:{label:"Fit (local)",icon:"gauge"} };
+    const SECT = { firmographics:renderFirmo, overview:renderOverview, values:renderValues, culture:renderCulture,
+      tech_stack:renderTech, signals:renderSignals, interview:renderInterview, role:renderRole, fit:renderFit };
 
     let t0 = 0, timer = null, total = 0, done = 0;
 
@@ -202,6 +243,49 @@
       return head("newspaper","Recent signals & news") + list.map(s =>
         `<div class="signal"><a href="${esc(s.url||"#")}" target="_blank">${esc(s.headline)}</a>
          <div class="meta">${esc(s.date||"")}</div><div class="why">${esc(s.why_it_matters||"")}</div></div>`).join("");
+    }
+    function renderValues(list) {
+      if (!list || !list.length) return "";
+      return head("award","What they value") + `<p class="ctx" style="margin-bottom:.8rem">Echo the top ones in your letter.</p>` +
+        list.map(v => `<div class="valrow"><span class="nm">${esc(v.name)}</span>
+          <span class="bar"><div style="width:${Math.max(0,Math.min(100,v.weight))}%"></div></span>
+          <span class="n">${v.weight}</span></div>`).join("");
+    }
+    function renderCulture(d) {
+      if (!d || !d.ways_of_working?.length) return "";
+      return head("users","Culture & ways of working") +
+        `<ul class="check">${d.ways_of_working.map(w=>`<li><i data-lucide="check"></i> ${esc(w)}</li>`).join("")}</ul>`;
+    }
+    function renderTech(list) {
+      if (!list || !list.length) return "";
+      const chips = list.map(t => `<span class="tag ${t.you_know?"know":""}">${esc(t.name)}</span>`).join("");
+      return head("layers","Tech stack") + `<div class="chips">${chips}</div>` +
+        `<div class="legend"><span><span class="dotk"></span>you know it</span><span><span class="dotn"></span>worth learning</span></div>`;
+    }
+    function renderInterview(list) {
+      if (!list || !list.length) return "";
+      return head("messages-square","Interview focus") + list.map(i =>
+        `<div class="istep"><span class="num">${i.order}</span><div><div class="area">${esc(i.area)}</div>
+         ${i.note?`<div class="note">${esc(i.note)}</div>`:""}</div></div>`).join("");
+    }
+    function renderFit(d) {
+      if (!d) return "";
+      const vClass = d.verdict==="NO PROFILE" ? "none" : (d.score>=60 ? "" : "stretch");
+      const dims = (d.dimensions||[]).map(x =>
+        `<div class="dim"><span class="dn">${esc(x.name)}</span>
+         <span class="dbar"><span class="you" style="width:${x.you}%"></span><span class="need" style="left:${x.role_need}%"></span></span>
+         <span class="dv">${x.you}</span></div>`).join("");
+      const chips = (arr, cls) => (arr||[]).map(x=>`<span class="tag ${cls}">${esc(x)}</span>`).join("");
+      return head("gauge","Fit — you vs. the role") +
+        `<div class="fit-top">
+          <div class="ring" style="--p:${d.score}"><div class="inner"><div><div class="sc">${d.score}</div><div class="of">/ 100</div></div></div></div>
+          <div class="fit-v"><span class="vd ${vClass}">${esc(d.verdict||"")}</span><div class="rec">${esc(d.recommendation||"")}</div></div>
+        </div>` +
+        (dims ? `<div class="dims">${dims}</div>` : "") +
+        `<div class="mg">
+           ${d.matched_skills?.length?`<div class="col"><h4><i data-lucide="check-circle-2"></i> Matched skills</h4><div class="chips">${chips(d.matched_skills,"matched")}</div></div>`:""}
+           ${d.gaps?.length?`<div class="col"><h4><i data-lucide="alert-triangle"></i> Gaps to address</h4><div class="chips">${chips(d.gaps,"gap")}</div></div>`:""}
+         </div>`;
     }
     function renderRole(d) {
       if (!d || (!d.responsibilities?.length && !d.must_haves?.length && !d.keywords?.length)) return "";
