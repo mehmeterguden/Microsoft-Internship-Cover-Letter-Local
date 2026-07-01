@@ -77,7 +77,13 @@ def design_page() -> FileResponse:
 
 @app.get("/research", include_in_schema=False)
 def research_page() -> FileResponse:
-    """Serve the Phase 1 research-tools dev demo."""
+    """Serve the live company-intelligence report (streaming)."""
+    return FileResponse(STATIC_DIR / "research.html")
+
+
+@app.get("/research-tools", include_in_schema=False)
+def research_tools_page() -> FileResponse:
+    """Serve the raw Phase 1 tools dev demo."""
     return FileResponse(STATIC_DIR / "research_demo.html")
 
 

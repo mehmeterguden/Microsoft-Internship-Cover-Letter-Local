@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company Intelligence — Cover Letter Local</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root{
+      --bg:#0a0908; --surface:#141210; --surface-2:#1b1815; --border:#2a2521; --border-2:#38322c;
+      --text:#f6f1e9; --muted:#a49a8d; --faint:#6f665b; --accent:#ff5b2e; --accent-2:#ff8a3d;
+      --live:#3ddc84; --danger:#e5484d; --info:#5b8def;
+      --font:"Schibsted Grotesk",system-ui,sans-serif; --serif:"Instrument Serif",Georgia,serif; --mono:"JetBrains Mono",monospace;
+      --ease:cubic-bezier(.22,1,.36,1);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased;
+      background:radial-gradient(900px 520px at 82% -10%,rgba(255,91,46,.13),transparent 60%),var(--bg);min-height:100vh}
+    i[data-lucide]{width:1em;height:1em;stroke-width:2;vertical-align:-2px}
+    .wrap{max-width:1000px;margin:0 auto;padding:2.5rem 1.25rem 6rem}
+    .brand{display:flex;align-items:center;gap:.6rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.2rem}
+    .glyph{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--serif);
+      font-style:italic;background:linear-gradient(150deg,var(--accent-2),var(--accent))}
+    h1{font-size:2.3rem;letter-spacing:-.03em;font-weight:800;margin:.6rem 0 .2rem}
+    h1 .em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--accent)}
+    .sub{color:var(--muted);margin-bottom:1.6rem}
+
+    /* form */
+    .form{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.2rem;margin-bottom:1.4rem}
+    .row{display:flex;gap:.7rem;flex-wrap:wrap}
+    .field{flex:1;min-width:200px;display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem}
+    label{font-size:.78rem;font-weight:600;color:var(--muted)}
+    input,textarea{font:inherit;padding:.7rem .85rem;border-radius:10px;border:1px solid var(--border-2);
+      background:var(--surface-2);color:var(--text);width:100%;resize:vertical}
+    input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,91,46,.15)}
+    .btn{font-family:var(--font);font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:10px;
+      padding:.8rem 1.4rem;cursor:pointer;font-size:.98rem;display:inline-flex;align-items:center;gap:.5rem}
+    .btn:hover{background:var(--accent-2)} .btn:disabled{opacity:.5;cursor:default}
+
+    /* live status bar */
+    .live{display:none;align-items:center;gap:.8rem;background:var(--surface);border:1px solid var(--border);
+      border-radius:14px;padding:.8rem 1.1rem;margin-bottom:1.2rem;font-family:var(--mono);font-size:.82rem}
+    .live.on{display:flex}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--live);animation:pulse 1.6s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+    .track{flex:1;height:5px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+    .track>div{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .5s var(--ease)}
+    .elapsed{color:var(--muted)}
+
+    /* agent chips */
+    .agents{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.4rem}
+    .chip{display:flex;align-items:center;gap:.5rem;padding:.45rem .8rem;border-radius:999px;border:1px solid var(--border);
+      background:var(--surface);font-size:.85rem;color:var(--faint);transition:.25s var(--ease)}
+    .chip.running{color:var(--text);border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,91,46,.1)}
+    .chip.done{color:var(--text);border-color:var(--border-2)}
+    .chip.error{color:var(--danger);border-color:rgba(229,72,77,.4)}
+    .chip .st{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+    .chip.running .st{background:var(--accent);animation:pulse 1.4s infinite}
+    .chip.done .st{background:var(--live)} .chip.error .st{background:var(--danger)}
+
+    /* report sections */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:1.5rem;margin-bottom:1.1rem;
+      opacity:0;transform:translateY(14px);animation:rise .6s var(--ease) forwards}
+    @keyframes rise{to{opacity:1;transform:none}}
+    .card h2{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+      display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
+    .card h2 .r{margin-left:auto;font-family:var(--mono);font-size:.72rem;text-transform:none;letter-spacing:0;color:var(--live)}
+    .kv{display:flex;gap:1rem;padding:.4rem 0;border-bottom:1px dashed var(--border)}
+    .kv:last-child{border:none} .kv .k{font-family:var(--mono);font-size:.8rem;color:var(--faint);min-width:120px}
+    .kv a{color:var(--accent);text-decoration:none}
+    .lead{font-size:1.1rem;line-height:1.6} .quote{font-family:var(--serif);font-style:italic;font-size:1.25rem;
+      color:var(--muted);border-left:3px solid var(--accent);padding-left:1rem;margin:.9rem 0}
+    .ctx{color:var(--muted);margin-top:.6rem}
+    .signal{padding:.7rem 0;border-bottom:1px dashed var(--border)}.signal:last-child{border:none}
+    .signal a{color:var(--text);font-weight:600;text-decoration:none;font-size:.98rem}.signal a:hover{color:var(--accent)}
+    .signal .meta{font-family:var(--mono);font-size:.74rem;color:var(--faint);margin:.15rem 0}
+    .signal .why{color:var(--muted);font-size:.9rem}
+    .sub-h{font-family:var(--mono);font-size:.74rem;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;margin:1rem 0 .5rem}
+    ul.resp{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+    ul.resp li{padding-left:1.2rem;position:relative;color:var(--muted)}
+    ul.resp li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700}
+    .chips{display:flex;flex-wrap:wrap;gap:.4rem}
+    .tag{font-family:var(--mono);font-size:.78rem;padding:.25rem .6rem;border-radius:999px;background:var(--surface-2);
+      border:1px solid var(--border);color:var(--muted)}
+    .tag.key{color:var(--accent);border-color:rgba(255,91,46,.35);background:rgba(255,91,46,.08)}
+
+    /* meta footer */
+    .meta{display:none;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid var(--border);
+      font-family:var(--mono);font-size:.78rem;color:var(--faint)}
+    .meta.on{display:flex}
+    .badge{display:inline-flex;align-items:center;gap:.4rem;color:var(--live);background:rgba(61,220,132,.1);
+      border:1px solid rgba(61,220,132,.3);border-radius:999px;padding:.25rem .6rem}
+    .nav{font-family:var(--mono);font-size:.8rem;margin-bottom:1.5rem}.nav a{color:var(--faint);text-decoration:none;margin-right:1rem}.nav a:hover{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><span class="glyph">C</span> Cover Letter Local</div>
+    <h1>Company <span class="em">intelligence</span>.</h1>
+    <p class="sub">A parallel fleet of local agents researches the company from free, public sources — live.</p>
+    <div class="nav"><a href="/settings">settings</a><a href="/research-tools">raw tools</a><a href="/docs">api</a></div>
+
+    <div class="form">
+      <div class="row">
+        <div class="field"><label>Company *</label><input id="company" placeholder="Microsoft, Vercel, Spotify…" value="Vercel" /></div>
+        <div class="field"><label>Role title</label><input id="role" placeholder="Senior Frontend Engineer" /></div>
+      </div>
+      <div class="field"><label>Job description (optional — paste the posting for a sharper role analysis)</label>
+        <textarea id="jd" rows="3" placeholder="Paste the job description here…"></textarea></div>
+      <button class="btn" id="run"><i data-lucide="radar"></i> Research company</button>
+    </div>
+
+    <div class="live" id="live">
+      <span class="dot"></span>
+      <span id="phase">Starting…</span>
+      <div class="track"><div id="bar"></div></div>
+      <span class="elapsed" id="elapsed">0.0s</span>
+    </div>
+
+    <div class="agents" id="agents"></div>
+    <div id="report"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    const $ = id => document.getElementById(id);
+    const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+    const AGENTS = { firmographics:{label:"Firmographics",icon:"building-2"}, overview:{label:"Overview",icon:"file-text"},
+      signals:{label:"Signals",icon:"newspaper"}, jd_analyst:{label:"Role analysis",icon:"target"} };
+    const SECT = { firmographics:renderFirmo, overview:renderOverview, signals:renderSignals, role:renderRole };
+
+    let t0 = 0, timer = null, total = 0, done = 0;
+
+    function setChips(names) {
+      $("agents").innerHTML = names.map(n => {
+        const a = AGENTS[n] || { label:n, icon:"circle" };
+        return `<div class="chip" id="chip-${n}"><span class="st"></span><i data-lucide="${a.icon}"></i> ${esc(a.label)}</div>`;
+      }).join("");
+      lucide.createIcons();
+    }
+    const chipState = (n, s) => { const el = $("chip-"+n); if (el) el.className = "chip " + s; };
+
+    function handle(ev) {
+      if (ev.type === "phase") { total = ev.total; setChips(ev.agents); $("phase").textContent = "Gathering from " + ev.total + " agents…"; }
+      else if (ev.type === "agent_started") chipState(ev.agent, "running");
+      else if (ev.type === "agent_done") { chipState(ev.agent, "done"); done++; $("bar").style.width = (done/total*100)+"%";
+        renderSection(ev.section, ev.data); }
+      else if (ev.type === "agent_error") { chipState(ev.agent, "error"); done++; $("bar").style.width = (done/total*100)+"%"; }
+      else if (ev.type === "done") finish(ev);
+      else if (ev.type === "fatal") { $("phase").innerHTML = `<span style="color:var(--danger)">Error: ${esc(ev.error)}</span>`; }
+    }
+
+    function renderSection(section, data) {
+      const fn = SECT[section]; if (!fn) return;
+      const html = fn(data); if (!html) return;
+      const div = document.createElement("div"); div.className = "card"; div.innerHTML = html;
+      $("report").appendChild(div); lucide.createIcons();
+    }
+
+    function head(icon, title) { return `<h2><i data-lucide="${icon}"></i> ${title}<span class="r">● gathered on-device</span></h2>`; }
+
+    function renderFirmo(d) {
+      if (!d) return "";
+      const rows = [["industry",d.industry],["size",d.size],["headquarters",d.hq],["founded",d.founded],
+        ["website", d.website ? `<a href="${esc(d.website)}" target="_blank">${esc(d.website)}</a>` : null]]
+        .filter(([,v]) => v).map(([k,v]) => `<div class="kv"><span class="k">${k}</span><span>${k==="website"?v:esc(v)}</span></div>`).join("");
+      return head("building-2","Firmographics") + (rows || "<span class='ctx'>No firm facts found.</span>");
+    }
+    function renderOverview(d) {
+      if (!d || (!d.summary && !d.mission)) return "";
+      return head("file-text","Overview") +
+        (d.summary ? `<p class="lead">${esc(d.summary)}</p>` : "") +
+        (d.mission ? `<div class="quote">“${esc(d.mission)}”</div>` : "") +
+        (d.division_context ? `<p class="ctx">${esc(d.division_context)}</p>` : "");
+    }
+    function renderSignals(list) {
+      if (!list || !list.length) return "";
+      return head("newspaper","Recent signals & news") + list.map(s =>
+        `<div class="signal"><a href="${esc(s.url||"#")}" target="_blank">${esc(s.headline)}</a>
+         <div class="meta">${esc(s.date||"")}</div><div class="why">${esc(s.why_it_matters||"")}</div></div>`).join("");
+    }
+    function renderRole(d) {
+      if (!d || (!d.responsibilities?.length && !d.must_haves?.length && !d.keywords?.length)) return "";
+      const chips = (arr, cls="") => (arr||[]).map(x => `<span class="tag ${cls}">${esc(x)}</span>`).join("");
+      return head("target","Role analysis") +
+        (d.responsibilities?.length ? `<div class="sub-h">Responsibilities</div><ul class="resp">${d.responsibilities.map(r=>`<li>${esc(r)}</li>`).join("")}</ul>` : "") +
+        (d.must_haves?.length ? `<div class="sub-h">Must-haves</div><div class="chips">${chips(d.must_haves)}</div>` : "") +
+        (d.nice_to_haves?.length ? `<div class="sub-h">Nice-to-haves</div><div class="chips">${chips(d.nice_to_haves)}</div>` : "") +
+        (d.keywords?.length ? `<div class="sub-h">Keywords</div><div class="chips">${chips(d.keywords,"key")}</div>` : "");
+    }
+
+    function finish(ev) {
+      clearInterval(timer); $("live").classList.remove("on");
+      const m = ev.report.meta;
+      $("meta").className = "meta on";
+      $("meta").innerHTML = `<span class="badge"><i data-lucide="shield-check"></i> researched publicly · CV never sent</span>
+        <span>confidence ${Math.round((m.confidence||0)*100)}%</span>
+        <span>· ${m.sources.length} sources</span>
+        <span>· ${ev.duration_s}s</span>`;
+      lucide.createIcons();
+    }
+
+    async function run() {
+      const company = $("company").value.trim(); if (!company) return;
+      $("run").disabled = true; $("report").innerHTML = ""; $("agents").innerHTML = "";
+      $("meta").className = "meta"; $("live").classList.add("on"); $("bar").style.width = "0";
+      done = 0; t0 = Date.now();
+      $("phase").textContent = "Starting…";
+      timer = setInterval(() => $("elapsed").textContent = ((Date.now()-t0)/1000).toFixed(1)+"s", 100);
+      try {
+        const res = await fetch("/api/research/company", { method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ company_name: company, role_title: $("role").value.trim() || null, job_description: $("jd").value.trim() || null }) });
+        if (!res.ok) throw new Error(await res.text());
+        const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
+        while (true) {
+          const { value, done: fin } = await reader.read(); if (fin) break;
+          buf += dec.decode(value, { stream:true }); let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+            if (chunk.startsWith("data: ")) handle(JSON.parse(chunk.slice(6)));
+          }
+        }
+      } catch (e) { clearInterval(timer); $("phase").innerHTML = `<span style="color:var(--danger)">Error: ${esc(e.message)}</span>`; }
+      finally { $("run").disabled = false; }
+    }
+    $("run").addEventListener("click", run);
+  </script>
+</body>
+</html>

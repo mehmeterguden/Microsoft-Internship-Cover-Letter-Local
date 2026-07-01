@@ -1,20 +1,48 @@
-"""Dev-only demo endpoint for the Phase 1 research tools.
+"""Company research API — the live streaming report, plus a dev tools demo.
 
-Runs each free data-gathering tool once for a given company and returns their raw
-results (payload + provenance + timing). This is a temporary developer aid so the
-tools can be exercised from the browser; the real streaming research API (agents,
-SSE, the assembled report) arrives in Phase 2 and will replace this.
+`POST /research/company` streams a company-intelligence report over Server-Sent
+Events: the agent fleet runs in parallel and the report fills in section by
+section as agents finish (see `core.research.orchestrator`).
+
+`GET /research/tools` is a developer aid that runs each raw tool once — kept for
+debugging the data sources.
 """
 
 from __future__ import annotations
 
+import json
 import time
 
 from fastapi import APIRouter, Query
+from fastapi.responses import StreamingResponse
 
+from core.research.orchestrator import stream_research
+from core.research.schema import ResearchInput
 from core.research.tools import registry
 
-router = APIRouter(prefix="/research", tags=["research (dev)"])
+router = APIRouter(prefix="/research", tags=["research"])
+
+
+@router.post("/company", summary="Stream a company-intelligence report (SSE)")
+async def research_company(payload: ResearchInput) -> StreamingResponse:
+    """Research a company and stream progress + the assembled report as SSE."""
+
+    async def event_stream():
+        try:
+            async for event in stream_research(
+                company_name=payload.company_name,
+                role_title=payload.role_title,
+                job_description=payload.job_description,
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a fatal error to the client, then end
+            yield f"data: {json.dumps({'type': 'fatal', 'error': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/tools", summary="Run every Phase 1 tool once (dev demo)")
