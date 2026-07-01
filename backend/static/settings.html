@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cover Letter Local — Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg:#f4f5fb; --card:#fff; --ink:#1a1c2b; --muted:#6b7194; --line:#e7e9f3;
+      --accent:#5b5bf0; --accent-soft:#ececff; --ok:#18a957; --warn:#c83;
+      --shadow:0 1px 2px rgba(20,22,43,.04), 0 8px 24px rgba(20,22,43,.06);
+    }
+    body { margin:0; background:radial-gradient(1200px 500px at 50% -200px, #e9eaff, var(--bg)); color:var(--ink);
+           font-family:ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; line-height:1.5; min-height:100vh; }
+    .wrap { max-width:680px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+    header.top { display:flex; align-items:center; gap:.65rem; }
+    .logo { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--accent),#8a5bf0);
+            display:grid; place-items:center; color:#fff; font-weight:700; }
+    h1 { font-size:1.35rem; margin:0; letter-spacing:-.02em; }
+    .sub { color:var(--muted); margin:.15rem 0 1.5rem; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:1.25rem 1.4rem; margin-bottom:1rem; }
+    h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 1rem; }
+    .field { display:flex; flex-direction:column; gap:.3rem; margin-bottom:.9rem; }
+    .field label { font-size:.82rem; font-weight:600; }
+    .field .desc { font-size:.78rem; color:var(--muted); }
+    input, select { font:inherit; padding:.6rem .7rem; border:1px solid var(--line); border-radius:10px; background:#fbfbfe; color:var(--ink); width:100%; }
+    input:focus, select:focus { outline:none; border-color:var(--accent); background:#fff; }
+    .relevant { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+    .dim { opacity:.5; }
+    .check { display:flex; align-items:center; gap:.5rem; }
+    .check input { width:18px; height:18px; accent-color:var(--accent); }
+    .actions { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-top:.4rem; }
+    .btn { background:var(--accent); color:#fff; border:none; padding:.65rem 1.2rem; border-radius:10px; font:inherit; font-weight:600; cursor:pointer; }
+    .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+    .btn:disabled { opacity:.55; cursor:default; }
+    .status { min-height:1.2rem; font-size:.9rem; }
+    .ok { color:var(--ok); font-weight:600; } .err { color:#c0392b; } .warn { color:var(--warn); }
+    .active { display:flex; gap:.5rem; align-items:center; background:var(--accent-soft); color:var(--accent);
+              border-radius:10px; padding:.5rem .8rem; font-size:.88rem; font-weight:600; margin-bottom:1rem; }
+    nav a { color:var(--accent); text-decoration:none; font-size:.85rem; margin-right:1rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top"><div class="logo">CL</div><h1>Settings</h1></header>
+    <p class="sub">Pick the AI provider and model. Whatever you save here is used for everything — CV import, GitHub analysis, cover letters.</p>
+    <nav style="margin-bottom:1rem"><a href="/">CV import</a><a href="/github">GitHub import</a><a href="/docs">API</a></nav>
+
+    <div class="active" id="active">Loading…</div>
+
+    <div class="card">
+      <h2>AI Provider</h2>
+      <div class="field">
+        <label for="provider">Provider</label>
+        <select id="provider">
+          <option value="foundry_local">Foundry Local — local, private</option>
+          <option value="ollama">Ollama — local, private</option>
+          <option value="openai">OpenAI — cloud</option>
+          <option value="anthropic">Claude (Anthropic) — cloud</option>
+          <option value="gemini">Gemini (Google) — cloud</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="model">Model</label>
+        <input id="model" list="modelList" placeholder="model name/id" />
+        <datalist id="modelList"></datalist>
+        <span class="desc" id="modelHint"></span>
+      </div>
+      <div class="field" id="baseUrlField">
+        <label for="base">Base URL <span class="desc">(local providers)</span></label>
+        <input id="base" placeholder="http://localhost:11434/v1" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>API keys <span style="text-transform:none;font-weight:400">(stored locally, never committed)</span></h2>
+      <div class="field" id="f_openai"><label>OpenAI API key</label><input id="openai_api_key" type="password" placeholder="sk-…" /></div>
+      <div class="field" id="f_anthropic"><label>Anthropic API key</label><input id="anthropic_api_key" type="password" placeholder="sk-ant-…" /></div>
+      <div class="field" id="f_gemini"><label>Gemini API key</label><input id="gemini_api_key" type="password" placeholder="AIza… / AQ.…" /></div>
+      <div class="field"><label>GitHub token <span class="desc">(optional — connect account for repo import)</span></label><input id="github_token" type="password" placeholder="github_pat_…" /></div>
+    </div>
+
+    <div class="card">
+      <h2>Other</h2>
+      <div class="field check"><input type="checkbox" id="ocr_enabled" /><label for="ocr_enabled" style="font-weight:400">Enable image OCR (needs Tesseract)</label></div>
+      <div class="field"><label>Embedding model <span class="desc">(later phases)</span></label><input id="embedding_model" placeholder="all-MiniLM-L6-v2" /></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="save">Save</button>
+      <button class="btn ghost" id="test">Test connection</button>
+      <span class="status" id="status"></span>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    const MODELS = {
+      foundry_local: ["phi-4-mini", "qwen2.5-7b"],
+      ollama: ["qwen3.5:9b", "qwen3:8b", "llama3.1:8b", "gemma3:9b"],
+      openai: ["gpt-4o", "gpt-4o-mini"],
+      anthropic: ["claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5"],
+      gemini: ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash", "gemini-2.0-flash"],
+    };
+    const HINTS = {
+      foundry_local: "Local. Set Base URL to Foundry's port (e.g. http://127.0.0.1:5273/v1). No key.",
+      ollama: "Local. Base URL http://localhost:11434/v1. No key. Slower but unlimited.",
+      openai: "Cloud. Needs the OpenAI API key below.",
+      anthropic: "Cloud. Needs the Anthropic API key below.",
+      gemini: "Cloud, fast. Needs the Gemini API key below. Free tier is ~20 requests/day PER MODEL — if one model is rate-limited, pick another (e.g. gemini-2.5-flash-lite).",
+    };
+    const isLocal = p => p === "foundry_local" || p === "ollama";
+
+    function applyProvider() {
+      const p = $("provider").value;
+      // model suggestions
+      $("modelList").innerHTML = (MODELS[p] || []).map(m => `<option value="${esc(m)}">`).join("");
+      $("modelHint").textContent = HINTS[p] || "";
+      // relevant credential / base url highlighting
+      $("baseUrlField").classList.toggle("dim", !isLocal(p));
+      $("f_openai").classList.toggle("relevant", p === "openai");
+      $("f_anthropic").classList.toggle("relevant", p === "anthropic");
+      $("f_gemini").classList.toggle("relevant", p === "gemini");
+    }
+    $("provider").addEventListener("change", () => { applyProvider(); if (!$("model").value || !MODELS[$("provider").value]?.includes($("model").value)) $("model").value = (MODELS[$("provider").value] || [""])[0]; });
+
+    let current = {};
+    async function load() {
+      current = await (await fetch("/api/settings")).json();
+      $("provider").value = current.llm_provider || "gemini";
+      $("model").value = current.llm_model || "";
+      $("base").value = current.llm_base_url || "";
+      $("openai_api_key").value = current.openai_api_key || "";
+      $("anthropic_api_key").value = current.anthropic_api_key || "";
+      $("gemini_api_key").value = current.gemini_api_key || "";
+      $("github_token").value = current.github_token || "";
+      $("ocr_enabled").checked = !!current.ocr_enabled;
+      $("embedding_model").value = current.embedding_model || "";
+      applyProvider();
+      showActive();
+    }
+    function showActive() {
+      $("active").innerHTML = `● Active: <b style="margin:0 .3rem">${esc(current.llm_provider)}</b> · ${esc(current.llm_model)}`;
+    }
+
+    function collect() {
+      return {
+        ...current,
+        llm_provider: $("provider").value,
+        llm_model: $("model").value.trim(),
+        llm_base_url: $("base").value.trim(),
+        openai_api_key: $("openai_api_key").value.trim(),
+        anthropic_api_key: $("anthropic_api_key").value.trim(),
+        gemini_api_key: $("gemini_api_key").value.trim(),
+        github_token: $("github_token").value.trim(),
+        ocr_enabled: $("ocr_enabled").checked,
+        embedding_model: $("embedding_model").value.trim(),
+      };
+    }
+
+    $("save").addEventListener("click", async () => {
+      $("save").disabled = true; $("status").textContent = "Saving…";
+      try {
+        const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(collect()) });
+        if (!res.ok) throw new Error((await res.json()).detail || res.status);
+        current = await res.json();
+        showActive();
+        $("status").innerHTML = `<span class="ok">✓ Saved — this is now used everywhere</span>`;
+      } catch (e) { $("status").innerHTML = `<span class="err">Error: ${esc(e.message)}</span>`; }
+      finally { $("save").disabled = false; }
+    });
+
+    $("test").addEventListener("click", async () => {
+      $("test").disabled = true; $("status").textContent = "Testing… (save first if you changed anything)";
+      try {
+        const h = await (await fetch("/api/llm/health")).json();
+        $("status").innerHTML = h.ok
+          ? `<span class="ok">✓ ${esc(h.provider)} · ${esc(h.model)} responding</span>`
+          : `<span class="warn">⚠ ${esc(h.provider)} · ${esc(h.model)} — ${esc(h.detail)}</span>`;
+      } catch (e) { $("status").innerHTML = `<span class="err">Error: ${esc(e.message)}</span>`; }
+      finally { $("test").disabled = false; }
+    });
+
+    load();
+  </script>
+</body>
+</html>
