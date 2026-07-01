@@ -34,6 +34,7 @@ class ResearchInput(BaseModel):
     company_name: str = Field(min_length=1, max_length=200)
     role_title: str | None = Field(default=None, max_length=200)
     job_description: str | None = None  # pasted by the user; authored by the employer
+    refresh: bool = False               # bypass the cache and re-research
 
 
 # ─────────────────────────────────────────────────────────────
@@ -149,8 +150,11 @@ class ReportMeta(BaseModel):
     sources: list[Source] = Field(default_factory=list)          # every source, deduped
     section_sources: dict[str, list[Source]] = Field(default_factory=dict)  # per section
     confidence: Confidence = 0.0
+    completeness: Confidence = 0.0   # fraction of sections that came back filled
+    missing: list[str] = Field(default_factory=list)             # sections with no data
     gathered_at: str | None = None   # ISO timestamp, stamped by the caller
     duration_s: float | None = None
+    from_cache: bool = False
     agents: list[str] = Field(default_factory=list)
 
 
