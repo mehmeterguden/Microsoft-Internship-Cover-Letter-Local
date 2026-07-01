@@ -51,6 +51,12 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "cv_demo.html")
 
 
+@app.get("/settings", include_in_schema=False)
+def settings_page() -> FileResponse:
+    """Serve the settings page (pick provider/model/keys)."""
+    return FileResponse(STATIC_DIR / "settings.html")
+
+
 @app.get("/github", include_in_schema=False)
 def github_page() -> FileResponse:
     """Serve the GitHub import demo."""
