@@ -8,9 +8,22 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
+from core.research import orchestrator
 from core.research.agent_base import Agent, AgentResult
 from core.research.orchestrator import stream_research
-from core.research.schema import Firmographics, NewsSignal, Source
+from core.research.schema import Fit, Firmographics, NewsSignal, Source
+
+
+@pytest.fixture(autouse=True)
+def _stub_fit(monkeypatch):
+    # Fit reads the local profile from the DB; stub it so orchestrator tests stay hermetic.
+    monkeypatch.setattr(
+        orchestrator.fit_engine,
+        "compute_fit",
+        lambda role, tech, profile=None: (Fit(score=90, verdict="STRONG MATCH"), tech),
+    )
 
 
 class _FakeAgent(Agent):
@@ -54,9 +67,12 @@ def test_stream_emits_phase_then_agent_events_then_done():
     ]
     events = _collect(company_name="Acme", agents=agents)
 
-    assert events[0]["type"] == "phase" and events[0]["total"] == 2
+    assert events[0]["type"] == "phase" and events[0]["total"] == 3  # 2 agents + local fit
     assert events[-1]["type"] == "done"
     assert {e["type"] for e in events} >= {"agent_started", "source", "agent_done"}
+    # The local fit step ran and produced a fit section.
+    assert any(e.get("agent") == "fit" and e["type"] == "agent_done" for e in events)
+    assert events[-1]["report"]["fit"]["verdict"] == "STRONG MATCH"
 
 
 def test_done_report_folds_in_agent_sections():
