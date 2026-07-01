@@ -69,6 +69,12 @@ def dev_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "cv_upload.html")
 
 
+@app.get("/design", include_in_schema=False)
+def design_page() -> FileResponse:
+    """Serve the design-system style tile (light + dark preview)."""
+    return FileResponse(STATIC_DIR / "design.html")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Liveness check."""
