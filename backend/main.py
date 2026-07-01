@@ -75,6 +75,12 @@ def design_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "design.html")
 
 
+@app.get("/research", include_in_schema=False)
+def research_page() -> FileResponse:
+    """Serve the Phase 1 research-tools dev demo."""
+    return FileResponse(STATIC_DIR / "research_demo.html")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Liveness check."""

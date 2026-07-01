@@ -21,6 +21,7 @@ from api.routers import (
     past_cover_letters,
     profile,
     projects,
+    research,
     settings,
     skill_links,
     skills,
@@ -34,6 +35,7 @@ api_router.include_router(settings.router)
 api_router.include_router(llm.router)
 api_router.include_router(cv.router)
 api_router.include_router(github.router)
+api_router.include_router(research.router)  # dev demo for Phase 1 tools
 
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)
