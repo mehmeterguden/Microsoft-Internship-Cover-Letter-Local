@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company Research — Tools Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#0a0908; --surface:#141210; --surface-2:#1b1815; --border:#2a2521; --border-2:#38322c;
+      --text:#f6f1e9; --muted:#a49a8d; --faint:#6f665b; --accent:#ff5b2e; --live:#3ddc84; --danger:#e5484d;
+      --font:"Schibsted Grotesk",system-ui,sans-serif; --mono:"JetBrains Mono",monospace; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font);background:radial-gradient(900px 500px at 80% -10%,rgba(255,91,46,.12),transparent 60%),var(--bg);
+      color:var(--text);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .wrap{max-width:920px;margin:0 auto;padding:2.5rem 1.25rem 5rem}
+    h1{font-size:1.9rem;letter-spacing:-.03em;font-weight:800}
+    .sub{color:var(--muted);margin:.4rem 0 1.8rem}
+    .sub code{font-family:var(--mono);color:var(--accent);font-size:.85rem}
+    .bar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
+    input{flex:1;min-width:220px;font:inherit;padding:.75rem .9rem;border-radius:10px;border:1px solid var(--border-2);
+      background:var(--surface-2);color:var(--text)}
+    input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,91,46,.15)}
+    button{font-family:var(--font);font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:10px;
+      padding:.75rem 1.3rem;cursor:pointer;font-size:.95rem}
+    button:hover{background:#ff8a3d} button:disabled{opacity:.5;cursor:default}
+    .status{min-height:1.4rem;color:var(--muted);font-family:var(--mono);font-size:.85rem;margin:.4rem 0 1.2rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;margin-bottom:1rem;overflow:hidden}
+    .head{display:flex;align-items:center;gap:.7rem;padding:.9rem 1.1rem;border-bottom:1px solid var(--border);background:var(--surface-2)}
+    .tool{font-weight:700;letter-spacing:-.01em}
+    .pill{font-family:var(--mono);font-size:.72rem;padding:.2rem .55rem;border-radius:999px}
+    .ok{color:var(--live);background:rgba(61,220,132,.13)} .err{color:var(--danger);background:rgba(229,72,77,.13)}
+    .src{margin-left:auto;font-family:var(--mono);font-size:.74rem;color:var(--faint);text-align:right}
+    .body{padding:1rem 1.1rem}
+    pre{font-family:var(--mono);font-size:.8rem;color:var(--muted);white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto}
+    .kv{display:flex;gap:.6rem;padding:.25rem 0;border-bottom:1px dashed var(--border)}
+    .kv .k{font-family:var(--mono);font-size:.78rem;color:var(--faint);min-width:110px}
+    .hit{padding:.5rem 0;border-bottom:1px dashed var(--border)}
+    .hit a{color:var(--accent);text-decoration:none;font-weight:600;font-size:.92rem}
+    .hit .sn{color:var(--muted);font-size:.85rem} .chip{display:inline-block;font-family:var(--mono);font-size:.75rem;
+      background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:.15rem .5rem;margin:.15rem .25rem .15rem 0}
+    .note{font-family:var(--mono);font-size:.75rem;color:var(--faint);margin-top:2rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Company Research — Tools Demo</h1>
+    <p class="sub">Phase 1 dev demo. Runs all five free tools once and shows raw output. Endpoint: <code>GET /api/research/tools</code></p>
+    <div class="bar">
+      <input id="company" placeholder="Company name (e.g. Microsoft, Vercel, Spotify)" value="Microsoft" />
+      <button id="run">Research</button>
+    </div>
+    <div class="status" id="status">Enter a company and hit Research. Live tools take ~5–20s.</div>
+    <div id="out"></div>
+    <p class="note">This is a temporary developer page. The real streaming report (agents + SSE + fit analysis) comes in Phase 2.</p>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+    function renderTool(t) {
+      const pill = t.ok ? `<span class="pill ok">OK · ${t.ms}ms</span>` : `<span class="pill err">FAILED</span>`;
+      return `<div class="card">
+        <div class="head"><span class="tool">${esc(t.tool)}</span>${pill}<span class="src">${esc(t.source)}</span></div>
+        <div class="body">${t.ok ? body(t) : `<pre>${esc(t.error)}</pre>`}</div>
+      </div>`;
+    }
+
+    function body(t) {
+      const d = t.data || {};
+      if (t.tool === "firmographics")
+        return Object.entries(d).filter(([k])=>k!=="wikidata_id")
+          .map(([k,v]) => `<div class="kv"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`).join("");
+      if (t.tool === "github_org")
+        return `<div class="kv"><span class="k">org</span><span>${esc(d.login)} · ${esc(d.public_repos)} public repos</span></div>
+          <div style="margin:.6rem 0">${(d.languages||[]).map(l=>`<span class="chip">${esc(l.name)} · ${l.repos}</span>`).join("")}</div>
+          ${(d.top_repos||[]).slice(0,5).map(r=>`<div class="hit"><a href="${esc(r.url)}" target="_blank">★ ${r.stars} · ${esc(r.name)}</a><div class="sn">${esc(r.description||"")}</div></div>`).join("")}`;
+      if (t.tool === "news")
+        return (d.articles||[]).map(a=>`<div class="hit"><a href="${esc(a.url)}" target="_blank">${esc(a.headline)}</a><div class="sn">${esc(a.date||"")} · ${esc(a.domain||"")}</div></div>`).join("") || "<pre>No articles.</pre>";
+      if (t.tool === "web_search")
+        return (d.answer ? `<div class="kv"><span class="k">answer</span><span>${esc(d.answer)}</span></div>` : "") +
+          (d.results||[]).map(r=>`<div class="hit"><a href="${esc(r.url)}" target="_blank">${esc(r.title)}</a><div class="sn">${esc(r.snippet)}</div></div>`).join("");
+      if (t.tool === "web_fetch")
+        return `<div class="kv"><span class="k">url</span><span>${esc(d.url)}</span></div><pre>${esc((d.text||"").slice(0,1500))}</pre>`;
+      return `<pre>${esc(JSON.stringify(d, null, 2))}</pre>`;
+    }
+
+    async function run() {
+      const company = $("company").value.trim();
+      if (!company) return;
+      $("run").disabled = true; $("out").innerHTML = "";
+      const t0 = Date.now();
+      const timer = setInterval(() => $("status").textContent = `Researching "${company}"… ${((Date.now()-t0)/1000).toFixed(1)}s`, 100);
+      try {
+        const res = await fetch(`/api/research/tools?company=${encodeURIComponent(company)}`);
+        clearInterval(timer);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        $("status").textContent = `Done in ${((Date.now()-t0)/1000).toFixed(1)}s · ${data.tools.length} tools`;
+        $("out").innerHTML = data.tools.map(renderTool).join("");
+      } catch (e) { clearInterval(timer); $("status").innerHTML = `<span style="color:var(--danger)">Error: ${esc(e.message)}</span>`; }
+      finally { $("run").disabled = false; }
+    }
+    $("run").addEventListener("click", run);
+    $("company").addEventListener("keydown", e => { if (e.key === "Enter") run(); });
+  </script>
+</body>
+</html>
