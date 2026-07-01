@@ -23,9 +23,12 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
 
+from core.research import ammo as ammo_engine
 from core.research import fit as fit_engine
+from core.research import reconcile as reconcile_engine
 from core.research.agent_base import Agent, AgentContext, AgentResult
 from core.research.agents import FLEET
+from db import queries
 from core.research.schema import (
     CompanyIntelReport,
     Culture,
@@ -44,17 +47,34 @@ async def stream_research(
     role_title: str | None = None,
     job_description: str | None = None,
     agents: list[Agent] | None = None,
+    refresh: bool = False,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Yield live events while researching, ending with the assembled report."""
+    """Yield live events while researching, ending with the assembled report.
+
+    A cached report (within its TTL) short-circuits the whole run unless
+    `refresh` is set, so a repeat lookup returns instantly.
+    """
     ctx = AgentContext(company_name, role_title, job_description)
+    key = _cache_key(company_name, role_title)
+
+    if not refresh:
+        cached = queries.get_research(key)
+        if cached is not None:
+            report = cached["report"]
+            report["meta"]["from_cache"] = True
+            yield {"type": "cached", "cached_at": cached["created_at"]}
+            yield {"type": "done", "report": report, "duration_s": 0.0}
+            return
+
     fleet = agents if agents is not None else [cls() for cls in FLEET]
     started_at = time.perf_counter()
 
     yield {
         "type": "phase",
         "phase": "gather",
-        "agents": [a.name for a in fleet] + ["fit"],  # fit is a local step, shown as a chip
-        "total": len(fleet) + 1,
+        # fit and ammo are local steps, shown as chips after the fleet.
+        "agents": [a.name for a in fleet] + ["fit", "ammo"],
+        "total": len(fleet) + 2,
     }
 
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -79,8 +99,11 @@ async def stream_research(
 
     report = _assemble(company_name, role_title, results, started_at)
 
+    # Reconcile: dedupe, score confidence/completeness, note missing sections.
+    reconcile_engine.reconcile(report)
+
     # Local analysis phase — private, on-device, no LLM, no network.
-    yield {"type": "phase", "phase": "analyze", "agents": ["fit"], "total": 1}
+    yield {"type": "phase", "phase": "analyze", "agents": ["fit", "ammo"], "total": 2}
     yield {"type": "agent_started", "agent": "fit", "section": "fit"}
     fit, tech_annotated = await asyncio.to_thread(
         fit_engine.compute_fit, report.role, report.tech_stack
@@ -95,12 +118,21 @@ async def stream_research(
         "sources": [{"label": "on-device · your profile (never sent)", "url": None}],
     }
 
-    report.meta.duration_s = round(time.perf_counter() - started_at, 2)
+    # Letter ammunition — composed locally from the report + fit.
+    yield {"type": "agent_started", "agent": "ammo", "section": "ammo"}
+    report.ammo = ammo_engine.build_hooks(report)
     yield {
-        "type": "done",
-        "report": report.model_dump(mode="json"),
-        "duration_s": report.meta.duration_s,
+        "type": "agent_done",
+        "agent": "ammo",
+        "section": "ammo",
+        "data": [h.model_dump(mode="json") for h in report.ammo],
+        "sources": [{"label": "on-device · derived from this report", "url": None}],
     }
+
+    report.meta.duration_s = round(time.perf_counter() - started_at, 2)
+    payload = report.model_dump(mode="json")
+    queries.save_research(key, company_name, role_title, payload)
+    yield {"type": "done", "report": payload, "duration_s": report.meta.duration_s}
 
 
 def _assemble(
@@ -141,6 +173,11 @@ def _assemble(
             agents=[name for name, r in results.items() if r.ok],
         ),
     )
+
+
+def _cache_key(company_name: str, role_title: str | None) -> str:
+    """Normalized cache key: company + role, lowercased and trimmed."""
+    return f"{company_name.strip().lower()}|{(role_title or '').strip().lower()}"
 
 
 def _dedupe(sources: list[Source]) -> list[Source]:
