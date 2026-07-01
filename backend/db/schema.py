@@ -242,6 +242,7 @@ _COLUMNS_ADDED = {
         "gemini_api_key": "TEXT NOT NULL DEFAULT ''",
         "ocr_enabled": "INTEGER NOT NULL DEFAULT 0",
         "github_token": "TEXT NOT NULL DEFAULT ''",
+        "mcp_servers": "TEXT NOT NULL DEFAULT '[]'",  # JSON: [{"name","url"}] MCP tool servers
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

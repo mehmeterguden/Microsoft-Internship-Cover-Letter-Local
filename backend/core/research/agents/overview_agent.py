@@ -26,14 +26,16 @@ class OverviewAgent(Agent):
     output_model = Overview
 
     def gather(self, ctx: AgentContext) -> list[ToolResult]:
-        search = registry.call(
-            "web_search",
-            query=f"{ctx.company_name} company mission about what they do",
-            max_results=5,
-        )
-        gathered = [search]
-        # Read the single most relevant page in full for grounding.
-        top_url = _first_url(search)
+        # Wikipedia gives a clean, neutral base; search + a full page read add depth.
+        gathered = [
+            registry.call("wikipedia", company_name=ctx.company_name),
+            registry.call(
+                "web_search",
+                query=f"{ctx.company_name} company mission about what they do",
+                max_results=5,
+            ),
+        ]
+        top_url = _first_url(gathered[1])
         if top_url:
             gathered.append(registry.call("web_fetch", url=top_url))
         return gathered

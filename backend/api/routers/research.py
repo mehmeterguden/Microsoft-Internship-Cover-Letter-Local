@@ -33,6 +33,15 @@ def cached_report(company: str = Query(..., min_length=1), role: str | None = No
     return {"cached_at": hit["created_at"], "report": hit["report"]}
 
 
+@router.get("/mcp", summary="Discover configured MCP servers and register their tools")
+def mcp_status() -> dict:
+    """Re-run MCP discovery against configured servers and report what registered."""
+    from core.research.tools import registry
+    from core.research.tools.mcp import register_mcp_tools
+
+    return {"servers": register_mcp_tools(registry), "tools": registry.names()}
+
+
 @router.post("/company", summary="Stream a company-intelligence report (SSE)")
 async def research_company(payload: ResearchInput) -> StreamingResponse:
     """Research a company and stream progress + the assembled report as SSE."""

@@ -30,7 +30,19 @@ async def lifespan(app: FastAPI):
     """Startup: ensure local storage exists. Shutdown: nothing to clean up."""
     init_db()             # create SQLite tables + seed settings if missing
     init_collections()    # create ChromaDB collections if missing
+    _load_mcp_tools()     # register any configured MCP servers' tools (no-op if none)
     yield
+
+
+def _load_mcp_tools() -> None:
+    """Register tools from configured MCP servers; never let a bad server block boot."""
+    try:
+        from core.research.tools import registry
+        from core.research.tools.mcp import register_mcp_tools
+
+        register_mcp_tools(registry)
+    except Exception:  # noqa: BLE001 — MCP is optional; boot must not depend on it
+        pass
 
 
 app = FastAPI(title="Cover Letter Local", version="0.1.0", lifespan=lifespan)

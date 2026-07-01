@@ -16,9 +16,10 @@ from core.research.tools import registry
 from core.research.tools.registry import ToolResult
 
 _SYSTEM = (
-    "You are a company-research analyst. From a list of recent news articles you "
-    "select the ones that would actually matter to a job applicant and explain why, "
-    "returning JSON. You keep the original dates and URLs; you never fabricate news."
+    "You are a company-research analyst. From recent news articles and developer "
+    "community discussions you select the ones that would actually matter to a job "
+    "applicant and explain why, returning JSON. You keep the original dates and URLs; "
+    "you never fabricate news."
 )
 
 
@@ -32,7 +33,10 @@ class SignalsAgent(Agent):
     output_model = _SignalList
 
     def gather(self, ctx: AgentContext) -> list[ToolResult]:
-        return [registry.call("news", company_name=ctx.company_name, max_results=12)]
+        return [
+            registry.call("news", company_name=ctx.company_name, max_results=12),
+            registry.call("hackernews", company_name=ctx.company_name, max_results=6),
+        ]
 
     def section_from(self, validated: _SignalList) -> list[NewsSignal]:
         return validated.signals
@@ -40,8 +44,8 @@ class SignalsAgent(Agent):
     def build_messages(self, ctx: AgentContext, gathered: list[ToolResult]) -> list[Message]:
         prompt = (
             f'Company: "{ctx.company_name}".\n\n'
-            f"Recent articles:\n{format_gathered(gathered)}\n\n"
-            "Pick up to 5 articles that genuinely matter to a job applicant "
+            f"Recent articles and Hacker News discussions:\n{format_gathered(gathered)}\n\n"
+            "Pick up to 5 items that genuinely matter to a job applicant "
             "(product launches, funding, strategy shifts, hiring, notable events). "
             "Drop tangential mentions and near-duplicates.\n\n"
             "Return ONLY:\n"
