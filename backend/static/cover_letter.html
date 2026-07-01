@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cover Letter — Cover Letter Local</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root{ --bg:#0a0908; --surface:#141210; --surface-2:#1b1815; --border:#2a2521; --border-2:#38322c;
+      --text:#f6f1e9; --muted:#a49a8d; --faint:#6f665b; --accent:#ff5b2e; --accent-2:#ff8a3d; --live:#3ddc84; --danger:#e5484d;
+      --font:"Schibsted Grotesk",system-ui,sans-serif; --serif:"Instrument Serif",Georgia,serif; --mono:"JetBrains Mono",monospace; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased;
+      background:radial-gradient(900px 520px at 82% -10%,rgba(255,91,46,.13),transparent 60%),var(--bg);min-height:100vh}
+    i[data-lucide]{width:1em;height:1em;stroke-width:2;vertical-align:-2px}
+    .wrap{max-width:900px;margin:0 auto;padding:2.5rem 1.25rem 6rem}
+    .brand{display:flex;align-items:center;gap:.6rem;font-weight:700;letter-spacing:-.02em}
+    .glyph{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--serif);
+      font-style:italic;background:linear-gradient(150deg,var(--accent-2),var(--accent))}
+    h1{font-size:2.2rem;letter-spacing:-.03em;font-weight:800;margin:.6rem 0 .2rem}
+    h1 .em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--accent)}
+    .sub{color:var(--muted);margin-bottom:1.6rem}
+    .nav{font-family:var(--mono);font-size:.8rem;margin-bottom:1.5rem}.nav a{color:var(--faint);text-decoration:none;margin-right:1rem}.nav a:hover{color:var(--accent)}
+    .form{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.2rem;margin-bottom:1.4rem}
+    .row{display:flex;gap:.7rem;flex-wrap:wrap}
+    .field{flex:1;min-width:190px;display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem}
+    label{font-size:.78rem;font-weight:600;color:var(--muted)}
+    input,textarea,select{font:inherit;padding:.7rem .85rem;border-radius:10px;border:1px solid var(--border-2);
+      background:var(--surface-2);color:var(--text);width:100%;resize:vertical}
+    input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,91,46,.15)}
+    .btn{font-family:var(--font);font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:10px;
+      padding:.8rem 1.4rem;cursor:pointer;font-size:.98rem;display:inline-flex;align-items:center;gap:.5rem}
+    .btn:hover{background:var(--accent-2)} .btn:disabled{opacity:.5;cursor:default}
+    .status{min-height:1.3rem;font-family:var(--mono);font-size:.8rem;color:var(--muted);margin:.3rem 0 1rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+    .pill{font-family:var(--mono);font-size:.72rem;padding:.2rem .55rem;border-radius:999px;border:1px solid var(--border);color:var(--faint)}
+    .pill.on{color:var(--live);border-color:rgba(61,220,132,.3);background:rgba(61,220,132,.1)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--live);animation:pulse 1.4s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+    /* the letter — read-only, streams in */
+    .letter{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:2.2rem 2.4rem;min-height:220px;
+      font-size:1.05rem;line-height:1.85;white-space:pre-wrap;font-family:var(--serif)}
+    .letter:empty::before{content:"The letter will stream in here…";color:var(--faint);font-family:var(--font);font-size:.95rem}
+    .caret{display:inline-block;width:2px;height:1.1em;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(2) infinite}
+    @keyframes blink{50%{opacity:0}}
+    .note{font-family:var(--mono);font-size:.72rem;color:var(--faint);margin-top:1.2rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><span class="glyph">C</span> Cover Letter Local</div>
+    <h1>Write the <span class="em">letter</span>.</h1>
+    <p class="sub">Streams token by token from your local profile — and the company research, if you've run it.</p>
+    <div class="nav"><a href="/research">research</a><a href="/settings">settings</a><a href="/docs">api</a></div>
+
+    <div class="form">
+      <div class="row">
+        <div class="field"><label>Company *</label><input id="company" placeholder="Vercel" value="Vercel" /></div>
+        <div class="field"><label>Role title</label><input id="role" placeholder="Senior Frontend Engineer" value="Senior Frontend Engineer" /></div>
+        <div class="field" style="max-width:170px"><label>Tone</label>
+          <select id="tone"><option value="professional">Professional</option><option value="warm">Warm</option>
+            <option value="confident">Confident</option><option value="concise">Concise</option></select></div>
+      </div>
+      <div class="field"><label>Job description (optional)</label><textarea id="jd" rows="3" placeholder="Paste the posting for a sharper letter…"></textarea></div>
+      <button class="btn" id="run"><i data-lucide="pen-line"></i> Generate letter</button>
+    </div>
+
+    <div class="status" id="status"></div>
+    <div class="letter" id="letter"></div>
+    <p class="note">Streaming test harness — read-only. Tip: run <a href="/research" style="color:var(--faint)">/research</a> for this company first, and the letter will use its fit + hooks.</p>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    const $ = id => document.getElementById(id);
+    let t0 = 0, timer = null, caret = null;
+
+    async function run() {
+      const company = $("company").value.trim(); if (!company) return;
+      $("run").disabled = true; $("letter").textContent = ""; $("status").innerHTML = "";
+      caret = document.createElement("span"); caret.className = "caret";
+      t0 = Date.now();
+      timer = setInterval(() => { const el = $("elapsed"); if (el) el.textContent = ((Date.now()-t0)/1000).toFixed(1)+"s"; }, 100);
+      try {
+        const res = await fetch("/api/cover-letter/generate", { method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ company_name: company, role_title: $("role").value.trim() || null,
+            job_description: $("jd").value.trim() || null, tone: $("tone").value }) });
+        if (!res.ok) throw new Error(await res.text());
+        const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
+        while (true) {
+          const { value, done } = await reader.read(); if (done) break;
+          buf += dec.decode(value, { stream:true }); let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) { const chunk = buf.slice(0, i); buf = buf.slice(i+2);
+            if (chunk.startsWith("data: ")) handle(JSON.parse(chunk.slice(6))); }
+        }
+      } catch (e) { clearInterval(timer); $("status").innerHTML = `<span style="color:var(--danger)">Error: ${e.message}</span>`; }
+      finally { $("run").disabled = false; if (caret) caret.remove(); }
+    }
+
+    function handle(ev) {
+      if (ev.type === "start") {
+        $("status").innerHTML = `<span class="dot"></span><span>generating… <b id="elapsed">0.0s</b></span>
+          <span class="pill ${ev.has_profile?'on':''}">${ev.has_profile?'✓ profile':'no profile'}</span>
+          <span class="pill ${ev.used_research?'on':''}">${ev.used_research?'✓ using research':'no cached research'}</span>
+          <span class="pill">${ev.tone}</span>`;
+        $("letter").appendChild(caret);
+      } else if (ev.type === "token") {
+        caret.insertAdjacentText("beforebegin", ev.text);
+      } else if (ev.type === "done") {
+        clearInterval(timer); if (caret) caret.remove();
+        $("status").innerHTML = `<span class="pill on"><i data-lucide="check"></i> done · ~${ev.approx_words} words · ${((Date.now()-t0)/1000).toFixed(1)}s</span>`;
+        lucide.createIcons();
+      } else if (ev.type === "fatal") {
+        clearInterval(timer); if (caret) caret.remove();
+        $("status").innerHTML = `<span style="color:var(--danger)">Error: ${ev.error}</span>`;
+      }
+    }
+    $("run").addEventListener("click", run);
+  </script>
+</body>
+</html>

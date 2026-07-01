@@ -99,6 +99,12 @@ def research_tools_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "research_demo.html")
 
 
+@app.get("/write", include_in_schema=False)
+def write_page() -> FileResponse:
+    """Serve the streaming cover-letter generation page."""
+    return FileResponse(STATIC_DIR / "cover_letter.html")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Liveness check."""
