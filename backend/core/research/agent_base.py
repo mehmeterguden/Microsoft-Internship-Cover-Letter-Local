@@ -221,9 +221,11 @@ def provenance(gathered: list[ToolResult]) -> list[Source]:
                 out.append(Source(label=_domain(url), url=url))
         elif result.tool == "firmographics":
             out.append(Source(label="Wikidata", url=result.source))
+        elif result.tool == "wikipedia":
+            out.append(Source(label="Wikipedia", url=result.data.get("url") or result.source))
         elif result.tool == "github_org":
             out.append(Source(label=f"GitHub · {result.data.get('login', '')}", url=result.source))
-        elif result.tool != "news":
+        elif result.tool not in ("news", "hackernews"):  # these feed items that carry their own URLs
             out.append(
                 Source(label=result.source, url=result.source if result.source.startswith("http") else None)
             )
