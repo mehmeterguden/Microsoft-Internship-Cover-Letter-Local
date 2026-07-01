@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from db.schema import get_connection
@@ -231,5 +232,44 @@ def list_skill_links(skill_id: int | None = None) -> list[dict[str, Any]]:
                 "SELECT * FROM skill_links WHERE skill_id = ? ORDER BY id", (skill_id,)
             ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+# ── Company research cache ───────────────────────────────────────
+
+def get_research(cache_key: str) -> dict[str, Any] | None:
+    """Return a cached research row if present and not expired, else None."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM company_research_cache WHERE cache_key = ?", (cache_key,)
+        ).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        if data["expires_at"] <= datetime.now(timezone.utc).isoformat():
+            return None  # stale — treat as a miss (a refresh overwrites it)
+        data["report"] = json.loads(data["report"])
+        return data
+    finally:
+        conn.close()
+
+
+def save_research(
+    cache_key: str, company_name: str, role_title: str | None, report: dict[str, Any], ttl_days: int = 7
+) -> None:
+    """Store (or replace) a research report under its key with a TTL."""
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=ttl_days)
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT OR REPLACE INTO company_research_cache
+                   (cache_key, company_name, role_title, report, created_at, expires_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (cache_key, company_name, role_title, json.dumps(report), now.isoformat(), expires.isoformat()),
+        )
+        conn.commit()
     finally:
         conn.close()

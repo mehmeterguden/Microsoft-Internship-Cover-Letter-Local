@@ -17,13 +17,16 @@ from core.research.schema import Fit, Firmographics, NewsSignal, Source
 
 
 @pytest.fixture(autouse=True)
-def _stub_fit(monkeypatch):
-    # Fit reads the local profile from the DB; stub it so orchestrator tests stay hermetic.
+def _hermetic(monkeypatch):
+    # Fit reads the local profile and the cache hits the DB; stub both so
+    # orchestrator tests stay hermetic (no DB, no network).
     monkeypatch.setattr(
         orchestrator.fit_engine,
         "compute_fit",
         lambda role, tech, profile=None: (Fit(score=90, verdict="STRONG MATCH"), tech),
     )
+    monkeypatch.setattr(orchestrator.queries, "get_research", lambda key: None)
+    monkeypatch.setattr(orchestrator.queries, "save_research", lambda *a, **k: None)
 
 
 class _FakeAgent(Agent):
@@ -67,11 +70,12 @@ def test_stream_emits_phase_then_agent_events_then_done():
     ]
     events = _collect(company_name="Acme", agents=agents)
 
-    assert events[0]["type"] == "phase" and events[0]["total"] == 3  # 2 agents + local fit
+    assert events[0]["type"] == "phase" and events[0]["total"] == 4  # 2 agents + fit + ammo
     assert events[-1]["type"] == "done"
     assert {e["type"] for e in events} >= {"agent_started", "source", "agent_done"}
-    # The local fit step ran and produced a fit section.
-    assert any(e.get("agent") == "fit" and e["type"] == "agent_done" for e in events)
+    # The local fit and ammo steps ran.
+    dones = {e.get("agent") for e in events if e["type"] == "agent_done"}
+    assert {"fit", "ammo"} <= dones
     assert events[-1]["report"]["fit"]["verdict"] == "STRONG MATCH"
 
 
@@ -85,8 +89,10 @@ def test_done_report_folds_in_agent_sections():
     assert report["company_name"] == "Acme"
     assert report["firmographics"]["hq"] == "Redmond"
     assert report["signals"][0]["headline"] == "Ships TS 6.0"
-    assert report["meta"]["confidence"] == 1.0
     assert set(report["meta"]["agents"]) == {"firmographics", "signals"}
+    # reconcile scored coverage: 2 of 8 sections filled.
+    assert report["meta"]["completeness"] == round(2 / 8, 2)
+    assert report["ammo"] is not None  # ammo section built
 
 
 def test_failed_agent_leaves_section_empty_but_report_valid():
@@ -96,6 +102,6 @@ def test_failed_agent_leaves_section_empty_but_report_valid():
     ]
     report = _collect(company_name="Acme", agents=agents)[-1]["report"]
 
-    assert report["firmographics"]["hq"] is None       # empty default
+    assert report["firmographics"]["hq"] is None        # empty default
     assert report["signals"][0]["headline"] == "Only signal"
-    assert report["meta"]["confidence"] == 0.5          # one of two succeeded
+    assert "firm facts" in report["meta"]["missing"]    # failed section flagged by the critic

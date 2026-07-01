@@ -13,14 +13,24 @@ from __future__ import annotations
 import json
 import time
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from core.research.orchestrator import stream_research
+from core.research.orchestrator import _cache_key, stream_research
 from core.research.schema import ResearchInput
 from core.research.tools import registry
+from db import queries
 
 router = APIRouter(prefix="/research", tags=["research"])
+
+
+@router.get("/cached", summary="Return a cached report if one exists (within TTL)")
+def cached_report(company: str = Query(..., min_length=1), role: str | None = None) -> dict:
+    """Fetch a previously cached report for company+role, or 404 if none/expired."""
+    hit = queries.get_research(_cache_key(company, role))
+    if hit is None:
+        raise HTTPException(status_code=404, detail="No cached report for this company/role.")
+    return {"cached_at": hit["created_at"], "report": hit["report"]}
 
 
 @router.post("/company", summary="Stream a company-intelligence report (SSE)")
@@ -33,6 +43,7 @@ async def research_company(payload: ResearchInput) -> StreamingResponse:
                 company_name=payload.company_name,
                 role_title=payload.role_title,
                 job_description=payload.job_description,
+                refresh=payload.refresh,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as exc:  # noqa: BLE001 — surface a fatal error to the client, then end
