@@ -12,7 +12,15 @@ to call what — that is orchestration, which lives elsewhere.
 
 from __future__ import annotations
 
-from core.research.tools import firmographics, github_org, news, web_fetch, web_search
+from core.research.tools import (
+    firmographics,
+    github_org,
+    hackernews,
+    news,
+    web_fetch,
+    web_search,
+    wikipedia,
+)
 from core.research.tools.registry import Tool, ToolRegistry, ToolResult
 
 # The process-wide registry, populated once at import.
@@ -42,6 +50,16 @@ registry.register(
     "github_org",
     "The company's public GitHub org: top repos and language mix (open-source posture).",
     github_org.profile,
+)
+registry.register(
+    "hackernews",
+    "Most-discussed Hacker News stories mentioning the company (developer sentiment).",
+    hackernews.discussions,
+)
+registry.register(
+    "wikipedia",
+    "A clean, neutral company summary from Wikipedia (grounding for the overview).",
+    wikipedia.summary,
 )
 
 __all__ = ["registry", "Tool", "ToolRegistry", "ToolResult"]
