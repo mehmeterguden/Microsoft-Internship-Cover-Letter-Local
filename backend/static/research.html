@@ -85,6 +85,16 @@
       border:1px solid var(--border);color:var(--muted)}
     .tag.key{color:var(--accent);border-color:rgba(255,91,46,.35);background:rgba(255,91,46,.08)}
 
+    /* per-section sources */
+    .sources{margin-top:1.1rem;padding-top:.9rem;border-top:1px dashed var(--border)}
+    .sources .lbl{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+      display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem}
+    .src-chip{display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted);text-decoration:none;
+      background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:.3rem .55rem;margin:.15rem .3rem .15rem 0;max-width:280px}
+    .src-chip:hover{color:var(--accent);border-color:rgba(255,91,46,.35)}
+    .src-chip .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .src-chip i{color:var(--faint);flex:none}
+
     /* meta footer */
     .meta{display:none;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid var(--border);
       font-family:var(--mono);font-size:.78rem;color:var(--faint)}
@@ -146,17 +156,29 @@
       if (ev.type === "phase") { total = ev.total; setChips(ev.agents); $("phase").textContent = "Gathering from " + ev.total + " agents…"; }
       else if (ev.type === "agent_started") chipState(ev.agent, "running");
       else if (ev.type === "agent_done") { chipState(ev.agent, "done"); done++; $("bar").style.width = (done/total*100)+"%";
-        renderSection(ev.section, ev.data); }
+        renderSection(ev.section, ev.data, ev.sources); }
       else if (ev.type === "agent_error") { chipState(ev.agent, "error"); done++; $("bar").style.width = (done/total*100)+"%"; }
       else if (ev.type === "done") finish(ev);
       else if (ev.type === "fatal") { $("phase").innerHTML = `<span style="color:var(--danger)">Error: ${esc(ev.error)}</span>`; }
     }
 
-    function renderSection(section, data) {
+    function renderSection(section, data, sources) {
       const fn = SECT[section]; if (!fn) return;
       const html = fn(data); if (!html) return;
-      const div = document.createElement("div"); div.className = "card"; div.innerHTML = html;
+      const div = document.createElement("div"); div.className = "card";
+      div.innerHTML = html + renderSources(sources);
       $("report").appendChild(div); lucide.createIcons();
+    }
+
+    function renderSources(sources) {
+      if (!sources || !sources.length) return "";
+      const chips = sources.map(s => {
+        const label = esc(s.label || s.url || "source");
+        return s.url
+          ? `<a class="src-chip" href="${esc(s.url)}" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i><span class="t">${label}</span></a>`
+          : `<span class="src-chip"><i data-lucide="database"></i><span class="t">${label}</span></span>`;
+      }).join("");
+      return `<div class="sources"><div class="lbl"><i data-lucide="link-2"></i> Sources — where this came from</div>${chips}</div>`;
     }
 
     function head(icon, title) { return `<h2><i data-lucide="${icon}"></i> ${title}<span class="r">● gathered on-device</span></h2>`; }

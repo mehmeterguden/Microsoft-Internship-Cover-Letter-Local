@@ -146,7 +146,8 @@ class LetterHook(BaseModel):
 
 
 class ReportMeta(BaseModel):
-    sources: list[Source] = Field(default_factory=list)
+    sources: list[Source] = Field(default_factory=list)          # every source, deduped
+    section_sources: dict[str, list[Source]] = Field(default_factory=dict)  # per section
     confidence: Confidence = 0.0
     gathered_at: str | None = None   # ISO timestamp, stamped by the caller
     duration_s: float | None = None

@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import urllib.parse
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -96,12 +97,13 @@ class Agent(ABC):
         await emit({"type": "agent_started", "agent": self.name, "section": self.section})
 
         gathered = await asyncio.to_thread(self._gather_safe, ctx)
-        sources: list[Source] = []
         for result in gathered:
-            sources.append(Source(label=result.source, url=_source_url(result)))
             await emit(
                 {"type": "source", "agent": self.name, "source": result.source, "ok": result.ok}
             )
+        # Provenance = the actual URLs this agent consulted (deterministic, never
+        # invented). Shown under the section so every fact is traceable.
+        sources = provenance(gathered)
 
         try:
             async with _llm_gate:
@@ -117,6 +119,7 @@ class Agent(ABC):
                 "agent": self.name,
                 "section": self.section,
                 "data": _dump(section),
+                "sources": [s.model_dump() for s in sources],
             }
         )
         return AgentResult(self.name, self.section, section, sources, ok=True)
@@ -181,8 +184,53 @@ def _dump(section: Any) -> Any:
     return section
 
 
-def _source_url(result: ToolResult) -> str | None:
-    return result.source if result.source.startswith("http") else None
+def provenance(gathered: list[ToolResult]) -> list[Source]:
+    """Extract the concrete, clickable sources an agent consulted — deduped.
+
+    Pulls the real URLs out of each tool's payload (search hits, the fetched page,
+    the Wikidata entity, the GitHub org) so a section can show exactly where its
+    facts came from. News is skipped here — each signal already carries its own URL.
+    """
+    out: list[Source] = []
+    for result in gathered:
+        if not result.ok or not result.data:
+            continue
+        if result.tool == "web_search":
+            for hit in result.data.get("results", [])[:6]:
+                url = hit.get("url")
+                if url:
+                    out.append(Source(label=hit.get("title") or _domain(url), url=url))
+        elif result.tool == "web_fetch":
+            url = result.data.get("url")
+            if url:
+                out.append(Source(label=_domain(url), url=url))
+        elif result.tool == "firmographics":
+            out.append(Source(label="Wikidata", url=result.source))
+        elif result.tool == "github_org":
+            out.append(Source(label=f"GitHub · {result.data.get('login', '')}", url=result.source))
+        elif result.tool != "news":
+            out.append(
+                Source(label=result.source, url=result.source if result.source.startswith("http") else None)
+            )
+    return _dedupe_sources(out)
+
+
+def _domain(url: str) -> str:
+    try:
+        return urllib.parse.urlparse(url).netloc.removeprefix("www.") or url
+    except ValueError:
+        return url
+
+
+def _dedupe_sources(sources: list[Source]) -> list[Source]:
+    seen: set[tuple[str, str | None]] = set()
+    out: list[Source] = []
+    for source in sources:
+        key = (source.label, source.url)
+        if key not in seen:
+            seen.add(key)
+            out.append(source)
+    return out
 
 
 def format_gathered(gathered: list[ToolResult]) -> str:
