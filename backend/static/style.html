@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your Voice — Cover Letter Local</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root{ --bg:#0a0908; --surface:#141210; --surface-2:#1b1815; --border:#2a2521; --border-2:#38322c;
+      --text:#f6f1e9; --muted:#a49a8d; --faint:#6f665b; --accent:#ff5b2e; --accent-2:#ff8a3d; --live:#3ddc84; --danger:#e5484d; --gold:#e0a12b;
+      --font:"Schibsted Grotesk",system-ui,sans-serif; --serif:"Instrument Serif",Georgia,serif; --mono:"JetBrains Mono",monospace; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased;
+      background:radial-gradient(900px 520px at 82% -10%,rgba(255,91,46,.13),transparent 60%),var(--bg);min-height:100vh}
+    i[data-lucide]{width:1em;height:1em;stroke-width:2;vertical-align:-2px}
+    .wrap{max-width:920px;margin:0 auto;padding:2.5rem 1.25rem 6rem}
+    .brand{display:flex;align-items:center;gap:.6rem;font-weight:700;letter-spacing:-.02em}
+    .glyph{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--serif);
+      font-style:italic;background:linear-gradient(150deg,var(--accent-2),var(--accent))}
+    h1{font-size:2.2rem;letter-spacing:-.03em;font-weight:800;margin:.6rem 0 .2rem}
+    h1 .em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--accent)}
+    .sub{color:var(--muted);margin-bottom:1.6rem}
+    .nav{font-family:var(--mono);font-size:.8rem;margin-bottom:1.5rem}.nav a{color:var(--faint);text-decoration:none;margin-right:1rem}.nav a:hover{color:var(--accent)}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.3rem;margin-bottom:1.2rem}
+    h2{font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+    label{font-size:.78rem;font-weight:600;color:var(--muted);display:block;margin-bottom:.35rem}
+    textarea,select{font:inherit;padding:.7rem .85rem;border-radius:10px;border:1px solid var(--border-2);
+      background:var(--surface-2);color:var(--text);width:100%;resize:vertical}
+    textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,91,46,.15)}
+    .rowb{display:flex;gap:.7rem;align-items:flex-end;margin-top:.7rem;flex-wrap:wrap}
+    .btn{font-family:var(--font);font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:10px;
+      padding:.7rem 1.2rem;cursor:pointer;font-size:.95rem;display:inline-flex;align-items:center;gap:.5rem}
+    .btn:hover{background:var(--accent-2)} .btn:disabled{opacity:.5;cursor:default}
+    .btn.ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2)}
+    .btn.ghost:hover{background:var(--border)}
+    .letter{border:1px solid var(--border);border-radius:12px;padding:.9rem 1rem;margin-bottom:.7rem;background:var(--surface-2)}
+    .letter .top{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
+    .stars{color:var(--gold);letter-spacing:1px;font-size:.85rem}
+    .letter .ex{color:var(--muted);font-size:.9rem;line-height:1.6;font-family:var(--serif);font-size:1rem}
+    .del{margin-left:auto;background:none;border:none;color:var(--faint);cursor:pointer;font-size:.9rem}
+    .del:hover{color:var(--danger)}
+    .empty{color:var(--faint);font-size:.9rem;font-family:var(--mono)}
+    .status{min-height:1.3rem;font-family:var(--mono);font-size:.82rem;color:var(--muted);margin:.4rem 0}
+    /* learned panel */
+    .learned{border:1px solid rgba(61,220,132,.3);background:rgba(61,220,132,.05)}
+    .learned h2{color:var(--live)}
+    .trait{display:flex;gap:1rem;padding:.55rem 0;border-bottom:1px dashed var(--border)}
+    .trait:last-child{border:none}
+    .trait .k{font-family:var(--mono);font-size:.78rem;color:var(--faint);min-width:150px;display:flex;align-items:center;gap:.45rem}
+    .trait .v{font-family:var(--serif);font-size:1.15rem}
+    .meta{font-family:var(--mono);font-size:.75rem;color:var(--faint);margin-top:1rem;display:flex;gap:1rem;flex-wrap:wrap}
+    .meta .on{color:var(--live)}
+    .hint{font-family:var(--mono);font-size:.72rem;color:var(--faint);margin-top:.6rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><span class="glyph">C</span> Cover Letter Local</div>
+    <h1>Your <span class="em">voice</span>.</h1>
+    <p class="sub">Add cover letters you've written before. The app learns your voice locally — and tells you what it found.</p>
+    <div class="nav"><a href="/write">write</a><a href="/research">research</a><a href="/settings">settings</a><a href="/docs">api</a></div>
+
+    <!-- Add -->
+    <div class="card">
+      <h2><i data-lucide="plus-circle"></i> Add a past letter</h2>
+      <label>Paste a cover letter you wrote before</label>
+      <textarea id="content" rows="6" placeholder="Paste the full text of one of your past cover letters…"></textarea>
+      <div class="rowb">
+        <div style="max-width:170px"><label>How good was it?</label>
+          <select id="rating"><option value="5">★★★★★ excellent</option><option value="4">★★★★ good</option>
+            <option value="3">★★★ ok</option><option value="2">★★ weak</option><option value="1">★ poor</option></select></div>
+        <button class="btn" id="add"><i data-lucide="plus"></i> Add letter</button>
+        <span class="status" id="addStatus"></span>
+      </div>
+      <div class="hint">Higher-rated letters weigh more — your best one sets the opening style.</div>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+      <h2><i data-lucide="files"></i> Your letters (<span id="count">0</span>)</h2>
+      <div id="list"><div class="empty">Loading…</div></div>
+      <div class="rowb" style="margin-top:1rem">
+        <button class="btn" id="learn"><i data-lucide="sparkles"></i> Learn from these</button>
+        <span class="status" id="learnStatus"></span>
+      </div>
+    </div>
+
+    <!-- Learned -->
+    <div class="card learned" id="learnedCard" style="display:none">
+      <h2><i data-lucide="brain"></i> What I learned from your writing</h2>
+      <div id="learned"></div>
+      <div class="meta" id="learnedMeta"></div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    const $ = id => document.getElementById(id);
+    const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+    const stars = n => "★".repeat(n) + "☆".repeat(5-n);
+
+    async function loadLetters() {
+      const res = await fetch("/api/past-cover-letters");
+      const letters = await res.json();
+      $("count").textContent = letters.length;
+      $("list").innerHTML = letters.length ? letters.map(l => `
+        <div class="letter">
+          <div class="top"><span class="stars">${stars(l.user_rating || l.ai_rating || 3)}</span>
+            <button class="del" onclick="delLetter(${l.id})"><i data-lucide="trash-2"></i> remove</button></div>
+          <div class="ex">${esc((l.content||"").slice(0,180))}${(l.content||"").length>180?"…":""}</div>
+        </div>`).join("") : `<div class="empty">No letters yet — add one above to get started.</div>`;
+      lucide.createIcons();
+    }
+
+    async function addLetter() {
+      const content = $("content").value.trim();
+      if (content.length < 40) { $("addStatus").textContent = "Paste a bit more text (40+ chars)."; return; }
+      $("add").disabled = true; $("addStatus").textContent = "Adding…";
+      try {
+        const res = await fetch("/api/past-cover-letters", { method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ content, user_rating: Number($("rating").value) }) });
+        if (!res.ok) throw new Error(await res.text());
+        $("content").value = ""; $("addStatus").textContent = "✓ added";
+        await loadLetters();
+      } catch (e) { $("addStatus").innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`; }
+      finally { $("add").disabled = false; }
+    }
+
+    async function delLetter(id) {
+      await fetch(`/api/past-cover-letters/${id}`, { method:"DELETE" });
+      await loadLetters();
+    }
+
+    async function learn() {
+      $("learn").disabled = true; $("learnStatus").textContent = "Analyzing your voice locally… (first run loads the model)";
+      try {
+        const res = await fetch("/api/style/learn", { method:"POST" });
+        if (!res.ok) throw new Error(await res.text());
+        renderLearned(await res.json());
+        $("learnStatus").textContent = "";
+      } catch (e) { $("learnStatus").innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`; }
+      finally { $("learn").disabled = false; }
+    }
+
+    const TRAITS = [
+      ["tone", "Tone", "smile"], ["sentence_style", "Sentences", "align-left"],
+      ["pronoun_style", "Pronouns", "user"], ["length", "Typical length", "ruler"],
+      ["opening_style", "Opening habit", "flag"],
+    ];
+
+    function renderLearned(data) {
+      const sp = data.style_profile;
+      if (!sp) { $("learnedCard").style.display = "block";
+        $("learned").innerHTML = `<div class="empty">Add at least one letter, then learn.</div>`; $("learnedMeta").innerHTML=""; return; }
+      $("learnedCard").style.display = "block";
+      $("learned").innerHTML = TRAITS.map(([k,label,icon]) => `
+        <div class="trait"><span class="k"><i data-lucide="${icon}"></i> ${label}</span>
+          <span class="v">${esc(sp[k])}${k==="length"&&sp.word_count?` · ~${sp.word_count} words`:""}</span></div>`).join("");
+      const samples = data.samples ?? "";
+      const emb = data.embeddings ?? data.embeddings_available;
+      $("learnedMeta").innerHTML =
+        `<span>learned from ${samples} letter(s)</span>` +
+        (data.chunks_indexed!=null?`<span>· ${data.chunks_indexed} passages indexed</span>`:"") +
+        `<span class="${emb?'on':''}">· ${emb?'✓ voice retrieval on (embeddings)':'metrics only'}</span>` +
+        `<span>· 100% on-device</span>`;
+      lucide.createIcons();
+    }
+
+    $("add").addEventListener("click", addLetter);
+    $("learn").addEventListener("click", learn);
+    $("content").addEventListener("keydown", e => { if (e.key==="Enter" && (e.metaKey||e.ctrlKey)) addLetter(); });
+    // On load: show letters + any style already learned.
+    loadLetters();
+    fetch("/api/style").then(r=>r.json()).then(d => { if (d.style_profile) renderLearned(d); }).catch(()=>{});
+  </script>
+</body>
+</html>
