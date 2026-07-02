@@ -63,3 +63,48 @@ def init_collections() -> None:
     client = get_client()
     for name in COLLECTIONS:
         client.get_or_create_collection(name)
+
+
+# ── Low-level ops (embeddings are produced elsewhere and passed in) ──
+
+def delete_where(name: str, where: dict) -> None:
+    """Remove documents matching a metadata filter (idempotent)."""
+    collection = get_collection(name)
+    try:
+        collection.delete(where=where)
+    except Exception:  # noqa: BLE001 — deleting from an empty/absent set is a no-op
+        pass
+
+
+def add(
+    name: str,
+    ids: list[str],
+    documents: list[str],
+    embeddings: list[list[float]],
+    metadatas: list[dict],
+) -> None:
+    """Upsert documents with their precomputed embeddings and metadata."""
+    if not ids:
+        return
+    get_collection(name).upsert(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
+
+
+def query(
+    name: str, query_embedding: list[float], *, n_results: int = 3, where: dict | None = None
+) -> list[dict]:
+    """Return the nearest documents to an embedding as [{document, metadata, distance}]."""
+    collection = get_collection(name)
+    if collection.count() == 0:
+        return []
+    result = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=min(n_results, collection.count()),
+        where=where or None,
+    )
+    docs = (result.get("documents") or [[]])[0]
+    metas = (result.get("metadatas") or [[]])[0]
+    dists = (result.get("distances") or [[]])[0]
+    return [
+        {"document": d, "metadata": m, "distance": dist}
+        for d, m, dist in zip(docs, metas, dists)
+    ]

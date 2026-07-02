@@ -102,6 +102,7 @@
         $("status").innerHTML = `<span class="dot"></span><span>generating… <b id="elapsed">0.0s</b></span>
           <span class="pill ${ev.has_profile?'on':''}">${ev.has_profile?'✓ profile':'no profile'}</span>
           <span class="pill ${ev.used_research?'on':''}">${ev.used_research?'✓ using research':'no cached research'}</span>
+          <span class="pill ${ev.used_style?'on':''}">${ev.used_style?'✓ your voice'+(ev.voice_samples?' ('+ev.voice_samples+')':''):'no style learned'}</span>
           <span class="pill">${ev.tone}</span>`;
         $("letter").appendChild(caret);
       } else if (ev.type === "token") {
