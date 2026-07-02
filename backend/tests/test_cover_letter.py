@@ -40,9 +40,13 @@ def test_unknown_tone_falls_back_to_professional():
 
 # ── streaming flow ──
 
+_NO_STYLE = {"has_style": False, "guide": None, "exemplars": []}
+
+
 def test_stream_emits_start_tokens_then_done(monkeypatch):
     monkeypatch.setattr(cover_letter, "_load_profile_context", lambda: ("Name: Jane", True))
     monkeypatch.setattr(cover_letter, "_load_research_context", lambda c, r: "They value: Craft")
+    monkeypatch.setattr(cover_letter.style, "style_context", lambda q: _NO_STYLE)
     monkeypatch.setattr(cover_letter.llm, "stream", lambda *a, **k: iter(["Dear ", "Vercel", " team"]))
 
     events = list(cover_letter.stream("Vercel", "Engineer"))
@@ -57,6 +61,7 @@ def test_stream_emits_start_tokens_then_done(monkeypatch):
 def test_stream_without_profile_or_research(monkeypatch):
     monkeypatch.setattr(cover_letter, "_load_profile_context", lambda: ("", False))
     monkeypatch.setattr(cover_letter, "_load_research_context", lambda c, r: None)
+    monkeypatch.setattr(cover_letter.style, "style_context", lambda q: _NO_STYLE)
     monkeypatch.setattr(cover_letter.llm, "stream", lambda *a, **k: iter(["Hello."]))
 
     events = list(cover_letter.stream("Acme"))

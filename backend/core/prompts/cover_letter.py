@@ -27,6 +27,7 @@ Hard rules:
 - Structure, as flowing paragraphs (no bullet lists, no headings): a hook → why the applicant is a strong fit, with concrete evidence from the profile → why this company specifically (use the research context) → a confident, brief close.
 - About 250–350 words. No placeholders like [Company] — use the real names given.
 - If RESEARCH CONTEXT is provided, weave in the company's mission/values and the letter hooks naturally — do not quote them back mechanically. If fit gaps are noted, you may frame growth briefly and honestly, but do not dwell on weaknesses.
+- If an APPLICANT'S WRITING VOICE section is provided, mirror its tone, rhythm and phrasing so the letter reads unmistakably like this person — but never copy its content; write fresh material for this specific job.
 
 Output ONLY the letter itself, from the greeting through the sign-off. No preamble, no explanations, no notes."""
 
@@ -38,6 +39,8 @@ def build_messages(
     job_description: str | None,
     research_context: str | None,
     tone: str = "professional",
+    style_guide: str | None = None,
+    style_exemplars: list[str] | None = None,
 ) -> list[Message]:
     """Build the system+user messages for a cover-letter generation."""
     tone_line = TONES.get(tone, TONES["professional"])
@@ -54,6 +57,13 @@ def build_messages(
         parts += ["", "Job description:", job_description.strip()[:6000]]
     if research_context:
         parts += ["", "=== RESEARCH CONTEXT (about the company — use it) ===", research_context]
+
+    if style_guide or style_exemplars:
+        parts += ["", "=== APPLICANT'S WRITING VOICE (match this style, not the content) ==="]
+        if style_guide:
+            parts.append(style_guide)
+        for i, sample in enumerate(style_exemplars or [], 1):
+            parts += ["", f"Voice sample {i} (from the applicant's own past writing):", sample.strip()[:900]]
 
     parts += ["", f"Write the cover letter for {company_name} now."]
 

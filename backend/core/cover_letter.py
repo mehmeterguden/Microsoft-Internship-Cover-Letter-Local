@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from core import llm
+from core import llm, style
 from core.prompts.cover_letter import build_messages
 from core.research.orchestrator import _cache_key
 from db import queries
@@ -38,15 +38,19 @@ def stream(
     """
     profile_context, has_profile = _load_profile_context()
     research_context = _load_research_context(company_name, role_title)
+    voice = style.style_context(f"{role_title or ''} at {company_name}. {job_description or ''}")
 
     messages = build_messages(
-        profile_context, company_name, role_title, job_description, research_context, tone
+        profile_context, company_name, role_title, job_description, research_context, tone,
+        style_guide=voice["guide"], style_exemplars=voice["exemplars"],
     )
 
     yield {
         "type": "start",
         "has_profile": has_profile,
         "used_research": research_context is not None,
+        "used_style": voice["has_style"],
+        "voice_samples": len(voice["exemplars"]),
         "tone": tone if tone in {"professional", "warm", "confident", "concise"} else "professional",
     }
 
