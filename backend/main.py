@@ -105,6 +105,12 @@ def write_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "cover_letter.html")
 
 
+@app.get("/voice", include_in_schema=False)
+def voice_page() -> FileResponse:
+    """Serve the writing-style page: add past letters, see what was learned."""
+    return FileResponse(STATIC_DIR / "style.html")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Liveness check."""
