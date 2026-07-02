@@ -91,6 +91,35 @@ class StyleProfile(BaseModel):
     sentence_style: str
 
 
+class VoiceProfile(BaseModel):
+    """A deep, reproducible fingerprint of how the applicant writes and thinks.
+
+    Local metrics (always present) plus a rich, LLM-derived analysis (empty when
+    the analysis is unavailable). Stored as the profile's `style_profile` and fed
+    to generation so a new letter reads as if the applicant wrote it themselves.
+    """
+
+    # ── deterministic, local metrics ──
+    word_count: int | None = None
+    length: str = ""
+    sentence_style: str = ""
+    pronoun_style: str = ""
+
+    # ── deep, LLM-derived voice (grounded in the actual letters) ──
+    summary: str = ""                                        # how they write AND think
+    self_presentation: str = ""                              # how they frame themselves
+    tone: str = ""
+    signature_phrases: list[str] = Field(default_factory=list)
+    vocabulary: list[str] = Field(default_factory=list)
+    sentence_patterns: str = ""
+    rhetorical_moves: str = ""
+    emphasis: list[str] = Field(default_factory=list)
+    opening_habits: str = ""
+    closing_habits: str = ""
+    avoid: list[str] = Field(default_factory=list)
+    llm_analyzed: bool = False                               # was the deep analysis applied?
+
+
 class TechnicalSkillsMatch(BaseModel):
     score: Score
     matched: list[str] = []

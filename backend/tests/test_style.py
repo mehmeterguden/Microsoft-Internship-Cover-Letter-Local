@@ -1,13 +1,15 @@
-"""Tests for writing-style learning — analysis metrics, chunking, retrieval flow.
+"""Tests for writing-style learning — metrics, deep analysis, chunking, retrieval.
 
-No model, no DB: the sample text drives `analyze` directly, and embedding /
-vector-store calls are monkeypatched so exemplar logic is verified offline.
+The deep analysis (`_llm_voice`) and embeddings are monkeypatched, so everything
+runs offline and hermetic.
 """
 
 from __future__ import annotations
 
+import pytest
+
 from core import style
-from models import StyleProfile
+from models import VoiceProfile
 
 _WARM = (
     "I've always believed great tools feel invisible! When I built my first app, "
@@ -20,7 +22,13 @@ _FORMAL = (
 )
 
 
-# ── analysis ──
+@pytest.fixture(autouse=True)
+def _no_llm(monkeypatch):
+    # Default: no deep analysis, so analyze() returns metrics-only VoiceProfiles.
+    monkeypatch.setattr(style, "_llm_voice", lambda corpus: {})
+
+
+# ── metrics ──
 
 def test_analyze_returns_none_for_no_text():
     assert style.analyze([]) is None
@@ -28,21 +36,44 @@ def test_analyze_returns_none_for_no_text():
 
 
 def test_analyze_detects_warm_conversational_tone():
-    profile = style.analyze([_WARM])
-    assert isinstance(profile, StyleProfile)
-    assert profile.tone == "warm and conversational"      # contractions + exclamation
-    assert profile.pronoun_style == "first person singular (I)"
+    v = style.analyze([_WARM])
+    assert isinstance(v, VoiceProfile)
+    assert v.tone == "warm and conversational"
+    assert v.pronoun_style == "first person singular (I)"
+    assert v.llm_analyzed is False
 
 
 def test_analyze_detects_formal_long_sentences():
-    profile = style.analyze([_FORMAL])
-    assert profile.tone == "formal and measured"
-    assert "long and detailed" in profile.sentence_style
+    v = style.analyze([_FORMAL])
+    assert v.tone == "formal and measured"
+    assert "long and detailed" in v.sentence_style
 
 
-def test_length_bucket_reflects_word_count():
-    short = style.analyze(["I ship fast."])
-    assert short.length == "short"
+# ── deep analysis merges in ──
+
+def test_deep_analysis_enriches_profile(monkeypatch):
+    monkeypatch.setattr(style, "_llm_voice", lambda corpus: {
+        "summary": "You write with quiet confidence.",
+        "signature_phrases": ["I couldn't stop tinkering"],
+        "vocabulary": ["ship", "craft"],
+        "tone": "playful and precise",
+    })
+    v = style.analyze([_WARM])
+    assert v.llm_analyzed is True
+    assert v.summary.startswith("You write")
+    assert v.tone == "playful and precise"          # LLM overrides the metric fallback
+    assert "I couldn't stop tinkering" in v.signature_phrases
+
+
+def test_build_voice_guide_includes_rich_fields():
+    v = VoiceProfile(
+        summary="You lead with impact.", tone="direct", signature_phrases=["ship it"],
+        vocabulary=["craft"], emphasis=["ownership"], avoid=["synergy"], pronoun_style="I",
+    )
+    guide = style.build_voice_guide(v)
+    assert "You lead with impact." in guide
+    assert "ship it" in guide and "craft" in guide
+    assert "ownership" in guide and "synergy" in guide
 
 
 # ── chunking ──
@@ -50,8 +81,7 @@ def test_length_bucket_reflects_word_count():
 def test_chunks_split_on_paragraphs():
     content = "First paragraph that is clearly long enough to keep here.\n\n" \
               "Second paragraph, also long enough to be its own separate chunk."
-    chunks = style._chunks(content)
-    assert len(chunks) == 2
+    assert len(style._chunks(content)) == 2
 
 
 def test_chunks_drop_tiny_fragments():
@@ -63,8 +93,7 @@ def test_chunks_drop_tiny_fragments():
 def test_retrieve_exemplars_uses_vector_store(monkeypatch):
     monkeypatch.setattr(style.embeddings, "available", lambda: True)
     monkeypatch.setattr(style.embeddings, "embed_one", lambda t: [0.1, 0.2])
-    monkeypatch.setattr(style.vs, "query",
-                        lambda *a, **k: [{"document": "your past passage"}])
+    monkeypatch.setattr(style.vs, "query", lambda *a, **k: [{"document": "your past passage"}])
     assert style.retrieve_exemplars("Frontend at Acme") == ["your past passage"]
 
 
@@ -74,10 +103,8 @@ def test_retrieve_exemplars_empty_without_embeddings(monkeypatch):
 
 
 def test_style_context_combines_guide_and_exemplars(monkeypatch):
-    monkeypatch.setattr(style, "_stored_style", lambda: StyleProfile(
-        tone="warm", length="medium", word_count=280, opening_style="direct",
-        pronoun_style="I", sentence_style="balanced"))
-    monkeypatch.setattr(style, "retrieve_exemplars", lambda q, k=2: ["passage"])
+    monkeypatch.setattr(style, "_stored_voice", lambda: VoiceProfile(tone="warm", summary="You ship."))
+    monkeypatch.setattr(style, "retrieve_exemplars", lambda q, k=3: ["passage"])
     ctx = style.style_context("Backend at Stripe")
     assert ctx["has_style"] is True
     assert "warm" in ctx["guide"] and ctx["exemplars"] == ["passage"]

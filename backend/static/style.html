@@ -47,9 +47,18 @@
     .learned h2{color:var(--live)}
     .trait{display:flex;gap:1rem;padding:.55rem 0;border-bottom:1px dashed var(--border)}
     .trait:last-child{border:none}
-    .trait .k{font-family:var(--mono);font-size:.78rem;color:var(--faint);min-width:150px;display:flex;align-items:center;gap:.45rem}
-    .trait .v{font-family:var(--serif);font-size:1.15rem}
-    .meta{font-family:var(--mono);font-size:.75rem;color:var(--faint);margin-top:1rem;display:flex;gap:1rem;flex-wrap:wrap}
+    .trait .k{font-family:var(--mono);font-size:.78rem;color:var(--faint);min-width:150px;display:flex;align-items:center;gap:.45rem;flex:none}
+    .trait .v{font-family:var(--serif);font-size:1.1rem}
+    .vsum{font-family:var(--serif);font-size:1.3rem;line-height:1.6;color:var(--text);border-left:3px solid var(--live);padding-left:1rem;margin-bottom:1rem}
+    .vself{color:var(--muted);margin-bottom:1.2rem}
+    .grp{margin-top:1.1rem}
+    .grp .lbl{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+    .chip{display:inline-block;font-size:.82rem;padding:.28rem .6rem;border-radius:999px;margin:.15rem .3rem .15rem 0;
+      background:var(--surface-2);border:1px solid var(--border-2);color:var(--muted)}
+    .chip.phrase{font-family:var(--serif);font-size:.95rem;color:var(--text)}
+    .chip.emph{color:var(--live);border-color:rgba(61,220,132,.35);background:rgba(61,220,132,.08)}
+    .chip.avoid{color:var(--danger);border-color:rgba(229,72,77,.3);background:rgba(229,72,77,.07);text-decoration:line-through}
+    .meta{font-family:var(--mono);font-size:.75rem;color:var(--faint);margin-top:1.2rem;padding-top:1rem;border-top:1px dashed var(--border);display:flex;gap:1rem;flex-wrap:wrap}
     .meta .on{color:var(--live)}
     .hint{font-family:var(--mono);font-size:.72rem;color:var(--faint);margin-top:.6rem}
   </style>
@@ -144,25 +153,45 @@
     }
 
     const TRAITS = [
-      ["tone", "Tone", "smile"], ["sentence_style", "Sentences", "align-left"],
-      ["pronoun_style", "Pronouns", "user"], ["length", "Typical length", "ruler"],
-      ["opening_style", "Opening habit", "flag"],
+      ["tone", "Tone", "smile"], ["sentence_patterns", "Sentence patterns", "align-left"],
+      ["rhetorical_moves", "How they argue", "git-branch"], ["opening_habits", "Opens like", "flag"],
+      ["closing_habits", "Closes like", "flag-triangle-right"], ["pronoun_style", "Pronouns", "user"],
+      ["self_presentation", "Self-presentation", "id-card"],
     ];
+    const chips = (arr, cls) => (arr||[]).map(x => `<span class="chip ${cls}">${esc(x)}</span>`).join("");
+
+    function grp(label, icon, html) {
+      return html ? `<div class="grp"><div class="lbl"><i data-lucide="${icon}"></i> ${label}</div>${html}</div>` : "";
+    }
 
     function renderLearned(data) {
       const sp = data.style_profile;
-      if (!sp) { $("learnedCard").style.display = "block";
-        $("learned").innerHTML = `<div class="empty">Add at least one letter, then learn.</div>`; $("learnedMeta").innerHTML=""; return; }
       $("learnedCard").style.display = "block";
-      $("learned").innerHTML = TRAITS.map(([k,label,icon]) => `
-        <div class="trait"><span class="k"><i data-lucide="${icon}"></i> ${label}</span>
-          <span class="v">${esc(sp[k])}${k==="length"&&sp.word_count?` · ~${sp.word_count} words`:""}</span></div>`).join("");
+      if (!sp) { $("learned").innerHTML = `<div class="empty">Add at least one letter, then learn.</div>`; $("learnedMeta").innerHTML=""; return; }
+
+      let html = "";
+      if (sp.summary) html += `<div class="vsum">${esc(sp.summary)}</div>`;
+      // trait rows (only those with a value)
+      const rows = TRAITS.filter(([k]) => sp[k]).map(([k,label,icon]) => `
+        <div class="trait"><span class="k"><i data-lucide="${icon}"></i> ${label}</span><span class="v">${esc(sp[k])}</span></div>`).join("");
+      if (rows) html += `<div style="margin-top:.4rem">${rows}</div>`;
+      const len = sp.length ? sp.length + (sp.word_count?` · ~${sp.word_count} words`:"") : "";
+      if (len) html += `<div class="trait"><span class="k"><i data-lucide="ruler"></i> Typical length</span><span class="v">${esc(len)}</span></div>`;
+
+      html += grp("Emphasizes", "target", chips(sp.emphasis, "emph"));
+      html += grp("Signature phrases", "quote", chips(sp.signature_phrases, "phrase"));
+      html += grp("Characteristic vocabulary", "type", chips(sp.vocabulary, ""));
+      html += grp("Never uses", "ban", chips(sp.avoid, "avoid"));
+      $("learned").innerHTML = html;
+
       const samples = data.samples ?? "";
       const emb = data.embeddings ?? data.embeddings_available;
+      const deep = data.llm_analyzed ?? sp.llm_analyzed;
       $("learnedMeta").innerHTML =
         `<span>learned from ${samples} letter(s)</span>` +
         (data.chunks_indexed!=null?`<span>· ${data.chunks_indexed} passages indexed</span>`:"") +
-        `<span class="${emb?'on':''}">· ${emb?'✓ voice retrieval on (embeddings)':'metrics only'}</span>` +
+        `<span class="${deep?'on':''}">· ${deep?'✓ deep voice analysis':'metrics only (run learn with a model)'}</span>` +
+        `<span class="${emb?'on':''}">· ${emb?'✓ voice retrieval on':'no embeddings'}</span>` +
         `<span>· 100% on-device</span>`;
       lucide.createIcons();
     }
