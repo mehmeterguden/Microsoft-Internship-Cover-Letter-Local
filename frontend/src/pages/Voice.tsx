@@ -1,11 +1,192 @@
-import { Placeholder } from "./Placeholder";
+import { useState } from "react";
+import { Ban, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { PageHeader } from "@/components/common/PageHeader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/common/EmptyState";
+import { RatingInput } from "@/components/common/RatingInput";
+import { mockPastLetters, mockProfile } from "@/mocks/data";
+import type { PastCoverLetter, VoiceProfile } from "@/api/types";
+import { toast } from "@/store/toast";
+
+function ChipRow({ label, items, tone }: { label: string; items: string[]; tone: "accent" | "gold" | "danger" | "violet" }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-3">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((it) => (
+          <Badge key={it} tone={tone}>{it}</Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Trait({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="grid grid-cols-[130px_1fr] gap-3 border-b border-line py-2.5 last:border-0">
+      <span className="font-mono text-[11px] font-semibold uppercase tracking-wide text-text-3">{label}</span>
+      <span className="text-[13.5px] text-text-2">{value}</span>
+    </div>
+  );
+}
+
+function VoiceFingerprint({ v }: { v: VoiceProfile }) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <Wand2 size={16} className="text-accent-ink" /> Your voice fingerprint
+        </CardTitle>
+        {v.llm_analyzed && <Badge tone="accent">Deep analysis</Badge>}
+      </CardHeader>
+      <CardContent className="grid gap-5">
+        {v.summary && (
+          <blockquote className="flex gap-3 rounded-[12px] bg-accent-soft p-4">
+            <Quote size={18} className="shrink-0 text-accent-ink" />
+            <p className="text-[14.5px] italic leading-relaxed text-text">{v.summary}</p>
+          </blockquote>
+        )}
+        <div>
+          <Trait label="Self-image" value={v.self_presentation} />
+          <Trait label="Tone" value={v.tone} />
+          <Trait label="Sentences" value={v.sentence_patterns} />
+          <Trait label="Argument" value={v.rhetorical_moves} />
+          <Trait label="Opens" value={v.opening_habits} />
+          <Trait label="Closes" value={v.closing_habits} />
+        </div>
+        <ChipRow label="Emphasizes" items={v.emphasis ?? []} tone="accent" />
+        <ChipRow label="Signature phrases" items={v.signature_phrases ?? []} tone="violet" />
+        <ChipRow label="Favored vocabulary" items={v.vocabulary ?? []} tone="gold" />
+        {(v.avoid?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-1.5 flex items-center gap-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-3">
+              <Ban size={11} /> Never uses
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {v.avoid?.map((a) => <Badge key={a} tone="danger">{a}</Badge>)}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function Voice() {
+  const [letters, setLetters] = useState<PastCoverLetter[]>(mockPastLetters);
+  const [draft, setDraft] = useState("");
+  const [learning, setLearning] = useState(false);
+  const [voice, setVoice] = useState<VoiceProfile | null>(mockProfile.style_profile ?? null);
+
+  function addLetter() {
+    const content = draft.trim();
+    if (content.length < 40) {
+      toast.warning("Too short", "Paste a full letter so we can learn from it.");
+      return;
+    }
+    setLetters((prev) => [{ id: Date.now(), content, ai_rating: null, user_rating: null }, ...prev]);
+    setDraft("");
+    toast.success("Letter added");
+  }
+
+  function learn() {
+    setLearning(true);
+    window.setTimeout(() => {
+      setLearning(false);
+      setVoice(mockProfile.style_profile ?? null);
+      toast.success("Voice learned", `Analyzed ${letters.length} letters.`);
+    }, 1800);
+  }
+
   return (
-    <Placeholder
-      eyebrow="Build your profile"
-      title="Writing voice"
-      description="Add past cover letters and see the voice fingerprint we learn — the phrases, tone, and habits that make a new letter read like you wrote it."
-    />
+    <>
+      <PageHeader
+        eyebrow="Build your profile"
+        title="Writing voice"
+        description="Add letters you've written. We reverse-engineer how you write and think, so new letters read as if you wrote them."
+        actions={
+          <Button onClick={learn} loading={learning} disabled={letters.length === 0}>
+            <Sparkles size={16} /> Learn my voice
+          </Button>
+        }
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add a past cover letter</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Paste a cover letter you're proud of…"
+                className="min-h-32"
+              />
+              <Button variant="dashed" onClick={addLetter} className="justify-center">
+                <Plus size={15} /> Add letter
+              </Button>
+            </CardContent>
+          </Card>
+
+          {letters.length === 0 ? (
+            <EmptyState icon={Quote} title="No letters yet" description="Add at least one to learn your voice." />
+          ) : (
+            letters.map((l) => (
+              <Card key={l.id}>
+                <CardContent className="pt-5">
+                  <p className="line-clamp-3 text-[13.5px] leading-relaxed text-text-2">{l.content}</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-[12px] text-text-3">
+                      Your rating <RatingInput value={l.user_rating ?? 0} onChange={() => {}} />
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Delete letter"
+                      onClick={() => setLetters((prev) => prev.filter((x) => x.id !== l.id))}
+                      className="rounded-[7px] p-1.5 text-text-3 transition-colors hover:bg-danger-soft hover:text-danger"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+        <div>
+          {learning ? (
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                <Spinner size={34} />
+                <p className="text-[14px] text-text-2">Studying your letters…</p>
+              </CardContent>
+            </Card>
+          ) : voice ? (
+            <VoiceFingerprint v={voice} />
+          ) : (
+            <EmptyState
+              icon={Wand2}
+              title="No voice learned yet"
+              description="Add letters and press “Learn my voice” to see your fingerprint."
+            />
+          )}
+          {voice && (
+            <Alert tone="info" className="mt-4">
+              This fingerprint guides every letter you generate, so they sound like you.
+            </Alert>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
