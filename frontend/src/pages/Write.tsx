@@ -82,6 +82,7 @@ export function Write() {
       <PageHeader
         eyebrow="Apply"
         title="Generate letter"
+        icon={PenLine}
         description="A grounded, personalized cover letter that streams in — written in your own voice."
       />
 

@@ -25,6 +25,7 @@ export function Applications() {
       <PageHeader
         eyebrow="Apply"
         title="Applications"
+        icon={LayoutGrid}
         description="Every role you're pursuing — match scores, statuses, and the letters you've generated."
         actions={
           <Button asChild>

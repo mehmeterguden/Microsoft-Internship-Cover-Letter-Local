@@ -110,9 +110,32 @@ export function Profile() {
       <PageHeader
         eyebrow="Build your profile"
         title="Profile & Skills"
+        icon={User}
         description="Everything the generator draws from. Keep it sharp — the letters are only as good as this."
         actions={<Button onClick={saveIdentity} loading={saving}>Save changes</Button>}
       />
+
+      {!loaded.loading && !loaded.error && (
+        <div className="mb-6 flex flex-wrap items-center gap-4 rounded-[18px] border border-border bg-surface p-5 shadow-soft">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-accent-soft text-[18px] font-extrabold text-accent-ink">
+            {(profile.name?.[0] ?? "") + (profile.surname?.[0] ?? "") || "?"}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[17px] font-bold text-text">
+              {[profile.name, profile.surname].filter(Boolean).join(" ") || "Your name"}
+            </p>
+            <p className="truncate text-[13.5px] text-text-2">{profile.email || "Add your contact details"}</p>
+          </div>
+          <div className="flex gap-2">
+            <span className="rounded-full bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink">
+              {skills.length} skills
+            </span>
+            <span className="rounded-full bg-blue-soft px-3 py-1.5 text-[12.5px] font-semibold text-blue">
+              {experiences.length} roles
+            </span>
+          </div>
+        </div>
+      )}
 
       <AsyncBoundary loading={loaded.loading} error={loaded.error} onRetry={loaded.reload}>
         <Tabs defaultValue="identity">

@@ -71,6 +71,7 @@ export function Github() {
       <PageHeader
         eyebrow="Build your profile"
         title="GitHub import"
+        icon={GithubIcon}
         description="Pull your repositories, analyze their READMEs with the local model, and turn them into projects and skills."
       />
 

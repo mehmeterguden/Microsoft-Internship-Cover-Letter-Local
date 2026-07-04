@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save } from "lucide-react";
+import { Save, SlidersHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +56,7 @@ export function Settings() {
       <PageHeader
         eyebrow="System"
         title="Settings"
+        icon={SlidersHorizontal}
         description="Choose your model and keys. Everything is stored locally in your database — never in a file or the cloud."
         actions={
           <Button onClick={save} loading={saving} disabled={!settings}>

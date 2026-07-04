@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, FileText, Sparkles } from "lucide-react";
+import { CheckCircle2, FileText, FileUp, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +70,7 @@ export function Onboarding() {
       <PageHeader
         eyebrow="Get started"
         title="Import your CV"
+        icon={FileUp}
         description="Upload a PDF, Word doc, or image. We extract the text and structure it into your profile — all on your machine."
       />
 

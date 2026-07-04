@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Ban, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AudioLines, Ban, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -156,6 +156,7 @@ export function Voice() {
       <PageHeader
         eyebrow="Build your profile"
         title="Writing voice"
+        icon={AudioLines}
         description="Add letters you've written. We reverse-engineer how you write and think, so new letters read as if you wrote them."
         actions={
           <Button onClick={learn} loading={learning} disabled={letters.length === 0}>
