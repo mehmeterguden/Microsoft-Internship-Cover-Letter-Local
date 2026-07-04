@@ -9,7 +9,8 @@
    (bg-bg, text-text-2, border-border, font-display, …) so that
    toggling .dark re-themes every utility with no rebuild.
    ───────────────────────────────────────────────────────────── */
-:root {
+:root,
+.light {
   --bg: #f4f1fb;
   --bg-2: #ebe6f7;
   --surface: #ffffff;
