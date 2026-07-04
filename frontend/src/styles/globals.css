@@ -113,6 +113,7 @@
 
   --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
   --radius-card: 14px;
@@ -156,7 +157,7 @@
   }
 }
 
-/* ── Motion keyframes (privacy-first, subtle) ── */
+/* ── Motion keyframes ── */
 @keyframes cll-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -171,6 +172,67 @@
 @keyframes cll-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.78); }
+}
+@keyframes cll-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes cll-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(3%, -2%) scale(1.06); }
+  66%  { transform: translate(-2%, 3%) scale(0.97); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes cll-shimmer {
+  0%   { transform: translateX(-140%) skewX(-18deg); }
+  60%, 100% { transform: translateX(360%) skewX(-18deg); }
+}
+@keyframes cll-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
+}
+
+/* ── Atmosphere: film grain, drifting gradient mesh, faint grid ── */
+.cll-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.cll-grid {
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+.cll-mesh {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(60px);
+  will-change: transform;
+  animation: cll-drift 26s ease-in-out infinite;
+}
+
+/* Sheen sweep for primary CTAs */
+.cll-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.cll-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  animation: cll-shimmer 4.5s ease-in-out infinite;
+  z-index: -1;
 }
 
 @media (prefers-reduced-motion: reduce) {

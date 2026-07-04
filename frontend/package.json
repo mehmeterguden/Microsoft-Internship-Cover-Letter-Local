@@ -13,6 +13,7 @@
     "@fontsource-variable/bricolage-grotesque": "^5.2.5",
     "@fontsource-variable/hanken-grotesk": "^5.2.5",
     "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@fontsource/instrument-serif": "^5.2.8",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-label": "^2.1.2",
     "@radix-ui/react-slot": "^1.1.2",
