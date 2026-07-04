@@ -161,6 +161,12 @@
     border-radius: 4px;
   }
 
+  [contenteditable][data-ph]:empty::before {
+    content: attr(data-ph);
+    color: #b6bdc9;
+    pointer-events: none;
+  }
+
   ::selection {
     background: var(--accent-soft);
   }
@@ -242,6 +248,19 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
   animation: cll-shimmer 4.5s ease-in-out infinite;
   z-index: -1;
+}
+
+/* Print only the letter sheet. */
+@media print {
+  body * { visibility: hidden !important; }
+  #letter-print, #letter-print * { visibility: visible !important; }
+  #letter-print {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
