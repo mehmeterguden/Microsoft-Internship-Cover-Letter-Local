@@ -86,6 +86,7 @@ export function Research() {
       <PageHeader
         eyebrow="Apply"
         title="Company research"
+        icon={Building2}
         description="Parallel agents research the company and role, streaming a detailed, source-cited report. Only the company name leaves your device."
       />
 
