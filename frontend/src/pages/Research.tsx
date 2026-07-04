@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Building2, CheckCircle2, Loader2, Target, Zap } from "lucide-react";
+import {
+  Building2, CheckCircle2, Code2, Compass, Heart, Loader2, MessageSquare,
+  Newspaper, Target, TrendingUp, Users, Zap,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
@@ -9,12 +13,24 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScoreRing } from "@/components/common/ScoreRing";
 import { SourceChip } from "@/components/common/SourceChip";
-import { EmptyState } from "@/components/common/EmptyState";
+import { Reveal, Stagger } from "@/lib/motion";
+// EmptyState replaced by the "what we uncover" grid.
 import type { CompanyIntelReport } from "@/api/types";
 import { streamResearch } from "@/api/research";
 import { toast } from "@/store/toast";
 
 type AgentState = "pending" | "running" | "done";
+
+const DIMENSIONS: { icon: LucideIcon; title: string; body: string; tone: string }[] = [
+  { icon: Building2, title: "Firmographics", body: "Size, industry, HQ, founding — the factual basics.", tone: "text-accent-ink bg-accent-soft" },
+  { icon: Compass, title: "Overview", body: "What the company does and where it's headed.", tone: "text-blue bg-blue-soft" },
+  { icon: Heart, title: "Values & culture", body: "How they describe themselves and what they prize.", tone: "text-danger bg-danger-soft" },
+  { icon: Code2, title: "Tech stack", body: "Languages, frameworks, and tooling they use.", tone: "text-violet bg-violet-soft" },
+  { icon: Newspaper, title: "Recent signals", body: "News, launches, and momentum worth citing.", tone: "text-gold bg-gold-soft" },
+  { icon: Target, title: "Role fit", body: "How your profile maps to the job — matched & missing.", tone: "text-accent-ink bg-accent-soft" },
+  { icon: MessageSquare, title: "Interview prep", body: "Likely questions and angles to prepare for.", tone: "text-blue bg-blue-soft" },
+  { icon: Users, title: "Talking points", body: "Specific hooks to weave into your letter.", tone: "text-violet bg-violet-soft" },
+];
 
 export function Research() {
   const [company, setCompany] = useState("Microsoft");
@@ -137,7 +153,28 @@ export function Research() {
       )}
 
       {!running && !report && (
-        <EmptyState icon={Building2} title="No report yet" description="Enter a company and press Research." />
+        <section>
+          <div className="mb-4 flex items-center gap-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-3">What we uncover</p>
+            <span className="h-px flex-1 bg-line" />
+            <span className="flex items-center gap-1.5 text-[12px] font-medium text-text-3">
+              <TrendingUp size={14} className="text-accent-ink" /> 8 parallel agents
+            </span>
+          </div>
+          <Stagger stagger={0.05} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {DIMENSIONS.map(({ icon: Icon, title, body, tone }) => (
+              <Reveal key={title}>
+                <div className="h-full rounded-[16px] border border-border bg-surface p-4 shadow-soft">
+                  <span className={`mb-3 inline-grid h-10 w-10 place-items-center rounded-[11px] ${tone}`}>
+                    <Icon size={19} />
+                  </span>
+                  <p className="text-[14px] font-bold">{title}</p>
+                  <p className="mt-1 text-[12.5px] leading-snug text-text-2">{body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </Stagger>
+        </section>
       )}
 
       {report && <Report report={report} />}
