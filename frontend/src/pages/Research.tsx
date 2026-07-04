@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Building2, CheckCircle2, Loader2, Target, Zap } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,19 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScoreRing } from "@/components/common/ScoreRing";
 import { SourceChip } from "@/components/common/SourceChip";
 import { EmptyState } from "@/components/common/EmptyState";
-import { mockReport } from "@/mocks/data";
 import type { CompanyIntelReport } from "@/api/types";
-
-const AGENTS = [
-  "Firmographics",
-  "Overview",
-  "Values",
-  "Culture",
-  "Tech stack",
-  "Signals",
-  "JD analyst",
-  "Interview prep",
-];
+import { streamResearch } from "@/api/research";
+import { toast } from "@/store/toast";
 
 type AgentState = "pending" | "running" | "done";
 
@@ -32,31 +22,63 @@ export function Research() {
   const [jd, setJd] = useState("");
   const [running, setRunning] = useState(false);
   const [states, setStates] = useState<Record<string, AgentState>>({});
+  const [order, setOrder] = useState<string[]>([]);
   const [report, setReport] = useState<CompanyIntelReport | null>(null);
-  const timers = useRef<number[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
 
-  function run() {
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  async function run() {
     if (!company.trim()) return;
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-    setReport(null);
-    setRunning(true);
-    setStates(Object.fromEntries(AGENTS.map((a) => [a, "pending"])));
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    AGENTS.forEach((agent, i) => {
-      timers.current.push(
-        window.setTimeout(() => setStates((s) => ({ ...s, [agent]: "running" })), 300 + i * 500),
+    setReport(null);
+    setStates({});
+    setOrder([]);
+    setRunning(true);
+
+    try {
+      await streamResearch(
+        { company_name: company, role_title: role || null, job_description: jd || null },
+        (event) => {
+          switch (event.type) {
+            case "phase":
+              setOrder((prev) => [...new Set([...prev, ...event.agents])]);
+              setStates((s) => {
+                const next = { ...s };
+                for (const a of event.agents) next[a] ??= "pending";
+                return next;
+              });
+              break;
+            case "agent_started":
+              setStates((s) => ({ ...s, [event.agent]: "running" }));
+              break;
+            case "agent_done":
+              setStates((s) => ({ ...s, [event.agent]: "done" }));
+              break;
+            case "cached":
+              toast.info("Loaded from cache", "This company was researched recently.");
+              break;
+            case "done":
+              setReport(event.report);
+              setRunning(false);
+              break;
+            case "fatal":
+              toast.danger("Research failed", event.error);
+              setRunning(false);
+              break;
+          }
+        },
+        controller.signal,
       );
-      timers.current.push(
-        window.setTimeout(() => setStates((s) => ({ ...s, [agent]: "done" })), 700 + i * 500),
-      );
-    });
-    timers.current.push(
-      window.setTimeout(() => {
-        setReport({ ...mockReport, company, role: role || undefined });
-        setRunning(false);
-      }, 700 + AGENTS.length * 500),
-    );
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        toast.danger("Research failed", err instanceof Error ? err.message : "Stream error");
+      }
+      setRunning(false);
+    }
   }
 
   return (
@@ -94,7 +116,7 @@ export function Research() {
             <CardTitle className="text-[14px]">Agents working…</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2">
-            {AGENTS.map((a) => {
+            {order.map((a) => {
               const st = states[a] ?? "pending";
               return (
                 <div key={a} className="flex items-center gap-2.5 rounded-[9px] border border-border bg-surface-2 px-3 py-2">

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AudioLines, Building2, Copy, PenLine, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { StreamingText } from "@/components/common/StreamingText";
-import { mockLetter } from "@/mocks/data";
 import type { Tone } from "@/api/types";
+import { streamCoverLetter } from "@/api/coverLetter";
 import { toast } from "@/store/toast";
 
 const TONES: { value: Tone; label: string }[] = [
@@ -27,28 +27,52 @@ export function Write() {
   const [text, setText] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [started, setStarted] = useState(false);
-  const timers = useRef<number[]>([]);
+  const [meta, setMeta] = useState<{ used_style: boolean; used_research: boolean } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  function generate() {
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  async function generate() {
     if (!company.trim()) return;
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setStarted(true);
     setStreaming(true);
     setText("");
+    setMeta(null);
 
-    // Simulate token-by-token streaming from the LLM.
-    const tokens = mockLetter.match(/\s+|\S+/g) ?? [];
     let acc = "";
-    tokens.forEach((tok, i) => {
-      timers.current.push(
-        window.setTimeout(() => {
-          acc += tok;
-          setText(acc);
-          if (i === tokens.length - 1) setStreaming(false);
-        }, i * 28),
+    try {
+      await streamCoverLetter(
+        { company_name: company, role_title: role || null, job_description: jd || null, tone },
+        (event) => {
+          switch (event.type) {
+            case "start":
+              setMeta({ used_style: event.used_style, used_research: event.used_research });
+              break;
+            case "token":
+              acc += event.text;
+              setText(acc);
+              break;
+            case "done":
+              setStreaming(false);
+              break;
+            case "fatal":
+              toast.danger("Generation failed", event.error);
+              setStreaming(false);
+              break;
+          }
+        },
+        controller.signal,
       );
-    });
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        toast.danger("Generation failed", err instanceof Error ? err.message : "Stream error");
+      }
+      setStreaming(false);
+    }
   }
 
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -84,10 +108,12 @@ export function Write() {
               {started ? <RefreshCw size={16} /> : <PenLine size={16} />}
               {started ? "Regenerate" : "Generate letter"}
             </Button>
-            <div className="flex flex-wrap gap-1.5">
-              <Badge tone="accent"><AudioLines size={11} /> Your voice</Badge>
-              <Badge tone="blue"><Building2 size={11} /> Research applied</Badge>
-            </div>
+            {meta && (
+              <div className="flex flex-wrap gap-1.5">
+                {meta.used_style && <Badge tone="accent"><AudioLines size={11} /> Your voice</Badge>}
+                {meta.used_research && <Badge tone="blue"><Building2 size={11} /> Research applied</Badge>}
+              </div>
+            )}
           </CardContent>
         </Card>
 

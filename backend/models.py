@@ -176,7 +176,7 @@ class Profile(BaseModel):
     linkedin: str | None = None
     github: str | None = None
     summary: str | None = None           # short professional summary / headline
-    style_profile: StyleProfile | None = None
+    style_profile: VoiceProfile | None = None   # deep voice fingerprint (see core/style.py)
 
 
 class Link(BaseModel):

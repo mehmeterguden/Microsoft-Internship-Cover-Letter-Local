@@ -10,8 +10,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SkillTag } from "@/components/common/SkillTag";
 import { RatingInput } from "@/components/common/RatingInput";
-import { mockRepos } from "@/mocks/data";
 import type { GithubRepo } from "@/api/types";
+import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos } from "@/api/github";
+import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 type Phase = "empty" | "fetching" | "loaded";
@@ -19,23 +20,50 @@ type Phase = "empty" | "fetching" | "loaded";
 export function Github() {
   const [phase, setPhase] = useState<Phase>("empty");
   const [username, setUsername] = useState("mehmeterguden");
+  const [login, setLogin] = useState("");
   const [repos, setRepos] = useState<GithubRepo[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  function fetchRepos() {
+  async function fetchRepos() {
+    if (!username.trim()) return;
     setPhase("fetching");
-    window.setTimeout(() => {
-      setRepos(mockRepos);
+    try {
+      const result = await apiFetchRepos(username, false);
+      setRepos(result.repos);
+      setLogin(result.profile.login ?? username);
       setPhase("loaded");
-    }, 1200);
+    } catch (err) {
+      toast.danger("Couldn't fetch repos", errorMessage(err));
+      setPhase("empty");
+    }
   }
 
-  function analyze() {
+  async function analyze() {
     setAnalyzing(true);
-    window.setTimeout(() => {
-      setAnalyzing(false);
+    try {
+      const result = await analyzeRepos(login || username, repos);
+      if (result.analysis.repos?.length) setRepos(result.analysis.repos);
+      setSkills(result.analysis.skills ?? []);
       toast.success("READMEs analyzed", "Descriptions and skills extracted.");
-    }, 1400);
+    } catch (err) {
+      toast.danger("Analysis failed", errorMessage(err));
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const result = await saveRepos(repos, skills);
+      toast.success("Saved", `${result.saved_repos} repos, ${result.added_skills} new skills.`);
+    } catch (err) {
+      toast.danger("Save failed", errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -106,11 +134,13 @@ export function Github() {
             </Card>
           ))}
           <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-border bg-surface-2 px-4 py-3">
-            <span className="text-[13px] font-semibold text-text">Skills found:</span>
-            {["Python", "TypeScript", "React", "Rust"].map((s) => (
+            <span className="text-[13px] font-semibold text-text">
+              {skills.length > 0 ? "Skills found:" : "Analyze READMEs to extract skills."}
+            </span>
+            {skills.map((s) => (
               <Badge key={s} tone="accent">{s}</Badge>
             ))}
-            <Button size="sm" className="ml-auto" onClick={() => toast.success("Saved", "Repos and skills added.")}>
+            <Button size="sm" className="ml-auto" onClick={save} loading={saving}>
               Save to profile
             </Button>
           </div>

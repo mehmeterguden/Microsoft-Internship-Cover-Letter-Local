@@ -206,6 +206,17 @@ export interface ReportSection {
   sources: ReportSource[];
 }
 
+export interface CVExtraction {
+  profile: Profile;
+  skills: Skill[];
+  experiences: Experience[];
+  education: Education[];
+  projects: Project[];
+  certificates: Certificate[];
+  languages: Language[];
+  links: Link[];
+}
+
 export interface CompanyIntelReport {
   company: string;
   role?: string;

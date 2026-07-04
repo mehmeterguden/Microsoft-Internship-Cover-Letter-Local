@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
@@ -8,7 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import type { LLMProviderId, Settings as SettingsType } from "@/api/types";
-import { mockSettings } from "@/mocks/data";
+import { getSettings, saveSettings } from "@/api/settings";
+import { errorMessage } from "@/api/client";
+import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 
 const PROVIDERS: { id: LLMProviderId; label: string; local: boolean }[] = [
@@ -20,22 +23,32 @@ const PROVIDERS: { id: LLMProviderId; label: string; local: boolean }[] = [
 ];
 
 export function Settings() {
-  const [settings, setSettings] = useState<SettingsType>(mockSettings);
+  const loaded = useAsync(getSettings, []);
+  const [settings, setSettings] = useState<SettingsType | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const provider = PROVIDERS.find((p) => p.id === settings.llm_provider);
+  useEffect(() => {
+    if (loaded.data) setSettings(loaded.data);
+  }, [loaded.data]);
+
+  const provider = settings ? PROVIDERS.find((p) => p.id === settings.llm_provider) : undefined;
   const isCloud = provider ? !provider.local : false;
 
   function set<K extends keyof SettingsType>(key: K, value: SettingsType[K]) {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
-  function save() {
+  async function save() {
+    if (!settings) return;
     setSaving(true);
-    window.setTimeout(() => {
-      setSaving(false);
+    try {
+      await saveSettings(settings);
       toast.success("Settings saved", "Stored locally in your database.");
-    }, 600);
+    } catch (err) {
+      toast.danger("Save failed", errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -45,12 +58,14 @@ export function Settings() {
         title="Settings"
         description="Choose your model and keys. Everything is stored locally in your database — never in a file or the cloud."
         actions={
-          <Button onClick={save} loading={saving}>
+          <Button onClick={save} loading={saving} disabled={!settings}>
             <Save size={16} /> Save
           </Button>
         }
       />
 
+      <AsyncBoundary loading={loaded.loading} error={loaded.error} onRetry={loaded.reload}>
+        {settings && (
       <div className="grid max-w-2xl gap-5">
         <Card>
           <CardHeader>
@@ -129,6 +144,8 @@ export function Settings() {
           </CardContent>
         </Card>
       </div>
+        )}
+      </AsyncBoundary>
     </>
   );
 }

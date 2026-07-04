@@ -10,7 +10,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Stepper } from "@/components/common/Stepper";
 import { FileDropzone } from "@/components/common/FileDropzone";
 import { SkillTag } from "@/components/common/SkillTag";
-import { mockExperiences, mockProfile, mockSkills } from "@/mocks/data";
+import type { CVExtraction } from "@/api/types";
+import { importCv, saveExtraction } from "@/api/cv";
+import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 type Phase = "upload" | "parsing" | "review";
@@ -24,15 +26,44 @@ const STEPS = [
 export function Onboarding() {
   const [phase, setPhase] = useState<Phase>("upload");
   const [fileName, setFileName] = useState("");
+  const [extraction, setExtraction] = useState<CVExtraction | null>(null);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
-  function handleFile(file: File) {
+  async function handleFile(file: File) {
     setFileName(file.name);
     setPhase("parsing");
-    window.setTimeout(() => setPhase("review"), 1600);
+    try {
+      const result = await importCv(file);
+      if (!result.ok || !result.structured) {
+        throw new Error(result.error || "Could not structure the CV");
+      }
+      setExtraction(result.structured);
+      setPhase("review");
+    } catch (err) {
+      toast.danger("Import failed", errorMessage(err));
+      setPhase("upload");
+    }
+  }
+
+  async function save() {
+    if (!extraction) return;
+    setSaving(true);
+    try {
+      await saveExtraction(extraction);
+      toast.success("Profile saved", "Your CV is now part of your profile.");
+      navigate("/profile");
+    } catch (err) {
+      toast.danger("Save failed", errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   }
 
   const currentStep = phase === "upload" ? 0 : phase === "parsing" ? 1 : 2;
+  const skills = extraction?.skills ?? [];
+  const experiences = extraction?.experiences ?? [];
+  const prof = extraction?.profile;
 
   return (
     <>
@@ -65,62 +96,61 @@ export function Onboarding() {
           {phase === "review" && (
             <div className="grid gap-5" style={{ animation: "cll-rise 0.4s both" }}>
               <Alert tone="success" title="CV parsed">
-                We found your profile, {mockSkills.length} skills, and {mockExperiences.length} roles. Review below, then save.
+                We found your profile, {skills.length} skills, and {experiences.length} roles. Review below, then save.
               </Alert>
 
               <Card>
                 <CardHeader className="flex-row items-center justify-between">
                   <CardTitle>Profile</CardTitle>
-                  <Badge tone="accent">High confidence</Badge>
+                  <Badge tone="accent">Extracted</Badge>
                 </CardHeader>
                 <CardContent className="grid gap-1 text-[14px]">
                   <p className="font-semibold text-text">
-                    {mockProfile.name} {mockProfile.surname}
+                    {prof?.name} {prof?.surname}
                   </p>
-                  <p className="text-text-2">{mockProfile.email}</p>
-                  <p className="mt-1 text-text-2">{mockProfile.summary}</p>
+                  <p className="text-text-2">{prof?.email}</p>
+                  {prof?.summary && <p className="mt-1 text-text-2">{prof.summary}</p>}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Skills</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  {mockSkills.map((s) => (
-                    <SkillTag key={s.id}>{s.name}</SkillTag>
-                  ))}
-                </CardContent>
-              </Card>
+              {skills.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Skills</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    {skills.map((s, i) => (
+                      <SkillTag key={s.id ?? i}>{s.name}</SkillTag>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText size={16} className="text-text-3" /> Experience
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-3">
-                  {mockExperiences.map((e) => (
-                    <div key={e.id} className="flex items-start gap-3">
-                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-good" />
-                      <div>
-                        <p className="text-[14px] font-semibold text-text">
-                          {e.title} · {e.company}
-                        </p>
-                        <p className="text-[13px] text-text-2">{e.description}</p>
+              {experiences.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText size={16} className="text-text-3" /> Experience
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    {experiences.map((e, i) => (
+                      <div key={e.id ?? i} className="flex items-start gap-3">
+                        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-good" />
+                        <div>
+                          <p className="text-[14px] font-semibold text-text">
+                            {e.title} · {e.company}
+                          </p>
+                          <p className="text-[13px] text-text-2">{e.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="flex gap-3">
-                <Button
-                  onClick={() => {
-                    toast.success("Profile saved", "Your CV is now part of your profile.");
-                    navigate("/profile");
-                  }}
-                >
+                <Button onClick={save} loading={saving}>
                   <Sparkles size={16} /> Save to profile
                 </Button>
                 <Button variant="ghost" onClick={() => setPhase("upload")}>

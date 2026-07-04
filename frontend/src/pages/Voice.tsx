@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ban, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,8 +10,16 @@ import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { RatingInput } from "@/components/common/RatingInput";
-import { mockPastLetters, mockProfile } from "@/mocks/data";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
+import {
+  createPastLetter,
+  deletePastLetter,
+  getStyle,
+  learnVoice,
+  listPastLetters,
+} from "@/api/style";
+import { errorMessage } from "@/api/client";
+import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 
 function ChipRow({ label, items, tone }: { label: string; items: string[]; tone: "accent" | "gold" | "danger" | "violet" }) {
@@ -80,29 +89,66 @@ function VoiceFingerprint({ v }: { v: VoiceProfile }) {
 }
 
 export function Voice() {
-  const [letters, setLetters] = useState<PastCoverLetter[]>(mockPastLetters);
-  const [draft, setDraft] = useState("");
-  const [learning, setLearning] = useState(false);
-  const [voice, setVoice] = useState<VoiceProfile | null>(mockProfile.style_profile ?? null);
+  const loaded = useAsync(
+    async () => {
+      const [style, letters] = await Promise.all([getStyle(), listPastLetters()]);
+      return { style, letters };
+    },
+    [],
+  );
 
-  function addLetter() {
+  const [letters, setLetters] = useState<PastCoverLetter[]>([]);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [learning, setLearning] = useState(false);
+  const [voice, setVoice] = useState<VoiceProfile | null>(null);
+
+  useEffect(() => {
+    if (loaded.data) {
+      setLetters(loaded.data.letters);
+      setVoice(loaded.data.style.style_profile);
+    }
+  }, [loaded.data]);
+
+  async function addLetter() {
     const content = draft.trim();
     if (content.length < 40) {
       toast.warning("Too short", "Paste a full letter so we can learn from it.");
       return;
     }
-    setLetters((prev) => [{ id: Date.now(), content, ai_rating: null, user_rating: null }, ...prev]);
-    setDraft("");
-    toast.success("Letter added");
+    setAdding(true);
+    try {
+      const saved = await createPastLetter({ content });
+      setLetters((prev) => [saved, ...prev]);
+      setDraft("");
+      toast.success("Letter added");
+    } catch (err) {
+      toast.danger("Couldn't add letter", errorMessage(err));
+    } finally {
+      setAdding(false);
+    }
   }
 
-  function learn() {
+  async function remove(id: number) {
+    try {
+      await deletePastLetter(id);
+      setLetters((prev) => prev.filter((x) => x.id !== id));
+    } catch (err) {
+      toast.danger("Couldn't delete", errorMessage(err));
+    }
+  }
+
+  async function learn() {
     setLearning(true);
-    window.setTimeout(() => {
+    try {
+      const result = await learnVoice();
+      setVoice(result.style_profile);
+      toast.success("Voice learned", `Analyzed ${result.samples} letters.`);
+    } catch (err) {
+      toast.danger("Learning failed", errorMessage(err));
+    } finally {
       setLearning(false);
-      setVoice(mockProfile.style_profile ?? null);
-      toast.success("Voice learned", `Analyzed ${letters.length} letters.`);
-    }, 1800);
+    }
   }
 
   return (
@@ -118,6 +164,7 @@ export function Voice() {
         }
       />
 
+      <AsyncBoundary loading={loaded.loading} error={loaded.error} onRetry={loaded.reload}>
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="grid gap-4">
           <Card>
@@ -131,7 +178,7 @@ export function Voice() {
                 placeholder="Paste a cover letter you're proud of…"
                 className="min-h-32"
               />
-              <Button variant="dashed" onClick={addLetter} className="justify-center">
+              <Button variant="dashed" onClick={addLetter} loading={adding} className="justify-center">
                 <Plus size={15} /> Add letter
               </Button>
             </CardContent>
@@ -151,7 +198,7 @@ export function Voice() {
                     <button
                       type="button"
                       aria-label="Delete letter"
-                      onClick={() => setLetters((prev) => prev.filter((x) => x.id !== l.id))}
+                      onClick={() => l.id != null && remove(l.id)}
                       className="rounded-[7px] p-1.5 text-text-3 transition-colors hover:bg-danger-soft hover:text-danger"
                     >
                       <Trash2 size={15} />
@@ -187,6 +234,7 @@ export function Voice() {
           )}
         </div>
       </div>
+      </AsyncBoundary>
     </>
   );
 }

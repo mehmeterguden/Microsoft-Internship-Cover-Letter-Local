@@ -1,0 +1,36 @@
+import { client } from "./client";
+import type { GithubRepo } from "./types";
+
+export async function githubStatus(): Promise<{ account_connected: boolean }> {
+  const { data } = await client.get("/github/status");
+  return data;
+}
+
+export interface FetchReposResult {
+  profile: { login?: string } & Record<string, unknown>;
+  repos: GithubRepo[];
+}
+
+export async function fetchRepos(username: string | null, useAccount: boolean): Promise<FetchReposResult> {
+  const { data } = await client.post<FetchReposResult>("/github/fetch", {
+    username,
+    use_account: useAccount,
+  });
+  return data;
+}
+
+export interface AnalyzeResult {
+  ok: boolean;
+  analysis: { repos?: GithubRepo[]; skills?: string[] } & Record<string, unknown>;
+  raw_output: string;
+}
+
+export async function analyzeRepos(login: string, repos: GithubRepo[]): Promise<AnalyzeResult> {
+  const { data } = await client.post<AnalyzeResult>("/github/analyze", { login, repos });
+  return data;
+}
+
+export async function saveRepos(repos: GithubRepo[], skills: string[]): Promise<{ ok: boolean; saved_repos: number; added_skills: number }> {
+  const { data } = await client.post("/github/save", { repos, skills });
+  return data;
+}
