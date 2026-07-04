@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy, Download, Printer, Sparkles, RefreshCw } from "lucide-react";
+import { ArrowLeft, Copy, Download, FileText, Printer, Sparkles, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Logo } from "@/components/common/Logo";
 import { Input, Textarea, Select } from "@/components/ui/input";
@@ -33,12 +33,16 @@ const TONES: { value: Tone; label: string }[] = [
 
 export function EditorTopBar({
   onCopy,
-  onDownload,
+  onPdf,
+  onTxt,
   onPrint,
+  exporting,
 }: {
   onCopy: () => void;
-  onDownload: () => void;
+  onPdf: () => void;
+  onTxt: () => void;
   onPrint: () => void;
+  exporting: boolean;
 }) {
   return (
     <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-5">
@@ -48,9 +52,10 @@ export function EditorTopBar({
       <span className="hidden h-6 w-px bg-line sm:block" />
       <Logo className="hidden sm:inline-flex" />
       <span className="ml-auto flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={onCopy}><Copy size={15} /> Copy</Button>
+        <Button variant="ghost" size="sm" onClick={onCopy}><Copy size={15} /> Copy</Button>
+        <Button variant="ghost" size="sm" onClick={onTxt}><FileText size={15} /> .txt</Button>
         <Button variant="secondary" size="sm" onClick={onPrint}><Printer size={15} /> Print</Button>
-        <Button size="sm" onClick={onDownload}><Download size={15} /> Download</Button>
+        <Button size="sm" onClick={onPdf} loading={exporting}><Download size={15} /> Download PDF</Button>
       </span>
     </header>
   );
