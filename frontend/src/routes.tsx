@@ -14,6 +14,7 @@ import { NotFound } from "@/pages/NotFound";
 
 export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
+  { path: "write", element: <Write /> },
   {
     element: <AppShell />,
     children: [
@@ -22,7 +23,6 @@ export const router = createBrowserRouter([
       { path: "github", element: <Github /> },
       { path: "voice", element: <Voice /> },
       { path: "research", element: <Research /> },
-      { path: "write", element: <Write /> },
       { path: "applications", element: <Applications /> },
       { path: "settings", element: <Settings /> },
       { path: "dev/components", element: <ComponentsShowcase /> },
