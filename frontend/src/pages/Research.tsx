@@ -145,6 +145,7 @@ export function Research() {
 }
 
 function Report({ report }: { report: CompanyIntelReport }) {
+  const sections = report.sections ?? [];
   return (
     <div className="grid gap-6" style={{ animation: "cll-rise 0.4s both" }}>
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -161,17 +162,17 @@ function Report({ report }: { report: CompanyIntelReport }) {
       {report.fit && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-5 pt-5">
-            <ScoreRing value={report.fit.overall_score} size={82} label="Fit" />
+            <ScoreRing value={report.fit.overall_score ?? 0} size={82} label="Fit" />
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-1.5 text-[13px] font-semibold text-text">
                 <Target size={14} className="text-accent-ink" /> Fit for this role
               </p>
               <p className="mt-1 text-[14px] text-text-2">{report.fit.recommendation}</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {report.fit.technical_skills.matched.map((s) => (
+                {(report.fit.technical_skills?.matched ?? []).map((s) => (
                   <Badge key={s} tone="success">{s}</Badge>
                 ))}
-                {report.fit.technical_skills.missing.map((s) => (
+                {(report.fit.technical_skills?.missing ?? []).map((s) => (
                   <Badge key={s} tone="danger">missing: {s}</Badge>
                 ))}
               </div>
@@ -198,13 +199,13 @@ function Report({ report }: { report: CompanyIntelReport }) {
         </Card>
       )}
 
-      <Tabs defaultValue={report.sections[0]?.key}>
+      <Tabs defaultValue={sections[0]?.key}>
         <TabsList className="flex-wrap">
-          {report.sections.map((s) => (
+          {sections.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>{s.title}</TabsTrigger>
           ))}
         </TabsList>
-        {report.sections.map((s) => (
+        {sections.map((s) => (
           <TabsContent key={s.key} value={s.key}>
             <Card>
               <CardContent className="grid gap-3 pt-5">
@@ -218,12 +219,14 @@ function Report({ report }: { report: CompanyIntelReport }) {
                     ))}
                   </ul>
                 )}
-                <div className="flex flex-wrap gap-1.5 border-t border-line pt-3">
-                  <span className="font-mono text-[10.5px] uppercase tracking-wide text-text-3">Sources:</span>
-                  {s.sources.map((src) => (
-                    <SourceChip key={src.label} label={src.label} url={src.url} ok={src.ok} />
-                  ))}
-                </div>
+                {(s.sources?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-t border-line pt-3">
+                    <span className="font-mono text-[10.5px] uppercase tracking-wide text-text-3">Sources:</span>
+                    {s.sources.map((src, i) => (
+                      <SourceChip key={`${src.label}-${i}`} label={src.label} url={src.url} ok={src.ok} />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

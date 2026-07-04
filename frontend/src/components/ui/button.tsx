@@ -40,9 +40,17 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+    // When asChild, Radix Slot requires exactly one child element — so we must
+    // not inject a sibling spinner. asChild links/anchors don't use `loading`.
+    if (asChild) {
+      return (
+        <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props}>
+          {children}
+        </Slot>
+      );
+    }
     return (
-      <Comp
+      <button
         ref={ref}
         className={cn(buttonVariants({ variant, size }), className)}
         disabled={disabled || loading}
@@ -50,7 +58,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading && <Loader2 size={16} className="animate-spin" />}
         {children}
-      </Comp>
+      </button>
     );
   },
 );
