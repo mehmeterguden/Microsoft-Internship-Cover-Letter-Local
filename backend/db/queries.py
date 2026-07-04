@@ -26,7 +26,7 @@ from db.schema import get_connection
 _TABLES = frozenset({
     "profile", "links", "languages", "skills", "github_repos", "projects",
     "experiences", "education", "trainings", "certificates", "skill_links",
-    "past_cover_letters", "documents",
+    "past_cover_letters", "documents", "jobs",
 })
 
 # Columns stored as JSON text — (de)serialized transparently.
@@ -34,6 +34,7 @@ _JSON_COLUMNS: dict[str, set[str]] = {
     "profile": {"style_profile"},
     "github_repos": {"technologies"},
     "projects": {"technologies"},
+    "jobs": {"match_breakdown", "company_research", "letter"},
 }
 
 # Columns stored as 0/1 integers — exposed to callers as bool.

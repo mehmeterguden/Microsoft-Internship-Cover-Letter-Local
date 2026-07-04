@@ -9,7 +9,7 @@ singleton `Profile` has no id.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
@@ -326,6 +326,7 @@ class Job(BaseModel):
     match_breakdown: MatchBreakdown | None = None
     company_research: CompanyResearch | None = None
     status: JobStatus = JobStatus.draft
+    letter: dict[str, Any] | None = None   # saved cover-letter snapshot {content, design}
 
 
 class CoverLetter(BaseModel):

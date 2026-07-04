@@ -247,6 +247,9 @@ _COLUMNS_ADDED = {
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary
     },
+    "jobs": {
+        "letter": "TEXT",  # JSON: saved cover-letter snapshot {content, design}
+    },
 }
 
 

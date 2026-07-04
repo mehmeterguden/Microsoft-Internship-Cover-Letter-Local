@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { LetterDocument } from "@/features/letter/LetterDocument";
 import { AiPanel, EditorTopBar, TemplateRail, ACCENTS, FONTS } from "@/features/letter/EditorPanels";
 import { exportLetterPdf } from "@/features/letter/exportPdf";
 import type { LetterContent, LetterDesign } from "@/features/letter/types";
-import type { Tone } from "@/api/types";
+import type { Job, Tone } from "@/api/types";
 import { streamCoverLetter } from "@/api/coverLetter";
 import { getProfile } from "@/api/profile";
+import { createJob, getJob, updateJob } from "@/api/jobs";
+import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 const DEFAULT_BODY = `I've always been obsessed with making software feel effortless — the kind of tool that disappears into the work. That's exactly why this role caught my attention.
@@ -41,10 +44,27 @@ export function Write() {
     body: DEFAULT_BODY,
   });
 
+  const [params, setParams] = useSearchParams();
+  const jobIdParam = params.get("job");
+  const [jobId, setJobId] = useState<number | null>(jobIdParam ? Number(jobIdParam) : null);
+  const [saving, setSaving] = useState(false);
+
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Load a saved application into the editor, or seed contact from the profile.
   useEffect(() => {
+    if (jobIdParam) {
+      getJob(Number(jobIdParam))
+        .then((job) => {
+          setCompany(job.company);
+          setRole(job.role);
+          if (job.letter?.content) setContent((c) => ({ ...c, ...(job.letter!.content as Partial<LetterContent>) }));
+          if (job.letter?.design) setDesign((d) => ({ ...d, ...(job.letter!.design as Partial<LetterDesign>) }));
+        })
+        .catch((err) => toast.danger("Couldn't load application", errorMessage(err)));
+      return;
+    }
     getProfile()
       .then((p) => {
         const name = [p.name, p.surname].filter(Boolean).join(" ");
@@ -52,7 +72,7 @@ export function Write() {
         setContent((c) => ({ ...c, name: name || c.name, contact: contact || c.contact }));
       })
       .catch(() => {});
-  }, []);
+  }, [jobIdParam]);
 
   function patch(p: Partial<LetterContent>) {
     setContent((c) => ({ ...c, ...p }));
@@ -112,6 +132,32 @@ export function Write() {
     URL.revokeObjectURL(url);
   }
 
+  async function save() {
+    setSaving(true);
+    const payload: Job = {
+      company: company || "Untitled",
+      role: role || "Role",
+      status: "draft",
+      letter: { content: { ...content }, design: { ...design } },
+    };
+    try {
+      if (jobId != null) {
+        await updateJob(jobId, { ...payload, id: jobId });
+      } else {
+        const created = await createJob(payload);
+        if (created.id != null) {
+          setJobId(created.id);
+          setParams({ job: String(created.id) }, { replace: true });
+        }
+      }
+      toast.success("Saved to applications");
+    } catch (err) {
+      toast.danger("Couldn't save", errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function downloadPdf() {
     setExporting(true);
     try {
@@ -126,7 +172,7 @@ export function Write() {
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-bg-2">
-      <EditorTopBar onCopy={copy} onPdf={downloadPdf} onTxt={downloadTxt} onPrint={() => window.print()} exporting={exporting} />
+      <EditorTopBar onCopy={copy} onPdf={downloadPdf} onTxt={downloadTxt} onPrint={() => window.print()} onSave={save} exporting={exporting} saving={saving} />
       <div className="flex flex-1 overflow-hidden">
         <TemplateRail
           design={design}
