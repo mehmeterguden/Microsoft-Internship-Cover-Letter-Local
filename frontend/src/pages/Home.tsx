@@ -2,29 +2,27 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  ArrowUpRight,
-  Building2,
-  FileUp,
   AudioLines,
+  Building2,
+  Cpu,
+  FileUp,
+  LayoutGrid,
+  Lock,
   PenLine,
-  ShieldCheck,
+  Settings as SettingsIcon,
   Sparkles,
+  Star,
+  WifiOff,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Reveal, Stagger } from "@/lib/motion";
+import { MarketingNav } from "@/components/common/MarketingNav";
+import { Logo } from "@/components/common/Logo";
 import { cn } from "@/lib/utils";
-
-const STEPS = [
-  { icon: FileUp, title: "Import your CV", body: "Extract and structure your experience locally — no upload to the cloud.", to: "/onboarding", tone: "text-accent-ink bg-accent-soft" },
-  { icon: AudioLines, title: "Learn your voice", body: "We study your past letters and build a fingerprint of how you write and think.", to: "/voice", tone: "text-violet bg-violet-soft" },
-  { icon: Building2, title: "Research the company", body: "Parallel agents gather a detailed, source-cited intelligence report.", to: "/research", tone: "text-blue bg-blue-soft" },
-  { icon: PenLine, title: "Generate the letter", body: "A grounded, personalized letter streams in — in your own voice.", to: "/write", tone: "text-gold bg-gold-soft" },
-];
 
 const SAMPLE =
   "Dear hiring team,\n\nI've always been obsessed with making software feel effortless — the kind of tool that disappears into the work. That's exactly why your push toward on-device AI caught my attention.";
 
-/** A small looping "letter being written" preview for the hero. */
 function LiveLetterDemo() {
   const [n, setN] = useState(0);
   useEffect(() => {
@@ -36,31 +34,38 @@ function LiveLetterDemo() {
     const id = window.setInterval(() => {
       i = i >= SAMPLE.length ? 0 : i + 1;
       setN(i);
-    }, 42);
+    }, 44);
     return () => window.clearInterval(id);
   }, []);
 
   return (
-    <div className="relative">
+    <div className="relative mx-auto w-full max-w-md">
+      {/* Green blob backdrop */}
       <div
-        className="absolute -inset-3 -z-10 rounded-[24px] opacity-70 blur-2xl"
-        style={{ background: "radial-gradient(60% 60% at 70% 20%, var(--accent-soft), transparent 70%)" }}
+        aria-hidden
+        className="absolute -inset-6 -z-10"
+        style={{
+          background: "radial-gradient(60% 55% at 60% 40%, var(--accent-soft), transparent 72%)",
+          filter: "blur(10px)",
+        }}
       />
+      {/* Faint doc cards behind for depth */}
+      <div aria-hidden className="absolute -right-6 top-8 h-56 w-40 rotate-6 rounded-[16px] border border-border bg-surface shadow-soft" />
+      <div aria-hidden className="absolute -left-5 top-4 h-52 w-36 -rotate-6 rounded-[16px] border border-border bg-surface shadow-soft" />
+
       <motion.div
         animate={{ y: [0, -8, 0] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        className="rounded-[20px] border border-border bg-surface/80 p-5 shadow-elevated backdrop-blur-xl"
+        className="relative rounded-[20px] border border-border bg-surface p-5 shadow-elevated"
       >
         <div className="mb-3 flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-danger/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-gold/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-good/70" />
-          <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.14em] text-text-3">
-            letter.md · streaming
-          </span>
+          <span className="ml-auto text-[11px] font-medium text-text-3">letter.md</span>
         </div>
-        <div className="min-h-44 rounded-[12px] bg-paper p-4">
-          <p className="whitespace-pre-wrap font-serif text-[15px] leading-[1.7] text-text">
+        <div className="min-h-44 rounded-[12px] bg-surface-2 p-4">
+          <p className="whitespace-pre-wrap text-[14.5px] leading-[1.7] text-text">
             {SAMPLE.slice(0, n)}
             <span
               className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] bg-accent"
@@ -68,119 +73,204 @@ function LiveLetterDemo() {
             />
           </p>
         </div>
-        <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent-ink">
-            <AudioLines size={11} /> your voice
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-soft px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-blue">
-            <Building2 size={11} /> grounded
-          </span>
-        </div>
+      </motion.div>
+
+      {/* Generate-with-AI pill */}
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.6, type: "spring", stiffness: 300, damping: 18 }}
+        className="absolute -bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-navy px-4 py-2.5 text-[13px] font-semibold text-white shadow-elevated"
+      >
+        <Sparkles size={15} className="text-accent-ink" /> Generate with AI
       </motion.div>
     </div>
   );
 }
 
+const TRUST = [
+  { icon: WifiOff, label: "Works offline" },
+  { icon: Lock, label: "No account, no telemetry" },
+  { icon: Cpu, label: "Runs on local models" },
+];
+
+const FEATURES = [
+  { icon: FileUp, label: "CV Import", to: "/onboarding" },
+  { icon: AudioLines, label: "Writing Voice", to: "/voice" },
+  { icon: Building2, label: "Company Research", to: "/research" },
+  { icon: PenLine, label: "Cover Letter", to: "/write" },
+  { icon: LayoutGrid, label: "Applications", to: "/applications" },
+  { icon: SettingsIcon, label: "Settings", to: "/settings" },
+];
+
+const STEPS = [
+  { icon: FileUp, title: "Import your CV", body: "Extract and structure your experience locally — nothing is uploaded.", tone: "text-accent-ink bg-accent-soft" },
+  { icon: AudioLines, title: "Learn your voice", body: "We study your past letters and build a fingerprint of how you write.", tone: "text-violet bg-violet-soft" },
+  { icon: Building2, title: "Research the company", body: "Parallel agents gather a detailed, source-cited report.", tone: "text-blue bg-blue-soft" },
+  { icon: PenLine, title: "Generate the letter", body: "A grounded, personalized letter streams in — in your own voice.", tone: "text-gold bg-gold-soft" },
+];
+
 export function Home() {
   return (
-    <>
-      <section className="grid items-center gap-10 pb-16 pt-2 lg:grid-cols-[1.15fr_0.85fr]">
-        <Stagger stagger={0.09}>
-          <Reveal>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-ink backdrop-blur">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-              </span>
-              Runs entirely on your machine
-            </span>
-          </Reveal>
-          <Reveal>
-            <h1 className="mt-5 text-[clamp(38px,5.4vw,64px)] font-bold leading-[1.02] tracking-tight">
-              Write cover letters that sound like{" "}
-              <span className="font-serif italic font-normal text-accent-ink">you</span>
-              <span className="text-text-3">.</span>
-            </h1>
-          </Reveal>
-          <Reveal>
-            <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-text-2">
-              Cover Letter Local learns your writing voice, profiles your skills, researches the
-              company, and generates a personalized letter. Nothing leaves your device.
-            </p>
-          </Reveal>
-          <Reveal>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                to="/onboarding"
-                className="cll-sheen inline-flex items-center gap-2 rounded-[12px] bg-accent px-6 py-3.5 text-[15px] font-bold text-on-accent shadow-soft transition-transform hover:-translate-y-0.5 active:translate-y-0"
-              >
-                <Sparkles size={17} /> Get started
-              </Link>
-              <Link
-                to="/write"
-                className="group inline-flex items-center gap-2 rounded-[12px] border border-border bg-surface/60 px-6 py-3.5 text-[15px] font-semibold text-text backdrop-blur transition-colors hover:border-border-strong"
-              >
-                Write a letter
-                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </Reveal>
-          <Reveal>
-            <div className="mt-6 flex items-center gap-2 text-[12.5px] text-text-3">
-              <ShieldCheck size={14} className="text-accent-ink" />
-              No account. No telemetry. Your CV never leaves this device.
-            </div>
-          </Reveal>
-        </Stagger>
+    <div className="min-h-dvh bg-surface">
+      <MarketingNav />
 
-        <Reveal delay={0.35} className="hidden lg:block">
-          <LiveLetterDemo />
-        </Reveal>
+      {/* Hero */}
+      <section className="bg-bg-2">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+          <Stagger stagger={0.09}>
+            <Reveal>
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-2">
+                  {["A", "M", "K"].map((c, i) => (
+                    <span
+                      key={c}
+                      className={cn(
+                        "grid h-8 w-8 place-items-center rounded-full border-2 border-surface text-[12px] font-bold text-white",
+                        ["bg-accent", "bg-violet", "bg-blue"][i],
+                      )}
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-[14px] font-semibold text-text-2">
+                  <span className="text-text">Private by design</span> — your data stays with you
+                </span>
+              </div>
+            </Reveal>
+            <Reveal>
+              <h1 className="mt-5 text-[clamp(38px,5.4vw,60px)] font-extrabold leading-[1.04] tracking-tight text-text">
+                Write cover letters that sound like{" "}
+                <span className="text-accent-ink">you</span>, in minutes
+              </h1>
+            </Reveal>
+            <Reveal>
+              <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-text-2">
+                Cover Letter Local learns your writing voice, profiles your skills, researches the company,
+                and generates a personalized letter — all on your machine, with your choice of local AI.
+              </p>
+            </Reveal>
+            <Reveal>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link
+                  to="/onboarding"
+                  className="inline-flex items-center gap-2 rounded-[12px] bg-accent px-7 py-3.5 text-[15.5px] font-semibold text-on-accent shadow-soft transition-all hover:brightness-[1.06]"
+                >
+                  <Sparkles size={17} /> Get started
+                </Link>
+                <Link
+                  to="/write"
+                  className="group inline-flex items-center gap-2 rounded-[12px] border border-border bg-surface px-7 py-3.5 text-[15.5px] font-semibold text-text transition-colors hover:border-border-strong"
+                >
+                  Write a letter
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+            </Reveal>
+            <Reveal>
+              <div className="mt-6 flex items-center gap-2">
+                <span className="flex text-gold">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Star key={i} size={16} className="fill-gold" />
+                  ))}
+                </span>
+                <span className="text-[13.5px] font-medium text-text-2">Local-first &amp; open — no lock-in</span>
+              </div>
+            </Reveal>
+          </Stagger>
+
+          <Reveal delay={0.35}>
+            <LiveLetterDemo />
+          </Reveal>
+        </div>
       </section>
 
-      <section>
-        <div className="mb-5 flex items-center gap-3">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-text-3">
-            How it works
-          </p>
-          <span className="h-px flex-1 bg-line" />
+      {/* Navy trust band */}
+      <section className="bg-navy">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-10 gap-y-4 px-6 py-6 sm:justify-between">
+          <span className="text-[14px] font-semibold text-white/70">Built to keep your data yours:</span>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+            {TRUST.map(({ icon: Icon, label }) => (
+              <span key={label} className="inline-flex items-center gap-2 text-[14px] font-medium text-white/90">
+                <Icon size={17} className="text-accent-ink" /> {label}
+              </span>
+            ))}
+          </div>
         </div>
-        <Stagger stagger={0.08} className="grid gap-4 sm:grid-cols-2">
-          {STEPS.map(({ icon: Icon, title, body, to, tone }, i) => (
+      </section>
+
+      {/* Everything you need */}
+      <section className="mx-auto w-full max-w-6xl px-6 py-20">
+        <h2 className="text-center text-[clamp(28px,3.6vw,42px)] font-extrabold leading-tight tracking-tight">
+          Everything you need to land interviews
+          <br />
+          <span className="text-accent-ink">in one place</span>
+        </h2>
+
+        <div className="mt-8 flex flex-wrap justify-center gap-2.5">
+          {FEATURES.map(({ icon: Icon, label, to }, i) => (
+            <Link
+              key={label}
+              to={to}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-[12px] border px-4 py-2.5 text-[14px] font-semibold transition-colors",
+                i === 0
+                  ? "border-accent/40 bg-accent-soft text-accent-ink"
+                  : "border-border bg-surface text-text-2 hover:border-border-strong hover:text-text",
+              )}
+            >
+              <Icon size={16} /> {label}
+            </Link>
+          ))}
+        </div>
+
+        <Stagger stagger={0.08} className="mt-12 grid gap-4 sm:grid-cols-2">
+          {STEPS.map(({ icon: Icon, title, body, tone }, i) => (
             <Reveal key={title}>
-              <Link to={to} className="group block focus-visible:outline-none">
-                <motion.div
-                  whileHover={{ y: -5 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 26 }}
-                  className="relative h-full overflow-hidden rounded-[16px] border border-border bg-surface/70 p-5 shadow-soft backdrop-blur-sm transition-colors group-hover:border-border-strong group-hover:shadow-elevated"
-                >
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
-                    style={{ background: "radial-gradient(circle, var(--accent-soft), transparent 70%)" }}
-                  />
-                  <div className="flex items-start gap-4">
-                    <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-[12px]", tone)}>
-                      <Icon size={20} />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[11px] text-text-3">0{i + 1}</span>
-                        <h3 className="text-[15.5px] font-bold">{title}</h3>
-                      </div>
-                      <p className="mt-1 text-[13.5px] leading-snug text-text-2">{body}</p>
-                    </div>
-                    <ArrowUpRight
-                      size={17}
-                      className="ml-auto mt-1 shrink-0 text-text-3 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent-ink"
-                    />
+              <motion.div
+                whileHover={{ y: -5 }}
+                transition={{ type: "spring", stiffness: 400, damping: 26 }}
+                className="flex h-full items-start gap-4 rounded-[18px] border border-border bg-surface p-5 shadow-soft"
+              >
+                <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-[12px]", tone)}>
+                  <Icon size={20} />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-semibold text-text-3">Step {i + 1}</span>
                   </div>
-                </motion.div>
-              </Link>
+                  <h3 className="text-[16px] font-bold">{title}</h3>
+                  <p className="mt-1 text-[14px] leading-snug text-text-2">{body}</p>
+                </div>
+              </motion.div>
             </Reveal>
           ))}
         </Stagger>
+
+        {/* CTA */}
+        <div className="mt-14 overflow-hidden rounded-[24px] bg-navy px-8 py-12 text-center">
+          <h3 className="text-[clamp(24px,3vw,34px)] font-extrabold text-white">
+            Your next cover letter, in your own voice
+          </h3>
+          <p className="mx-auto mt-3 max-w-lg text-[15px] text-white/70">
+            No account. No cloud. Just you and a local model that writes like you do.
+          </p>
+          <Link
+            to="/onboarding"
+            className="mt-7 inline-flex items-center gap-2 rounded-[12px] bg-accent px-7 py-3.5 text-[15.5px] font-semibold text-on-accent shadow-soft transition-all hover:brightness-[1.06]"
+          >
+            <Sparkles size={17} /> Get started free
+          </Link>
+        </div>
       </section>
-    </>
+
+      <footer className="border-t border-border">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8">
+          <Logo />
+          <p className="text-[13px] text-text-3">Runs entirely on your machine · No data leaves the device</p>
+        </div>
+      </footer>
+    </div>
   );
 }

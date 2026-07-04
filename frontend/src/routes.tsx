@@ -13,10 +13,10 @@ import { ComponentsShowcase } from "@/pages/ComponentsShowcase";
 import { NotFound } from "@/pages/NotFound";
 
 export const router = createBrowserRouter([
+  { path: "/", element: <Home /> },
   {
     element: <AppShell />,
     children: [
-      { index: true, element: <Home /> },
       { path: "onboarding", element: <Onboarding /> },
       { path: "profile", element: <Profile /> },
       { path: "github", element: <Github /> },

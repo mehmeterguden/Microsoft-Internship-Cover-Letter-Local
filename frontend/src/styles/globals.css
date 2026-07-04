@@ -11,70 +11,76 @@
    ───────────────────────────────────────────────────────────── */
 :root,
 .light {
-  --bg: #f4f1fb;
-  --bg-2: #ebe6f7;
+  --bg: #ffffff;
+  --bg-2: #eaf6f1;          /* light mint (hero / section wash) */
   --surface: #ffffff;
-  --surface-2: #f8f5fe;
-  --paper: #fbfaff;
+  --surface-2: #f2f8f6;
+  --paper: #ffffff;
 
-  --border: rgba(76, 29, 149, 0.14);
-  --border-strong: rgba(76, 29, 149, 0.26);
-  --line: rgba(76, 29, 149, 0.09);
+  --navy: #0b1226;          /* dark sidebar + marketing bands (theme-independent) */
+  --navy-2: #111a34;
 
-  --text: #1a1330;
-  --text-2: #5b5178;
-  --text-3: #8b82a6;
+  --border: #e4eae8;
+  --border-strong: #cdd8d3;
+  --line: #eef2f0;
 
-  --accent: #0e9e76;
+  --text: #131a2e;          /* near-navy ink */
+  --text-2: #55617a;
+  --text-3: #8a94a6;
+
+  --accent: #0ea373;        /* brand green */
   --accent-ink: #0a7452;
-  --accent-soft: rgba(14, 158, 118, 0.1);
+  --accent-soft: #e6f5ef;
   --on-accent: #ffffff;
 
   --gold: #b4780f;
-  --gold-soft: rgba(180, 120, 15, 0.13);
+  --gold-soft: #f7edd8;
   --blue: #2f6f9e;
-  --blue-soft: rgba(47, 111, 158, 0.12);
-  --violet: #7c3aed;
-  --violet-soft: rgba(124, 58, 237, 0.1);
+  --blue-soft: #e3eef6;
+  --violet: #6d5bd6;
+  --violet-soft: #ece9fb;
   --danger: #dc5b4b;
-  --danger-soft: rgba(220, 91, 75, 0.1);
-  --good: #0e9e76;
-  --good-soft: rgba(14, 158, 118, 0.1);
+  --danger-soft: #fbe8e5;
+  --good: #0ea373;
+  --good-soft: #e6f5ef;
 
-  --shadow: 0 1px 2px rgba(27, 19, 48, 0.05), 0 12px 32px rgba(27, 19, 48, 0.08);
-  --shadow-lg: 0 2px 6px rgba(27, 19, 48, 0.06), 0 30px 70px rgba(27, 19, 48, 0.14);
+  --shadow: 0 1px 2px rgba(19, 26, 46, 0.04), 0 10px 28px rgba(19, 26, 46, 0.07);
+  --shadow-lg: 0 2px 8px rgba(19, 26, 46, 0.06), 0 26px 60px rgba(19, 26, 46, 0.12);
 }
 
 .dark {
-  --bg: #0f0a1e;
-  --bg-2: #0a0715;
-  --surface: #181030;
-  --surface-2: #20163c;
-  --paper: #140e28;
+  --bg: #0a0f1f;
+  --bg-2: #0c1226;
+  --surface: #121a30;
+  --surface-2: #182241;
+  --paper: #0f1730;
 
-  --border: rgba(167, 139, 250, 0.16);
-  --border-strong: rgba(167, 139, 250, 0.32);
-  --line: rgba(167, 139, 250, 0.1);
+  --navy: #0b1226;
+  --navy-2: #111a34;
 
-  --text: #f2edfc;
-  --text-2: #a99bcb;
-  --text-3: #6f6493;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --line: rgba(255, 255, 255, 0.07);
 
-  --accent: #34d399;
-  --accent-ink: #5eeab4;
-  --accent-soft: rgba(52, 211, 153, 0.12);
-  --on-accent: #06130f;
+  --text: #eaeef7;
+  --text-2: #a9b2c7;
+  --text-3: #6b7590;
+
+  --accent: #2bd4a0;
+  --accent-ink: #5fe8be;
+  --accent-soft: rgba(43, 212, 160, 0.14);
+  --on-accent: #05130d;
 
   --gold: #fbbf24;
-  --gold-soft: rgba(251, 191, 36, 0.13);
+  --gold-soft: rgba(251, 191, 36, 0.14);
   --blue: #6faed8;
   --blue-soft: rgba(111, 174, 216, 0.15);
   --violet: #a78bfa;
   --violet-soft: rgba(167, 139, 250, 0.14);
   --danger: #f87171;
   --danger-soft: rgba(248, 113, 113, 0.14);
-  --good: #34d399;
-  --good-soft: rgba(52, 211, 153, 0.12);
+  --good: #2bd4a0;
+  --good-soft: rgba(43, 212, 160, 0.14);
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.5), 0 34px 80px rgba(0, 0, 0, 0.62);
@@ -110,13 +116,15 @@
   --color-danger-soft: var(--danger-soft);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
 
-  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --radius-card: 14px;
+  --radius-card: 18px;
   --shadow-soft: var(--shadow);
   --shadow-elevated: var(--shadow-lg);
 }
@@ -142,7 +150,8 @@
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     color: var(--text);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
+    font-weight: 700;
   }
 
   /* Visible, consistent focus ring for keyboard users (WCAG 2.2). */

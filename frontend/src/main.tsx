@@ -2,9 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 // Self-hosted fonts (bundled by @fontsource — no runtime request to any CDN).
-import "@fontsource-variable/bricolage-grotesque";
+import "@fontsource/poppins/500.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
+import "@fontsource/poppins/800.css";
 import "@fontsource-variable/hanken-grotesk";
-import "@fontsource/instrument-serif";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
