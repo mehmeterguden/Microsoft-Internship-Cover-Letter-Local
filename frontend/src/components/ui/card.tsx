@@ -8,7 +8,7 @@ export const Card = forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-[var(--radius-card)] border border-border bg-surface/80 shadow-soft backdrop-blur-sm",
+      "rounded-[var(--radius-card)] border border-border bg-surface shadow-soft",
       hoverable &&
         "transition-all duration-200 hover:-translate-y-1 hover:border-border-strong hover:shadow-elevated",
       className,
