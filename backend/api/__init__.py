@@ -16,6 +16,7 @@ from api.routers import (
     experiences,
     github,
     github_repos,
+    jobs,
     languages,
     links,
     llm,
@@ -54,3 +55,4 @@ api_router.include_router(certificates.router)
 api_router.include_router(languages.router)
 api_router.include_router(links.router)
 api_router.include_router(past_cover_letters.router)
+api_router.include_router(jobs.router)  # saved applications + letter snapshots

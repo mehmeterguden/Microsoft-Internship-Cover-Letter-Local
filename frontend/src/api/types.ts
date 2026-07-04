@@ -175,6 +175,7 @@ export interface Job {
   match_score?: number | null;
   match_breakdown?: MatchBreakdown | null;
   status: JobStatus;
+  letter?: { content: Record<string, string>; design: Record<string, unknown> } | null;
 }
 
 export interface Settings {
