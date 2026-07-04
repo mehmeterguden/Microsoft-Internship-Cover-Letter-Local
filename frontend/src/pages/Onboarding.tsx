@@ -79,7 +79,22 @@ export function Onboarding() {
 
         <div className="min-w-0">
           {phase === "upload" && (
-            <FileDropzone accept=".pdf,.docx,.png,.jpg,.jpeg" hint="PDF, DOCX or image · max 15 MB" onFile={handleFile} />
+            <div className="grid gap-5">
+              <FileDropzone accept=".pdf,.docx,.png,.jpg,.jpeg" hint="PDF, DOCX or image · max 15 MB" onFile={handleFile} />
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  { icon: FileText, title: "Read locally", body: "Text is extracted on your machine — the file never uploads." },
+                  { icon: Sparkles, title: "Structured by AI", body: "Your experience, skills, and education are organized automatically." },
+                  { icon: CheckCircle2, title: "You review it", body: "Nothing is saved until you confirm what we found." },
+                ].map(({ icon: Icon, title, body }) => (
+                  <div key={title} className="rounded-[16px] border border-border bg-surface p-4 shadow-soft">
+                    <span className="mb-2.5 inline-grid h-9 w-9 place-items-center rounded-[10px] bg-accent-soft text-accent-ink"><Icon size={17} /></span>
+                    <p className="text-[13.5px] font-bold">{title}</p>
+                    <p className="mt-1 text-[12.5px] leading-snug text-text-2">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {phase === "parsing" && (
