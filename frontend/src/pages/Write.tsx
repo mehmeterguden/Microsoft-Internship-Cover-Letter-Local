@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LetterDocument } from "@/features/letter/LetterDocument";
 import { AiPanel, EditorTopBar, TemplateRail, ACCENTS, FONTS } from "@/features/letter/EditorPanels";
+import { exportLetterPdf } from "@/features/letter/exportPdf";
 import type { LetterContent, LetterDesign } from "@/features/letter/types";
 import type { Tone } from "@/api/types";
 import { streamCoverLetter } from "@/api/coverLetter";
@@ -93,12 +94,14 @@ export function Write() {
     }
   }
 
+  const [exporting, setExporting] = useState(false);
+
   function copy() {
     navigator.clipboard?.writeText(`${content.greeting}\n\n${content.body}`);
     toast.success("Copied to clipboard");
   }
 
-  function download() {
+  function downloadTxt() {
     const text = `${content.subject}\n\n${content.greeting}\n\n${content.body}`;
     const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -109,9 +112,21 @@ export function Write() {
     URL.revokeObjectURL(url);
   }
 
+  async function downloadPdf() {
+    setExporting(true);
+    try {
+      await exportLetterPdf("letter-print");
+      toast.success("PDF downloaded");
+    } catch {
+      toast.danger("Couldn't export PDF", "Try again in a moment.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-bg-2">
-      <EditorTopBar onCopy={copy} onDownload={download} onPrint={() => window.print()} />
+      <EditorTopBar onCopy={copy} onPdf={downloadPdf} onTxt={downloadTxt} onPrint={() => window.print()} exporting={exporting} />
       <div className="flex flex-1 overflow-hidden">
         <TemplateRail
           design={design}
