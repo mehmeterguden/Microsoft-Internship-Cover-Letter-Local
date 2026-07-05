@@ -14,13 +14,53 @@ import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 
-const PROVIDERS: { id: LLMProviderId; label: string; local: boolean }[] = [
-  { id: "foundry_local", label: "Foundry Local", local: true },
-  { id: "ollama", label: "Ollama", local: true },
-  { id: "openai", label: "OpenAI", local: false },
-  { id: "anthropic", label: "Claude (Anthropic)", local: false },
-  { id: "gemini", label: "Gemini", local: false },
+type ProviderInfo = {
+  id: LLMProviderId;
+  label: string;
+  local: boolean;
+  baseUrl: string; // sensible default endpoint (local providers)
+  models: string[]; // pickable models; local users can still choose "Custom…"
+};
+
+const PROVIDERS: ProviderInfo[] = [
+  {
+    id: "foundry_local",
+    label: "Foundry Local",
+    local: true,
+    baseUrl: "http://localhost:5273/v1",
+    models: ["phi-4", "phi-3.5-mini", "qwen2.5-7b-instruct", "mistral-7b-instruct"],
+  },
+  {
+    id: "ollama",
+    label: "Ollama",
+    local: true,
+    baseUrl: "http://localhost:11434",
+    models: ["llama3.1:8b", "qwen2.5:7b", "qwen2.5:14b", "gemma2:9b", "mistral", "phi3.5"],
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    local: false,
+    baseUrl: "https://api.openai.com/v1",
+    models: ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "o3-mini"],
+  },
+  {
+    id: "anthropic",
+    label: "Claude (Anthropic)",
+    local: false,
+    baseUrl: "https://api.anthropic.com",
+    models: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-3-5-haiku-latest"],
+  },
+  {
+    id: "gemini",
+    label: "Gemini",
+    local: false,
+    baseUrl: "https://generativelanguage.googleapis.com",
+    models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash"],
+  },
 ];
+
+const CUSTOM = "__custom__";
 
 export function Settings() {
   const loaded = useAsync(getSettings, []);
@@ -37,6 +77,17 @@ export function Settings() {
   function set<K extends keyof SettingsType>(key: K, value: SettingsType[K]) {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
+
+  // Switching provider auto-selects that provider's default model and endpoint.
+  function changeProvider(id: LLMProviderId) {
+    const info = PROVIDERS.find((p) => p.id === id)!;
+    setSettings((prev) =>
+      prev ? { ...prev, llm_provider: id, llm_model: info.models[0]!, llm_base_url: info.baseUrl } : prev,
+    );
+  }
+
+  const models = provider?.models ?? [];
+  const isCustomModel = settings != null && models.length > 0 && !models.includes(settings.llm_model);
 
   async function save() {
     if (!settings) return;
@@ -77,7 +128,7 @@ export function Settings() {
               <Select
                 id="provider"
                 value={settings.llm_provider}
-                onChange={(e) => set("llm_provider", e.target.value as LLMProviderId)}
+                onChange={(e) => changeProvider(e.target.value as LLMProviderId)}
               >
                 {PROVIDERS.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -94,14 +145,36 @@ export function Settings() {
               </Alert>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Model" htmlFor="model">
-                <Input id="model" value={settings.llm_model} onChange={(e) => set("llm_model", e.target.value)} />
+            <Field label="Model" htmlFor="model" hint={provider?.local ? "Pick a model, or choose Custom to enter one you've pulled locally." : undefined}>
+              <Select
+                id="model"
+                value={isCustomModel ? CUSTOM : settings.llm_model}
+                onChange={(e) => set("llm_model", e.target.value === CUSTOM ? "" : e.target.value)}
+              >
+                {models.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+                <option value={CUSTOM}>Custom…</option>
+              </Select>
+            </Field>
+
+            {isCustomModel && (
+              <Field label="Custom model id" htmlFor="model-custom">
+                <Input
+                  id="model-custom"
+                  autoFocus
+                  value={settings.llm_model}
+                  onChange={(e) => set("llm_model", e.target.value)}
+                  placeholder={provider?.models[0] ?? "model-name"}
+                />
               </Field>
-              <Field label="Base URL" htmlFor="baseurl" hint="For local providers">
+            )}
+
+            {provider?.local && (
+              <Field label="Base URL" htmlFor="baseurl" hint="Where your local server is running">
                 <Input id="baseurl" value={settings.llm_base_url} onChange={(e) => set("llm_base_url", e.target.value)} />
               </Field>
-            </div>
+            )}
 
             {settings.llm_provider === "openai" && (
               <Field label="OpenAI API key" htmlFor="openai">
