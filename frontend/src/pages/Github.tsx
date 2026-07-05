@@ -10,8 +10,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SkillTag } from "@/components/common/SkillTag";
 import { RatingInput } from "@/components/common/RatingInput";
+import { DevInspector } from "@/components/common/DevInspector";
 import type { GithubRepo } from "@/api/types";
-import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos } from "@/api/github";
+import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos, type AnalyzeResult } from "@/api/github";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
@@ -23,6 +24,7 @@ export function Github() {
   const [login, setLogin] = useState("");
   const [repos, setRepos] = useState<GithubRepo[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
+  const [analysis, setAnalysis] = useState<AnalyzeResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -44,6 +46,7 @@ export function Github() {
     setAnalyzing(true);
     try {
       const result = await analyzeRepos(login || username, repos);
+      setAnalysis(result);
       if (result.analysis.repos?.length) setRepos(result.analysis.repos);
       setSkills(result.analysis.skills ?? []);
       toast.success("READMEs analyzed", "Descriptions and skills extracted.");
@@ -145,6 +148,10 @@ export function Github() {
               Save to profile
             </Button>
           </div>
+
+          {analysis && (
+            <DevInspector json={analysis.analysis} raw={analysis.raw_output} title="Developer · view AI analysis (JSON)" />
+          )}
         </div>
       )}
     </>

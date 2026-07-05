@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScoreRing } from "@/components/common/ScoreRing";
 import { SourceChip } from "@/components/common/SourceChip";
+import { DevInspector } from "@/components/common/DevInspector";
 import { Reveal, Stagger } from "@/lib/motion";
-// EmptyState replaced by the "what we uncover" grid.
 import type { CompanyIntelReport } from "@/api/types";
 import { streamResearch } from "@/api/research";
 import { toast } from "@/store/toast";
@@ -270,6 +270,8 @@ function Report({ report }: { report: CompanyIntelReport }) {
           </TabsContent>
         ))}
       </Tabs>
+
+      <DevInspector json={report} title="Developer · view research report (JSON)" />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/common/EmptyState";
+import { DevInspector } from "@/components/common/DevInspector";
 import { RatingInput } from "@/components/common/RatingInput";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
 import {
@@ -233,6 +234,7 @@ export function Voice() {
               This fingerprint guides every letter you generate, so they sound like you.
             </Alert>
           )}
+          {voice && <DevInspector json={voice} title="Developer · view voice profile (JSON)" />}
         </div>
       </div>
       </AsyncBoundary>

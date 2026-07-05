@@ -10,8 +10,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Stepper } from "@/components/common/Stepper";
 import { FileDropzone } from "@/components/common/FileDropzone";
 import { SkillTag } from "@/components/common/SkillTag";
+import { DevInspector } from "@/components/common/DevInspector";
 import type { CVExtraction } from "@/api/types";
-import { importCv, saveExtraction } from "@/api/cv";
+import { importCv, saveExtraction, type ImportResult } from "@/api/cv";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
@@ -27,6 +28,7 @@ export function Onboarding() {
   const [phase, setPhase] = useState<Phase>("upload");
   const [fileName, setFileName] = useState("");
   const [extraction, setExtraction] = useState<CVExtraction | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
@@ -34,11 +36,12 @@ export function Onboarding() {
     setFileName(file.name);
     setPhase("parsing");
     try {
-      const result = await importCv(file);
-      if (!result.ok || !result.structured) {
-        throw new Error(result.error || "Could not structure the CV");
+      const res = await importCv(file);
+      setResult(res);
+      if (!res.ok || !res.structured) {
+        throw new Error(res.error || "Could not structure the CV");
       }
-      setExtraction(result.structured);
+      setExtraction(res.structured);
       setPhase("review");
     } catch (err) {
       toast.danger("Import failed", errorMessage(err));
@@ -173,6 +176,10 @@ export function Onboarding() {
                   Upload a different file
                 </Button>
               </div>
+
+              {result && (
+                <DevInspector json={result.structured ?? result} raw={result.raw_output} />
+              )}
             </div>
           )}
         </div>
