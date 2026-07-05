@@ -9,6 +9,7 @@ result so we can inspect what the model produced.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from typing import Any
 
 from pydantic import ValidationError
@@ -64,3 +65,27 @@ def structure(cv_text: str) -> dict[str, Any]:
     # `structured` is the validated clean data (confidence dropped by the models);
     # `data` is the parsed dict that still carries the per-item confidence scores.
     return {"ok": True, "structured": structured.model_dump(mode="json"), "data": data, "raw_output": raw}
+
+
+def _finalize(raw: str) -> dict[str, Any]:
+    """Parse + validate an accumulated model reply into a structuring result."""
+    try:
+        data = _normalize(json.loads(_extract_json(raw)))
+        structured = CVExtraction(**data)
+    except (ValueError, json.JSONDecodeError, ValidationError) as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "raw_output": raw}
+    return {"ok": True, "structured": structured.model_dump(mode="json"), "data": data, "raw_output": raw}
+
+
+def structure_stream(cv_text: str) -> Iterator[dict[str, Any]]:
+    """Stream the structuring: yield `{type:'token', text}` as the model writes the
+    JSON, then a final `{type:'done', ...}` with the validated result. Mirrors
+    `structure()` but surfaces the output incrementally. Raises only if the LLM
+    call itself fails (the caller maps that to a stream error)."""
+    parts: list[str] = []
+    for chunk in llm.stream(build_messages(cv_text), temperature=0.0):
+        if not chunk:
+            continue
+        parts.append(chunk)
+        yield {"type": "token", "text": chunk}
+    yield {"type": "done", **_finalize("".join(parts))}
