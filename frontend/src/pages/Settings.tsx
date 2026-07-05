@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Save, SlidersHorizontal, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import type { LLMProviderId, Settings as SettingsType } from "@/api/types";
 import { getSettings, saveSettings } from "@/api/settings";
+import { listModels } from "@/api/llm";
 import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
@@ -66,6 +67,12 @@ export function Settings() {
   const loaded = useAsync(getSettings, []);
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [saving, setSaving] = useState(false);
+  const [discovered, setDiscovered] = useState<{ models: string[]; error: string | null; loading: boolean }>({
+    models: [],
+    error: null,
+    loading: false,
+  });
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useEffect(() => {
     if (loaded.data) setSettings(loaded.data);
@@ -86,8 +93,23 @@ export function Settings() {
     );
   }
 
-  const models = provider?.models ?? [];
-  const isCustomModel = settings != null && models.length > 0 && !models.includes(settings.llm_model);
+  // Discover models for the current provider (debounced on provider/base-URL change).
+  const prov = settings?.llm_provider;
+  const base = settings?.llm_base_url;
+  useEffect(() => {
+    if (!prov) return;
+    setDiscovered((d) => ({ ...d, loading: true }));
+    const t = window.setTimeout(() => {
+      listModels(prov, base)
+        .then((r) => setDiscovered({ models: r.models, error: r.error, loading: false }))
+        .catch((err) => setDiscovered({ models: [], error: errorMessage(err), loading: false }));
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [prov, base, refreshNonce]);
+
+  const curated = provider?.models ?? [];
+  const modelOptions = discovered.models.length ? discovered.models : curated;
+  const isCustomModel = settings != null && !modelOptions.includes(settings.llm_model);
 
   async function save() {
     if (!settings) return;
@@ -145,18 +167,39 @@ export function Settings() {
               </Alert>
             )}
 
-            <Field label="Model" htmlFor="model" hint={provider?.local ? "Pick a model, or choose Custom to enter one you've pulled locally." : undefined}>
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-text">Model</span>
+                <button
+                  type="button"
+                  onClick={() => setRefreshNonce((n) => n + 1)}
+                  className="inline-flex items-center gap-1 text-[12px] font-semibold text-text-2 transition-colors hover:text-accent-ink"
+                >
+                  <RefreshCw size={12} className={discovered.loading ? "animate-spin" : undefined} /> Refresh
+                </button>
+              </div>
               <Select
                 id="model"
                 value={isCustomModel ? CUSTOM : settings.llm_model}
                 onChange={(e) => set("llm_model", e.target.value === CUSTOM ? "" : e.target.value)}
               >
-                {models.map((m) => (
+                {modelOptions.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
                 <option value={CUSTOM}>Custom…</option>
               </Select>
-            </Field>
+              <p className="flex items-center gap-1.5 text-[12px] text-text-3">
+                {discovered.loading ? (
+                  <><Loader2 size={12} className="animate-spin" /> Detecting available models…</>
+                ) : discovered.error ? (
+                  <span className="flex items-center gap-1.5 text-gold"><TriangleAlert size={12} /> {discovered.error} Showing common models.</span>
+                ) : discovered.models.length ? (
+                  <span className="flex items-center gap-1.5 text-good"><CheckCircle2 size={12} /> {discovered.models.length} model{discovered.models.length > 1 ? "s" : ""} detected {provider?.local ? "on this machine" : "for your account"}.</span>
+                ) : (
+                  <>Pick a model, or choose Custom to enter one.</>
+                )}
+              </p>
+            </div>
 
             {isCustomModel && (
               <Field label="Custom model id" htmlFor="model-custom">
