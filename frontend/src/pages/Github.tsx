@@ -47,8 +47,8 @@ export function Github() {
     try {
       const result = await analyzeRepos(login || username, repos);
       setAnalysis(result);
-      if (result.analysis.repos?.length) setRepos(result.analysis.repos);
-      setSkills(result.analysis.skills ?? []);
+      if (result.repos?.length) setRepos(result.repos);
+      setSkills(result.skills ?? []);
       toast.success("READMEs analyzed", "Descriptions and skills extracted.");
     } catch (err) {
       toast.danger("Analysis failed", errorMessage(err));
@@ -150,7 +150,7 @@ export function Github() {
           </div>
 
           {analysis && (
-            <DevInspector json={analysis.analysis} raw={analysis.raw_output} title="Developer · view AI analysis (JSON)" />
+            <DevInspector json={analysis} title="Developer · view AI analysis (JSON)" />
           )}
         </div>
       )}
