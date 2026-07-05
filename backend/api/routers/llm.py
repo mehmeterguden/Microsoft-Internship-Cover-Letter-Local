@@ -8,6 +8,10 @@ added in later phases. For now this exposes:
 
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -15,6 +19,62 @@ from core import llm
 from db import queries
 
 router = APIRouter(prefix="/llm", tags=["llm"])
+
+
+def _get_json(url: str, headers: dict[str, str] | None = None, timeout: float = 5.0) -> dict:
+    req = urllib.request.Request(url, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — user-configured URL
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _discover_models(provider: str, base_url: str, settings: dict) -> tuple[list[str], str | None]:
+    """Return (models, error): live-lists installed local models, or cloud models
+    when a key is set. `error` is a human message when discovery isn't possible."""
+    base = (base_url or "").rstrip("/")
+    try:
+        if provider == "ollama":
+            root = base[:-3].rstrip("/") if base.endswith("/v1") else base  # tags API is at the root
+            data = _get_json(f"{root}/api/tags")
+            return sorted(m["name"] for m in data.get("models", [])), None
+        if provider == "foundry_local":
+            data = _get_json(f"{base}/models")  # OpenAI-compatible listing
+            return sorted(m["id"] for m in data.get("data", [])), None
+        if provider == "openai":
+            key = settings.get("openai_api_key") or ""
+            if not key:
+                return [], "Add your OpenAI API key to list models."
+            data = _get_json("https://api.openai.com/v1/models", {"Authorization": f"Bearer {key}"})
+            return sorted(m["id"] for m in data.get("data", []) if "gpt" in m["id"] or m["id"].startswith("o")), None
+        if provider == "anthropic":
+            key = settings.get("anthropic_api_key") or ""
+            if not key:
+                return [], "Add your Anthropic API key to list models."
+            data = _get_json("https://api.anthropic.com/v1/models", {"x-api-key": key, "anthropic-version": "2023-06-01"})
+            return [m["id"] for m in data.get("data", [])], None
+        if provider == "gemini":
+            key = settings.get("gemini_api_key") or ""
+            if not key:
+                return [], "Add your Gemini API key to list models."
+            data = _get_json(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}")
+            names = [m["name"].split("/")[-1] for m in data.get("models", [])
+                     if "generateContent" in m.get("supportedGenerationMethods", [])]
+            return sorted(n for n in names if n.startswith("gemini")), None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return [], f"Couldn't reach {provider} at {base or provider}. Is it running?"
+    except Exception as exc:  # noqa: BLE001 — surface parse/HTTP issues to the UI
+        return [], f"Could not list models ({type(exc).__name__})."
+    return [], None
+
+
+@router.get("/models")
+def list_models(provider: str | None = None, base_url: str | None = None) -> dict[str, object]:
+    """List models for a provider — installed local models, or cloud models when a
+    key is configured. Returns an `error` message when discovery isn't possible."""
+    settings = queries.get_settings()
+    prov = provider or settings["llm_provider"]
+    base = base_url if base_url is not None else settings["llm_base_url"]
+    models, error = _discover_models(prov, base, settings)
+    return {"provider": prov, "models": models, "error": error}
 
 
 class ChatRequest(BaseModel):
