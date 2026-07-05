@@ -13,10 +13,14 @@ install instructions when the binary is missing.
 
 from __future__ import annotations
 
+import json
 import sqlite3
+import time
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from starlette.concurrency import iterate_in_threadpool
 
 from core import cv_structuring, document_parser
 from db import queries
@@ -118,6 +122,42 @@ async def import_cv(file: UploadFile = File(...)) -> dict:
         "char_count": len(text),
         **result,
     }
+
+
+@router.post("/import/stream", summary="Upload a CV and stream the structuring (SSE)")
+async def import_cv_stream(file: UploadFile = File(...)) -> StreamingResponse:
+    """Upload a CV → extract text → stream the LLM's JSON output as it's written.
+
+    Emits SSE events: `meta` (filename/pages) · `token` (each JSON chunk) ·
+    `done` (validated result + duration) · `fatal` (LLM/connection failure).
+    """
+    data, extraction = await _read_and_extract(file)
+    text = extraction.get("text") or "\n\n".join(p["text"] for p in extraction.get("pages", []))
+
+    async def event_stream():
+        meta = {
+            "type": "meta",
+            "filename": file.filename,
+            "source_type": extraction.get("source_type"),
+            "num_pages": extraction.get("num_pages"),
+            "char_count": len(text),
+        }
+        yield f"data: {json.dumps(meta)}\n\n"
+        start = time.monotonic()
+        try:
+            generator = cv_structuring.structure_stream(text)
+            async for event in iterate_in_threadpool(generator):
+                if event.get("type") == "done":
+                    event["duration_s"] = round(time.monotonic() - start, 1)
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a provider failure, then end the stream
+            yield f"data: {json.dumps({'type': 'fatal', 'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class StructureRequest(BaseModel):

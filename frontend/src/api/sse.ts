@@ -16,10 +16,27 @@ export async function streamSSE<T>(
   onEvent: (event: T) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  return streamSSERequest(
+    path,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    onEvent,
+    signal,
+  );
+}
+
+/**
+ * Lower-level SSE consumer: send an arbitrary request (e.g. a multipart upload)
+ * and parse the `text/event-stream` response. Used for the streaming CV import.
+ */
+export async function streamSSERequest<T>(
+  path: string,
+  init: RequestInit,
+  onEvent: (event: T) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify(body),
+    ...init,
+    headers: { Accept: "text/event-stream", ...(init.headers ?? {}) },
     signal,
   });
 

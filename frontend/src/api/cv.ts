@@ -1,4 +1,5 @@
 import { client } from "./client";
+import { streamSSERequest } from "./sse";
 import type { CVExtraction } from "./types";
 
 export interface ImportResult {
@@ -20,6 +21,24 @@ export async function importCv(file: File): Promise<ImportResult> {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data;
+}
+
+/** SSE events from POST /cv/import/stream — the AI's JSON as it's written. */
+export type CvImportEvent =
+  | { type: "meta"; filename: string; source_type: string; num_pages: number; char_count: number }
+  | { type: "token"; text: string }
+  | { type: "done"; ok: boolean; structured?: CVExtraction; error?: string; raw_output: string; duration_s: number }
+  | { type: "fatal"; error: string };
+
+/** Upload a CV and stream the structuring output token by token. */
+export function streamImportCv(
+  file: File,
+  onEvent: (event: CvImportEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+  return streamSSERequest<CvImportEvent>("/cv/import/stream", { method: "POST", body: form }, onEvent, signal);
 }
 
 export interface SaveExtractionResult {
