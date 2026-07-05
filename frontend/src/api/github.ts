@@ -20,9 +20,8 @@ export async function fetchRepos(username: string | null, useAccount: boolean): 
 }
 
 export interface AnalyzeResult {
-  ok: boolean;
-  analysis: { repos?: GithubRepo[]; skills?: string[] } & Record<string, unknown>;
-  raw_output: string;
+  repos: GithubRepo[];
+  skills: string[];
 }
 
 export async function analyzeRepos(login: string, repos: GithubRepo[]): Promise<AnalyzeResult> {
