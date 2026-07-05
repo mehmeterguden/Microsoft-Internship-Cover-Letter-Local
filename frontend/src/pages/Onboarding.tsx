@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, FileText, FileUp, Sparkles, XCircle } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Award, Briefcase, CheckCircle2, FileText, FileUp, FolderGit2,
+  GraduationCap, Languages as LangIcon, Link2, Sparkles, User, XCircle,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +56,37 @@ function LiveJson({ text, live }: { text: string; live: boolean }) {
       </code>
     </pre>
   );
+}
+
+function SectionCard({ icon: Icon, title, count, children }: { icon: LucideIcon; title: string; count?: number; children: ReactNode }) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-accent-soft text-accent-ink"><Icon size={16} /></span>
+        <CardTitle className="text-[15px]">{title}</CardTitle>
+        {count != null && <Badge tone="neutral" className="ml-auto">{count}</Badge>}
+      </CardHeader>
+      <CardContent className="grid gap-3">{children}</CardContent>
+    </Card>
+  );
+}
+
+function span(...parts: (string | null | undefined)[]): string {
+  return parts.filter(Boolean).join(" · ");
+}
+
+function dateRange(start?: string | null, end?: string | null, current?: boolean): string {
+  const e = current ? "present" : end || "";
+  if (start && e) return `${start} – ${e}`;
+  return start || e || "";
+}
+
+function fullName(name?: string | null, surname?: string | null): string {
+  return [name, surname].filter(Boolean).join(" ") || "—";
+}
+
+function Meta({ children }: { children: ReactNode }) {
+  return <p className="text-[13px] text-text-2">{children}</p>;
 }
 
 export function Onboarding() {
@@ -143,9 +179,14 @@ export function Onboarding() {
   }
 
   const currentStep = phase === "upload" ? 0 : phase === "parsing" || phase === "failed" ? 1 : 2;
+  const prof = extraction?.profile;
   const skills = extraction?.skills ?? [];
   const experiences = extraction?.experiences ?? [];
-  const prof = extraction?.profile;
+  const education = extraction?.education ?? [];
+  const projects = extraction?.projects ?? [];
+  const certificates = extraction?.certificates ?? [];
+  const languages = extraction?.languages ?? [];
+  const links = extraction?.links ?? [];
 
   return (
     <>
@@ -215,50 +256,113 @@ export function Onboarding() {
           {phase === "review" && (
             <div className="grid gap-5" style={{ animation: "cll-rise 0.4s both" }}>
               <Alert tone="success" title="CV parsed">
-                We found your profile, {skills.length} skills, and {experiences.length} roles
-                {duration != null ? ` in ${fmt(duration)}` : ""}. Review below, then save.
+                Everything the model extracted is shown below
+                {duration != null ? ` (in ${fmt(duration)})` : ""}. Review it, then save to your profile.
               </Alert>
 
-              <Card>
-                <CardHeader className="flex-row items-center justify-between">
-                  <CardTitle>Profile</CardTitle>
-                  <Badge tone="accent">Extracted</Badge>
-                </CardHeader>
-                <CardContent className="grid gap-1 text-[14px]">
-                  <p className="font-semibold text-text">{prof?.name} {prof?.surname}</p>
-                  <p className="text-text-2">{prof?.email}</p>
-                  {prof?.summary && <p className="mt-1 text-text-2">{prof.summary}</p>}
-                </CardContent>
-              </Card>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["skills", skills.length], ["experience", experiences.length], ["education", education.length],
+                  ["projects", projects.length], ["certificates", certificates.length],
+                  ["languages", languages.length], ["links", links.length],
+                ].filter(([, n]) => (n as number) > 0).map(([label, n]) => (
+                  <Badge key={label as string} tone="accent">{n} {label}</Badge>
+                ))}
+              </div>
+
+              <SectionCard icon={User} title="Profile">
+                <p className="text-[16px] font-bold text-text">{fullName(prof?.name, prof?.surname)}</p>
+                <div className="grid gap-1 text-[13.5px] text-text-2 sm:grid-cols-2">
+                  {prof?.email && <span>✉ {prof.email}</span>}
+                  {prof?.phone && <span>☎ {prof.phone}</span>}
+                  {prof?.linkedin && <span className="truncate">in {prof.linkedin}</span>}
+                  {prof?.github && <span className="truncate">gh {prof.github}</span>}
+                </div>
+                {prof?.summary && <p className="mt-1 text-[14px] text-text-2">{prof.summary}</p>}
+              </SectionCard>
 
               {skills.length > 0 && (
-                <Card>
-                  <CardHeader><CardTitle>Skills</CardTitle></CardHeader>
-                  <CardContent className="flex flex-wrap gap-2">
-                    {skills.map((s, i) => <SkillTag key={s.id ?? i}>{s.name}</SkillTag>)}
-                  </CardContent>
-                </Card>
+                <SectionCard icon={Sparkles} title="Skills" count={skills.length}>
+                  <div className="flex flex-wrap gap-2">
+                    {skills.map((s, i) => (
+                      <SkillTag key={s.id ?? i}>
+                        {s.name}{s.self_rating ? ` · ${s.self_rating}/5` : ""}
+                      </SkillTag>
+                    ))}
+                  </div>
+                </SectionCard>
               )}
 
               {experiences.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText size={16} className="text-text-3" /> Experience
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-3">
-                    {experiences.map((e, i) => (
-                      <div key={e.id ?? i} className="flex items-start gap-3">
-                        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-good" />
-                        <div>
-                          <p className="text-[14px] font-semibold text-text">{e.title} · {e.company}</p>
-                          <p className="text-[13px] text-text-2">{e.description}</p>
+                <SectionCard icon={Briefcase} title="Experience" count={experiences.length}>
+                  {experiences.map((e, i) => (
+                    <div key={e.id ?? i} className="border-b border-line pb-3 last:border-0 last:pb-0">
+                      <p className="text-[14.5px] font-semibold text-text">{e.title} · {e.company}</p>
+                      <Meta>{span(e.employment_type ?? undefined, e.location ?? undefined, dateRange(e.start_date, e.end_date, e.is_current))}</Meta>
+                      {e.description && <p className="mt-1 text-[13.5px] text-text-2">{e.description}</p>}
+                    </div>
+                  ))}
+                </SectionCard>
+              )}
+
+              {education.length > 0 && (
+                <SectionCard icon={GraduationCap} title="Education" count={education.length}>
+                  {education.map((ed, i) => (
+                    <div key={ed.id ?? i} className="border-b border-line pb-3 last:border-0 last:pb-0">
+                      <p className="text-[14.5px] font-semibold text-text">{ed.institution}</p>
+                      <Meta>{span([ed.degree, ed.field].filter(Boolean).join(", ") || undefined, dateRange(ed.start_date, ed.end_date, ed.is_current), ed.gpa ? `GPA ${ed.gpa}` : undefined)}</Meta>
+                    </div>
+                  ))}
+                </SectionCard>
+              )}
+
+              {projects.length > 0 && (
+                <SectionCard icon={FolderGit2} title="Projects" count={projects.length}>
+                  {projects.map((pr, i) => (
+                    <div key={pr.id ?? i} className="border-b border-line pb-3 last:border-0 last:pb-0">
+                      <p className="text-[14.5px] font-semibold text-text">{pr.name}{pr.role ? ` · ${pr.role}` : ""}</p>
+                      {pr.description && <p className="mt-0.5 text-[13.5px] text-text-2">{pr.description}</p>}
+                      {(pr.technologies?.length ?? 0) > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {pr.technologies!.map((t) => <SkillTag key={t}>{t}</SkillTag>)}
                         </div>
-                      </div>
+                      )}
+                      {pr.url && <Meta>{pr.url}</Meta>}
+                    </div>
+                  ))}
+                </SectionCard>
+              )}
+
+              {certificates.length > 0 && (
+                <SectionCard icon={Award} title="Certificates" count={certificates.length}>
+                  {certificates.map((c, i) => (
+                    <div key={c.id ?? i} className="border-b border-line pb-3 last:border-0 last:pb-0">
+                      <p className="text-[14.5px] font-semibold text-text">{c.name}</p>
+                      <Meta>{span(c.issuer ?? undefined, c.cert_type ?? undefined, c.issue_date ?? undefined, c.credential_id ? `ID ${c.credential_id}` : undefined)}</Meta>
+                    </div>
+                  ))}
+                </SectionCard>
+              )}
+
+              {languages.length > 0 && (
+                <SectionCard icon={LangIcon} title="Languages" count={languages.length}>
+                  <div className="flex flex-wrap gap-2">
+                    {languages.map((l, i) => (
+                      <SkillTag key={l.id ?? i}>{l.name}{l.proficiency ? ` · ${l.proficiency}` : ""}</SkillTag>
                     ))}
-                  </CardContent>
-                </Card>
+                  </div>
+                </SectionCard>
+              )}
+
+              {links.length > 0 && (
+                <SectionCard icon={Link2} title="Links" count={links.length}>
+                  {links.map((l, i) => (
+                    <div key={l.id ?? i}>
+                      <p className="text-[14px] font-semibold text-text">{l.label}</p>
+                      <Meta>{l.url}{l.description ? ` — ${l.description}` : ""}</Meta>
+                    </div>
+                  ))}
+                </SectionCard>
               )}
 
               <div className="flex gap-3">
