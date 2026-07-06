@@ -29,9 +29,14 @@ class AnalyzeRequest(BaseModel):
     repos: list[GithubRepo]
 
 
+class ScoredSkill(BaseModel):
+    name: str
+    score: int | None = None         # 1-5 self-rating inferred from the analysis
+
+
 class SaveReposRequest(BaseModel):
     repos: list[GithubRepo]
-    skills: list[str] = []           # technical skills aggregated from the analysis
+    skills: list[ScoredSkill] = []   # technical skills (with scores) from the analysis
 
 
 @router.get("/status")
@@ -62,6 +67,7 @@ def analyze_repos(req: AnalyzeRequest) -> dict:
     for repo in req.repos:
         data = repo.model_dump(mode="json", exclude={"id"})
         data["readme"] = github.fetch_readme(req.login, repo.repo_name, token)
+        data["languages"] = github.fetch_languages(req.login, repo.repo_name, token)
         inputs.append(data)
     try:
         return github_analysis.analyze(inputs)
@@ -90,14 +96,20 @@ def save_repos(req: SaveReposRequest, replace: bool = False) -> dict:
             queries.insert(TABLE, payload)
             added += 1
 
-    # Merge skills: add only names not already present (case-insensitive).
+    # Merge skills: add only names not already present (case-insensitive), keeping
+    # the inferred score as the self-rating and noting the source.
     existing = {s["name"].strip().lower() for s in queries.list_all("skills")}
     added_skills = 0
-    for name in req.skills:
-        key = name.strip().lower()
-        if name.strip() and key not in existing:
+    for skill in req.skills:
+        name = skill.name.strip()
+        key = name.lower()
+        if name and key not in existing:
             existing.add(key)
-            queries.insert("skills", Skill(name=name.strip()).model_dump(mode="json", exclude={"id"}))
+            rating = max(1, min(5, skill.score)) if skill.score else None
+            queries.insert(
+                "skills",
+                Skill(name=name, self_rating=rating, category="From GitHub").model_dump(mode="json", exclude={"id"}),
+            )
             added_skills += 1
 
     return {"ok": True, "saved_repos": added, "updated_repos": updated, "added_skills": added_skills}

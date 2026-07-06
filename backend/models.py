@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Rating = Annotated[int, Field(ge=1, le=5)]
 Score = Annotated[int, Field(ge=0, le=100)]
@@ -228,10 +228,18 @@ class GithubRepo(BaseModel):
     stars: int | None = None             # fetched: star count
     last_updated: str | None = None      # fetched: repo's last push/update date
     technologies: list[str] = []         # languages + tools
-    description: str | None = None       # AI-generated: short useful context for the project
+    description: str | None = None       # AI-generated: rich context — what it is, how it works
+    purpose: str | None = None           # AI-generated: the core problem/goal in one line
+    highlights: list[str] = []           # AI-generated: standout technical points
     contribution: str | None = None      # what the user did
     involvement_rating: Rating | None = None
     readme: str | None = None            # raw README, saved alongside the AI summary
+
+    @field_validator("technologies", "highlights", mode="before")
+    @classmethod
+    def _none_to_list(cls, v: object) -> object:
+        # Older rows (pre-migration) store NULL for these JSON columns.
+        return v if v is not None else []
 
 
 class Project(BaseModel):

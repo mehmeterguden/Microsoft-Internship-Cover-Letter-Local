@@ -15,7 +15,7 @@ import { SkillTag } from "@/components/common/SkillTag";
 import { RatingInput } from "@/components/common/RatingInput";
 import { DevInspector } from "@/components/common/DevInspector";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import type { GithubRepo } from "@/api/types";
+import type { GithubRepo, ScoredSkill } from "@/api/types";
 import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos, type AnalyzeResult } from "@/api/github";
 import { deleteSavedRepo, listSavedRepos } from "@/api/githubRepos";
 import { errorMessage } from "@/api/client";
@@ -35,8 +35,18 @@ const STATUS: Record<Status, { label: string; tone: "success" | "neutral" | "gol
 function RepoBody({ r }: { r: GithubRepo }) {
   return (
     <>
-      {r.description && <p className="mt-1 text-[13.5px] text-text-2">{r.description}</p>}
-      {r.contribution && <p className="mt-1 text-[13px] text-text-3">{r.contribution}</p>}
+      {r.purpose && <p className="mt-1.5 text-[13px] font-semibold text-accent-ink">{r.purpose}</p>}
+      {r.description && <p className="mt-1 text-[13.5px] leading-relaxed text-text-2">{r.description}</p>}
+      {(r.highlights?.length ?? 0) > 0 && (
+        <ul className="mt-2 grid gap-1">
+          {r.highlights!.map((h) => (
+            <li key={h} className="flex items-start gap-2 text-[13px] text-text-2">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-ink" /> {h}
+            </li>
+          ))}
+        </ul>
+      )}
+      {r.contribution && <p className="mt-2 text-[13px] italic text-text-3">{r.contribution}</p>}
       {(r.technologies?.length ?? 0) > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {r.technologies!.map((t) => <SkillTag key={t}>{t}</SkillTag>)}
@@ -44,7 +54,7 @@ function RepoBody({ r }: { r: GithubRepo }) {
       )}
       {r.involvement_rating != null && (
         <div className="mt-3 flex items-center gap-2 text-[12.5px] text-text-3">
-          Your involvement <RatingInput value={r.involvement_rating} readOnly />
+          Involvement <RatingInput value={r.involvement_rating} readOnly />
         </div>
       )}
     </>
@@ -63,7 +73,7 @@ export function Github() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [analyzingSet, setAnalyzingSet] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [skills, setSkills] = useState<string[]>([]);
+  const [skills, setSkills] = useState<ScoredSkill[]>([]);
   const [analysis, setAnalysis] = useState<AnalyzeResult | null>(null);
   const [savingImport, setSavingImport] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<GithubRepo | null>(null);
@@ -119,7 +129,15 @@ export function Github() {
           return found ? { ...r, ...found } : r;
         }),
       );
-      setSkills((prev) => Array.from(new Set([...prev, ...(result.skills ?? [])])));
+      setSkills((prev) => {
+        const map = new Map(prev.map((s) => [s.name.toLowerCase(), s]));
+        for (const s of result.skills ?? []) {
+          const k = s.name.toLowerCase();
+          const ex = map.get(k);
+          if (!ex || (s.score ?? 0) > (ex.score ?? 0)) map.set(k, s);
+        }
+        return Array.from(map.values()).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      });
       toast.success(names.length === 1 ? `Analyzed ${names[0]}` : `${names.length} repositories analyzed`);
     } catch (err) {
       toast.danger("Analysis failed", errorMessage(err));
@@ -304,7 +322,9 @@ export function Github() {
                 <span className="text-[13px] font-semibold text-text">
                   {skills.length > 0 ? "Skills found:" : "Analyze repositories to extract skills."}
                 </span>
-                {skills.map((s) => <Badge key={s} tone="accent">{s}</Badge>)}
+                {skills.map((s) => (
+                  <Badge key={s.name} tone="accent">{s.name}{s.score ? ` · ${s.score}/5` : ""}</Badge>
+                ))}
                 <Button size="sm" className="ml-auto" onClick={saveSelected} loading={savingImport} disabled={selected.size === 0}>
                   <RefreshCw size={14} /> Save / update ({selected.size})
                 </Button>

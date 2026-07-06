@@ -36,6 +36,17 @@ def fetch_readme(login: str, repo_name: str, token: str | None = None) -> str:
     return ""
 
 
+def fetch_languages(login: str, repo_name: str, token: str | None = None) -> list[str]:
+    """Return a repo's languages, most-used first (by bytes), or [] on failure."""
+    try:
+        data = _get(f"/repos/{login}/{repo_name}/languages", token)
+    except ValueError:
+        return []
+    if not isinstance(data, dict):
+        return []
+    return sorted(data, key=lambda k: data.get(k, 0), reverse=True)
+
+
 def _get(path: str, token: str | None = None) -> Any:
     """GET a GitHub API path, raising ValueError with a clear message on failure."""
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "cover-letter-local"}

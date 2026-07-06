@@ -1,41 +1,53 @@
-"""Prompt for analyzing a batch of GitHub repositories into useful context.
+"""Prompt for deeply analyzing a batch of GitHub repositories.
 
-The model reads each repo (name, description, technologies, stars, README excerpt)
-and produces a short, faithful summary plus a refined tech list, an involvement
-rating, and an aggregated skill list — the bits we'll reuse when writing cover
-letters. Strictly grounded in the provided text; no invention.
+The model reads each repo (name, GitHub blurb, languages by size, topics, stars,
+README) and produces a thorough, reusable understanding: what the project is, the
+problem it solves, how it works, notable features, the concrete tech, what the
+developer did, and how substantial it is — plus an aggregated, scored skill list.
+Strictly grounded in the provided text; no invention.
 """
 
 from __future__ import annotations
 
 import json
 
-SYSTEM_PROMPT = """You analyze a developer's GitHub repositories to build concise, reusable \
-context for writing their cover letters.
+SYSTEM_PROMPT = """You are a senior engineer reviewing a developer's GitHub repositories to build \
+rich, reusable context for their job applications. Read each repo carefully — its README, \
+languages (by amount of code), topics, and description — and genuinely understand it.
 
-For EACH repo you are given (name, description, technologies, stars, README excerpt), produce:
-- "summary": 1-2 sentences on what the project is and what's notable about it — its purpose, \
-scale/impact, and standout tech. Factual and useful; base it ONLY on the provided text.
-- "technologies": the concrete languages, frameworks, libraries, and tools the project uses, \
-drawn from the description and README. Refine and deduplicate.
-- "contribution": one short phrase on what the developer built or did, IF the README makes it \
-clear; otherwise null.
-- "involvement": an integer 1-5 for how substantial and portfolio-worthy the project looks \
-(5 = significant, polished, real users/impact; 3 = solid personal project; 1 = trivial/throwaway).
+For EACH repo, produce:
+- "summary": 3-5 sentences that actually explain the project — what it is, the problem it \
+solves, HOW it works (its approach/architecture/key components), what's notable (scale, users, \
+performance, cleverness). Not a one-line blurb; capture the real substance. Ground it strictly \
+in the provided text.
+- "purpose": one sentence — the core problem/goal in plain language.
+- "highlights": 2-4 short bullet strings — the most impressive or relevant technical points \
+(e.g. "streams tokens over SSE", "HNSW index built from scratch", "serves 6M+ visitors").
+- "technologies": the concrete languages, frameworks, libraries, tools, and infrastructure the \
+project uses. Combine the languages list, topics, and anything named in the README. Be specific \
+(e.g. "React", "FastAPI", "PostgreSQL", "WebSockets") and deduplicate.
+- "contribution": one sentence on what the developer built or did, if the README makes it clear; \
+otherwise null.
+- "involvement": integer 1-5 for how substantial/portfolio-worthy it is (5 = significant, polished, \
+real impact; 3 = solid personal project; 1 = trivial).
 
-Then produce "skills": a deduplicated list of the distinct technical skills and technologies \
-across ALL the repos (for the developer's skill list).
+Then produce "skills": the distinct technical skills demonstrated ACROSS all repos, each SCORED. \
+Each item is { "name": string, "score": 1-5 } where the score reflects the evidence: how central \
+the skill is and how much of it the repos actually demonstrate (5 = clearly strong, used deeply in \
+substantial projects; 3 = solid usage; 1 = only mentioned/light). Merge duplicates to the highest \
+justified score. Include languages, frameworks, and meaningful tools — not vague soft skills.
 
 Rules:
 - Reply with ONE JSON object only — no prose, no markdown, no code fences.
 - Use the EXACT repo_name values you were given.
-- Never invent facts, features, or technologies that are not in the provided text. If a README \
-is empty or unclear, keep the summary minimal and lower the involvement score.
+- Never invent facts, features, or technologies not supported by the provided text. If a README \
+is empty, keep summary minimal, highlights few, and lower involvement.
 
 Output shape:
-{ "repos": [ { "repo_name": string, "summary": string, "technologies": [string],
+{ "repos": [ { "repo_name": string, "summary": string, "purpose": string,
+              "highlights": [string], "technologies": [string],
               "contribution": string|null, "involvement": 1-5 } ],
-  "skills": [string] }"""
+  "skills": [ { "name": string, "score": 1-5 } ] }"""
 
 
 def build_messages(repos: list[dict]) -> list[dict[str, str]]:
@@ -44,6 +56,8 @@ def build_messages(repos: list[dict]) -> list[dict[str, str]]:
         {
             "repo_name": r.get("repo_name"),
             "description": r.get("description"),
+            "languages": r.get("languages") or [],
+            "topics": r.get("topics") or [],
             "technologies": r.get("technologies") or [],
             "stars": r.get("stars"),
             "readme": r.get("readme") or "",

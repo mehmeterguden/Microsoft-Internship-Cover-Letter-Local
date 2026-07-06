@@ -1,5 +1,5 @@
 import { client } from "./client";
-import type { GithubRepo } from "./types";
+import type { GithubRepo, ScoredSkill } from "./types";
 
 export async function githubStatus(): Promise<{ account_connected: boolean }> {
   const { data } = await client.get("/github/status");
@@ -21,7 +21,7 @@ export async function fetchRepos(username: string | null, useAccount: boolean): 
 
 export interface AnalyzeResult {
   repos: GithubRepo[];
-  skills: string[];
+  skills: ScoredSkill[];
 }
 
 export async function analyzeRepos(login: string, repos: GithubRepo[]): Promise<AnalyzeResult> {
@@ -36,7 +36,7 @@ export interface SaveResult {
   added_skills: number;
 }
 
-export async function saveRepos(repos: GithubRepo[], skills: string[]): Promise<SaveResult> {
+export async function saveRepos(repos: GithubRepo[], skills: ScoredSkill[]): Promise<SaveResult> {
   const { data } = await client.post<SaveResult>("/github/save", { repos, skills });
   return data;
 }
