@@ -29,7 +29,14 @@ export async function analyzeRepos(login: string, repos: GithubRepo[]): Promise<
   return data;
 }
 
-export async function saveRepos(repos: GithubRepo[], skills: string[]): Promise<{ ok: boolean; saved_repos: number; added_skills: number }> {
-  const { data } = await client.post("/github/save", { repos, skills });
+export interface SaveResult {
+  ok: boolean;
+  saved_repos: number;
+  updated_repos: number;
+  added_skills: number;
+}
+
+export async function saveRepos(repos: GithubRepo[], skills: string[]): Promise<SaveResult> {
+  const { data } = await client.post<SaveResult>("/github/save", { repos, skills });
   return data;
 }

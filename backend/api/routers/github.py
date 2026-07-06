@@ -72,23 +72,32 @@ def analyze_repos(req: AnalyzeRequest) -> dict:
 
 
 @router.post("/save")
-def save_repos(req: SaveReposRequest, replace: bool = True) -> dict:
-    """Save repos into github_repos (replaces) and merge new skills into the skills table."""
+def save_repos(req: SaveReposRequest, replace: bool = False) -> dict:
+    """Upsert repos into github_repos by name (add new, update existing) and merge
+    new skills. `replace=true` wipes the table first (full re-import)."""
     if replace:
         queries.clear(TABLE)
-    saved = 0
+
+    existing_repos = {r["repo_name"].strip().lower(): r for r in queries.list_all(TABLE)}
+    added = updated = 0
     for repo in req.repos:
-        queries.insert(TABLE, repo.model_dump(mode="json", exclude={"id"}))
-        saved += 1
+        payload = repo.model_dump(mode="json", exclude={"id"})
+        prior = existing_repos.get((repo.repo_name or "").strip().lower())
+        if prior and not replace:
+            queries.update(TABLE, prior["id"], payload)
+            updated += 1
+        else:
+            queries.insert(TABLE, payload)
+            added += 1
 
     # Merge skills: add only names not already present (case-insensitive).
     existing = {s["name"].strip().lower() for s in queries.list_all("skills")}
-    added = 0
+    added_skills = 0
     for name in req.skills:
         key = name.strip().lower()
         if name.strip() and key not in existing:
             existing.add(key)
             queries.insert("skills", Skill(name=name.strip()).model_dump(mode="json", exclude={"id"}))
-            added += 1
+            added_skills += 1
 
-    return {"ok": True, "saved_repos": saved, "added_skills": added}
+    return {"ok": True, "saved_repos": added, "updated_repos": updated, "added_skills": added_skills}
