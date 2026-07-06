@@ -6,9 +6,20 @@ export async function githubStatus(): Promise<{ account_connected: boolean }> {
   return data;
 }
 
+export interface GithubProfile {
+  login?: string;
+  name?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+  html_url?: string | null;
+  public_repos?: number | null;
+  followers?: number | null;
+}
+
 export interface FetchReposResult {
-  profile: { login?: string } & Record<string, unknown>;
+  profile: GithubProfile;
   repos: GithubRepo[];
+  count?: number;
 }
 
 export async function fetchRepos(username: string | null, useAccount: boolean): Promise<FetchReposResult> {

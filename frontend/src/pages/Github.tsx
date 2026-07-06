@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Github as GithubIcon, RefreshCw, Sparkles, Star, Trash2 } from "lucide-react";
+import { Github as GithubIcon, RefreshCw, Sparkles, Star, Trash2, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,10 +16,11 @@ import { RatingInput } from "@/components/common/RatingInput";
 import { DevInspector } from "@/components/common/DevInspector";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import type { GithubRepo, ScoredSkill } from "@/api/types";
-import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos, type AnalyzeResult } from "@/api/github";
+import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos, type AnalyzeResult, type GithubProfile } from "@/api/github";
 import { deleteSavedRepo, listSavedRepos } from "@/api/githubRepos";
 import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
+import { langColor } from "@/lib/langColors";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
 
@@ -49,7 +50,12 @@ function RepoBody({ r }: { r: GithubRepo }) {
       {r.contribution && <p className="mt-2 text-[13px] italic text-text-3">{r.contribution}</p>}
       {(r.technologies?.length ?? 0) > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {r.technologies!.map((t) => <SkillTag key={t}>{t}</SkillTag>)}
+          {r.technologies!.map((t) => (
+            <SkillTag key={t}>
+              <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: langColor(t) }} />
+              {t}
+            </SkillTag>
+          ))}
         </div>
       )}
       {r.involvement_rating != null && (
@@ -61,6 +67,39 @@ function RepoBody({ r }: { r: GithubRepo }) {
   );
 }
 
+function Stat({ value, label }: { value: number | string; label: string }) {
+  return (
+    <div className="text-center">
+      <p className="font-display text-[18px] font-extrabold leading-none text-text">{value}</p>
+      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-text-3">{label}</p>
+    </div>
+  );
+}
+
+function ProfileBanner({ p, count }: { p: GithubProfile; count: number }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-4 rounded-[16px] border border-border bg-surface p-4 shadow-soft">
+      {p.avatar_url ? (
+        <img src={p.avatar_url} alt="" className="h-14 w-14 shrink-0 rounded-full ring-2 ring-border" />
+      ) : (
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-ink"><GithubIcon size={22} /></span>
+      )}
+      <div className="min-w-0 flex-1">
+        <a href={p.html_url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-[16px] font-bold text-text hover:text-accent-ink">
+          {p.name || p.login}
+        </a>
+        {p.login && <span className="ml-2 text-[13px] text-text-3">@{p.login}</span>}
+        {p.bio && <p className="mt-0.5 line-clamp-2 text-[13px] text-text-2">{p.bio}</p>}
+      </div>
+      <div className="flex gap-5 pr-1">
+        <Stat value={count} label="fetched" />
+        <Stat value={p.followers ?? 0} label="followers" />
+        <Stat value={p.public_repos ?? 0} label="public" />
+      </div>
+    </div>
+  );
+}
+
 export function Github() {
   const saved = useAsync(listSavedRepos, []);
   const savedByName = new Map((saved.data ?? []).map((r) => [(r.repo_name ?? "").toLowerCase(), r]));
@@ -68,6 +107,7 @@ export function Github() {
   // Import tab state.
   const [username, setUsername] = useState("mehmeterguden");
   const [login, setLogin] = useState("");
+  const [profile, setProfile] = useState<GithubProfile | null>(null);
   const [phase, setPhase] = useState<"idle" | "fetching" | "loaded">("idle");
   const [repos, setRepos] = useState<GithubRepo[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -93,6 +133,7 @@ export function Github() {
       setSelected(new Set(result.repos.map((r) => r.repo_name)));
       setSkills([]);
       setAnalysis(null);
+      setProfile(result.profile);
       setLogin(result.profile.login ?? username);
       setPhase("loaded");
     } catch (err) {
@@ -218,6 +259,14 @@ export function Github() {
               />
             ) : (
               <div className="grid gap-4">
+                <div className="flex items-center gap-5 rounded-[12px] border border-border bg-surface px-5 py-3.5 shadow-soft">
+                  <Stat value={savedCount} label="repositories" />
+                  <span className="h-8 w-px bg-line" />
+                  <Stat value={(saved.data ?? []).reduce((n, r) => n + (r.stars ?? 0), 0)} label="total stars" />
+                  <span className="ml-auto flex items-center gap-1.5 text-[12.5px] text-text-3">
+                    <Users size={14} /> Used when generating letters
+                  </span>
+                </div>
                 {(saved.data ?? []).map((r) => (
                   <Card key={r.id}>
                     <CardContent className="pt-5">
@@ -274,7 +323,8 @@ export function Github() {
 
           {phase === "loaded" && (
             <div className="grid gap-4" style={{ animation: "cll-rise 0.4s both" }}>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border bg-surface px-4 py-3 shadow-soft">
+              {profile && <ProfileBanner p={profile} count={repos.length} />}
+              <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border bg-surface/90 px-4 py-3 shadow-soft backdrop-blur">
                 <label className="flex cursor-pointer items-center gap-2.5 text-[13.5px] font-medium text-text">
                   <Checkbox checked={allSelected} onChange={toggleAll} />
                   {selected.size} of {repos.length} selected
