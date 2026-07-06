@@ -182,7 +182,7 @@ export function Write() {
           sizeId={sizeId}
           setSizeId={setSizeId}
         />
-        <main className="flex-1 overflow-y-auto px-6 py-8">
+        <main className="flex-1 overflow-auto px-6 py-8">
           {streaming && (
             <div className="mx-auto mb-3 flex max-w-[820px] items-center gap-2 text-[12.5px] font-medium text-text-2">
               <span className="h-2 w-2 animate-pulse rounded-full bg-accent" /> Writing your letter…
