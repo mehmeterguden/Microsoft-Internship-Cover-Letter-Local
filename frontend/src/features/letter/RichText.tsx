@@ -14,6 +14,7 @@ export function RichText({
   placeholder,
   className,
   style,
+  autoFocus,
 }: {
   html: string;
   onChange: (html: string) => void;
@@ -21,6 +22,7 @@ export function RichText({
   placeholder?: string;
   className?: string;
   style?: CSSProperties;
+  autoFocus?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -29,6 +31,20 @@ export function RichText({
     if (!el) return;
     if (document.activeElement !== el && el.innerHTML !== html) el.innerHTML = html;
   }, [html]);
+
+  useEffect(() => {
+    if (autoFocus && ref.current) {
+      const el = ref.current;
+      el.focus();
+      // place caret at the end
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(r);
+    }
+  }, [autoFocus]);
 
   return (
     <div
