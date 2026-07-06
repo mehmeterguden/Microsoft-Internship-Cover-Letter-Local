@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioLines, Ban, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AudioLines, Ban, FileText, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/common/EmptyState";
+import { FileDropzone } from "@/components/common/FileDropzone";
 import { DevInspector } from "@/components/common/DevInspector";
 import { RatingInput } from "@/components/common/RatingInput";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
@@ -18,7 +20,9 @@ import {
   getStyle,
   learnVoice,
   listPastLetters,
+  updatePastLetter,
 } from "@/api/style";
+import { parseDocument } from "@/api/cv";
 import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
@@ -100,7 +104,9 @@ export function Voice() {
 
   const [letters, setLetters] = useState<PastCoverLetter[]>([]);
   const [draft, setDraft] = useState("");
+  const [tab, setTab] = useState("paste");
   const [adding, setAdding] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [learning, setLearning] = useState(false);
   const [voice, setVoice] = useState<VoiceProfile | null>(null);
 
@@ -127,6 +133,35 @@ export function Voice() {
       toast.danger("Couldn't add letter", errorMessage(err));
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function handleFile(file: File) {
+    setParsing(true);
+    try {
+      const res = await parseDocument(file);
+      const text = (res.text ?? "").trim();
+      if (text.length < 40) {
+        toast.warning("Not much text", "Couldn't extract a full letter from that file.");
+      } else {
+        setDraft(text);
+        setTab("paste");
+        toast.success("Text extracted", "Review it below, then add.");
+      }
+    } catch (err) {
+      toast.danger("Couldn't read file", errorMessage(err));
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  async function rate(letter: PastCoverLetter, value: number) {
+    if (letter.id == null) return;
+    setLetters((prev) => prev.map((x) => (x.id === letter.id ? { ...x, user_rating: value } : x)));
+    try {
+      await updatePastLetter(letter.id, { ...letter, user_rating: value });
+    } catch (err) {
+      toast.danger("Couldn't save rating", errorMessage(err));
     }
   }
 
@@ -173,29 +208,59 @@ export function Voice() {
             <CardHeader>
               <CardTitle>Add a past cover letter</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Paste a cover letter you're proud of…"
-                className="min-h-32"
-              />
-              <Button variant="dashed" onClick={addLetter} loading={adding} className="justify-center">
-                <Plus size={15} /> Add letter
-              </Button>
+            <CardContent>
+              <Tabs value={tab} onValueChange={setTab}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="paste" className="flex-1"><Quote size={14} /> Paste text</TabsTrigger>
+                  <TabsTrigger value="upload" className="flex-1"><FileText size={14} /> Upload PDF</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="paste" className="grid gap-3">
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Paste a cover letter you're proud of…"
+                    className="min-h-40"
+                  />
+                  <Button onClick={addLetter} loading={adding} disabled={draft.trim().length < 40} className="justify-center">
+                    <Plus size={15} /> Add letter
+                  </Button>
+                </TabsContent>
+
+                <TabsContent value="upload">
+                  {parsing ? (
+                    <div className="flex flex-col items-center gap-3 py-10 text-center">
+                      <Spinner size={30} />
+                      <p className="text-[13.5px] text-text-2">Reading your file…</p>
+                    </div>
+                  ) : (
+                    <FileDropzone
+                      accept=".pdf,.docx,.png,.jpg,.jpeg"
+                      hint="PDF, DOCX or image · we extract the text locally"
+                      onFile={handleFile}
+                    />
+                  )}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
+          {letters.length > 0 && (
+            <p className="px-1 text-[12px] font-semibold uppercase tracking-wide text-text-3">
+              {letters.length} letter{letters.length > 1 ? "s" : ""}
+            </p>
+          )}
+
           {letters.length === 0 ? (
-            <EmptyState icon={Quote} title="No letters yet" description="Add at least one to learn your voice." />
+            <EmptyState icon={Quote} title="No letters yet" description="Paste or upload at least one to learn your voice." />
           ) : (
             letters.map((l) => (
-              <Card key={l.id}>
+              <Card key={l.id} hoverable>
                 <CardContent className="pt-5">
-                  <p className="line-clamp-3 text-[13.5px] leading-relaxed text-text-2">{l.content}</p>
-                  <div className="mt-3 flex items-center justify-between">
+                  <p className="line-clamp-3 whitespace-pre-wrap text-[13.5px] leading-relaxed text-text-2">{l.content}</p>
+                  <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
                     <span className="flex items-center gap-2 text-[12px] text-text-3">
-                      Your rating <RatingInput value={l.user_rating ?? 0} onChange={() => {}} />
+                      Your rating <RatingInput value={l.user_rating ?? 0} onChange={(v) => rate(l, v)} />
                     </span>
                     <button
                       type="button"

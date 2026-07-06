@@ -35,6 +35,11 @@ export async function createPastLetter(letter: PastCoverLetter): Promise<PastCov
   return data;
 }
 
+export async function updatePastLetter(id: number, letter: PastCoverLetter): Promise<PastCoverLetter> {
+  const { data } = await client.put<PastCoverLetter>(`/past-cover-letters/${id}`, letter);
+  return data;
+}
+
 export async function deletePastLetter(id: number): Promise<void> {
   await client.delete(`/past-cover-letters/${id}`);
 }
