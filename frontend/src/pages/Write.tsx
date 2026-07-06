@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { BlockCanvas, type BlockOps } from "@/features/letter/BlockCanvas";
-import { EditorTopBar, AiPanel, ACCENTS, FONTS, SIZES } from "@/features/letter/EditorPanels";
+import { Type, Heading, Minus as LineIcon, Square } from "lucide-react";
+import { Canvas, type CanvasOps } from "@/features/canvas/Canvas";
+import { CanvasToolbar } from "@/features/canvas/CanvasToolbar";
+import { EditorTopBar, AiPanel, ACCENTS } from "@/features/letter/EditorPanels";
 import { exportLetterPdf } from "@/features/letter/exportPdf";
-import {
-  defaultBlocks, makeBlock, paragraphsToBlocks, uid,
-  type Block, type BlockType, type LetterDoc,
-} from "@/features/letter/blockTypes";
+import { defaultElements, esc, makeEl, uid, type CanvasDoc, type El, type ElType } from "@/features/canvas/types";
 import type { Job, Tone } from "@/api/types";
 import { streamCoverLetter } from "@/api/coverLetter";
 import { getProfile } from "@/api/profile";
@@ -15,36 +14,22 @@ import { errorMessage } from "@/api/client";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
 
-function stripHtml(html: string): string {
+function plainText(elements: El[]): string {
   const d = document.createElement("div");
-  d.innerHTML = html;
-  return d.textContent ?? "";
-}
-
-function plainText(blocks: Block[]): string {
-  return blocks
-    .map((b) => (b.type === "divider" ? "———" : b.type === "spacer" ? "" : stripHtml(b.html)))
-    .filter((s) => s !== "")
+  return elements
+    .filter((e) => e.type === "text" || e.type === "heading")
+    .map((e) => { d.innerHTML = e.html ?? ""; return d.textContent ?? ""; })
+    .filter(Boolean)
     .join("\n\n");
-}
-
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export function Write() {
   const [params, setParams] = useSearchParams();
   const jobIdParam = params.get("job");
 
-  const [doc, setDoc] = useState<LetterDoc>({
-    blocks: defaultBlocks(),
-    accent: ACCENTS[0]!,
-    fontCss: FONTS[0]!.css,
-    fontScale: 1,
-  });
-  const [fontId, setFontId] = useState("serif");
-  const [sizeId, setSizeId] = useState("md");
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [doc, setDoc] = useState<CanvasDoc>({ elements: defaultElements(ACCENTS[0]!), accent: ACCENTS[0]! });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [company, setCompany] = useState("Microsoft");
   const [role, setRole] = useState("Software Engineer");
@@ -56,22 +41,17 @@ export function Write() {
   const [saving, setSaving] = useState(false);
   const [jobId, setJobId] = useState<number | null>(jobIdParam ? Number(jobIdParam) : null);
 
-  const profileRef = useRef({ name: "Your Name", contact: "phone · email · links" });
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Load a saved application, or seed name/contact from the profile.
   useEffect(() => {
     if (jobIdParam) {
       getJob(Number(jobIdParam))
         .then((job) => {
           setCompany(job.company);
           setRole(job.role);
-          const saved = (job.letter as { doc?: LetterDoc } | null)?.doc;
-          if (saved?.blocks?.length) {
-            setDoc(saved);
-            setGenerated(true);
-          }
+          const c = (job.letter as { canvas?: CanvasDoc } | null)?.canvas;
+          if (c?.elements?.length) { setDoc(c); setGenerated(true); }
         })
         .catch((err) => toast.danger("Couldn't load application", errorMessage(err)));
       return;
@@ -79,44 +59,63 @@ export function Write() {
     getProfile()
       .then((p) => {
         const name = [p.name, p.surname].filter(Boolean).join(" ") || "Your Name";
-        const contact = [p.phone, p.email, p.linkedin, p.github].filter(Boolean).join("  ·  ") || "phone · email · links";
-        profileRef.current = { name, contact };
+        const contact = [p.phone, p.email, p.linkedin, p.github].filter(Boolean).join("  ·  ") || "phone · email · linkedin";
         setDoc((d) => {
-          const b = [...d.blocks];
-          if (b[0]) b[0] = { ...b[0], html: esc(name) };
-          if (b[1]) b[1] = { ...b[1], html: esc(contact) };
-          return { ...d, blocks: b };
+          const els = [...d.elements];
+          if (els[0]) els[0] = { ...els[0], html: esc(name) };
+          if (els[1]) els[1] = { ...els[1], html: esc(contact) };
+          return { ...d, elements: els };
         });
       })
       .catch(() => {});
   }, [jobIdParam]);
 
-  // ── block operations ──
-  const setBlocks = (next: Block[]) => setDoc((d) => ({ ...d, blocks: next }));
-  const ops: BlockOps = {
-    activeId,
-    setActiveId,
-    setHtml: (id, html) => setDoc((d) => ({ ...d, blocks: d.blocks.map((b) => (b.id === id ? { ...b, html } : b)) })),
-    update: (id, patch) => setDoc((d) => ({ ...d, blocks: d.blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)) })),
-    reorder: (ids) => setDoc((d) => ({ ...d, blocks: ids.map((id) => d.blocks.find((b) => b.id === id)!).filter(Boolean) })),
-    remove: (id) => { setBlocks(doc.blocks.filter((b) => b.id !== id)); if (activeId === id) setActiveId(null); },
-    duplicate: (id) => {
-      const i = doc.blocks.findIndex((b) => b.id === id);
-      if (i < 0) return;
-      const copy = { ...doc.blocks[i]!, id: uid() };
-      const next = [...doc.blocks];
-      next.splice(i + 1, 0, copy);
-      setBlocks(next);
-    },
-    add: (type: BlockType) => {
-      const nb = makeBlock(type, type === "heading" ? "Heading" : type === "subheading" ? "Subheading" : type === "text" ? "New paragraph" : "");
-      const i = activeId ? doc.blocks.findIndex((b) => b.id === activeId) : doc.blocks.length - 1;
-      const next = [...doc.blocks];
-      next.splice(i + 1, 0, nb);
-      setBlocks(next);
-      setActiveId(nb.id);
-    },
+  const selected = doc.elements.find((e) => e.id === selectedId) ?? null;
+  const setEls = (els: El[]) => setDoc((d) => ({ ...d, elements: els }));
+
+  const ops: CanvasOps = {
+    selectedId,
+    editingId,
+    setSelectedId,
+    setEditingId,
+    update: (id, patch) => setDoc((d) => ({ ...d, elements: d.elements.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
+    setHtml: (id, html) => setDoc((d) => ({ ...d, elements: d.elements.map((e) => (e.id === id ? { ...e, html } : e)) })),
   };
+
+  function updateSel(patch: Partial<El>) { if (selectedId) ops.update(selectedId, patch); }
+  function remove() { if (!selectedId) return; setEls(doc.elements.filter((e) => e.id !== selectedId)); setSelectedId(null); setEditingId(null); }
+  function duplicate() {
+    if (!selected) return;
+    const copy = { ...selected, id: uid(), x: selected.x + 16, y: selected.y + 16 };
+    setEls([...doc.elements, copy]);
+    setSelectedId(copy.id);
+  }
+  function layer(dir: 1 | -1) {
+    if (!selectedId) return;
+    const i = doc.elements.findIndex((e) => e.id === selectedId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= doc.elements.length) return;
+    const els = [...doc.elements];
+    [els[i], els[j]] = [els[j]!, els[i]!];
+    setEls(els);
+  }
+  function add(type: ElType) {
+    const off = (doc.elements.length % 6) * 18;
+    const el = makeEl(type, 120 + off, 140 + off);
+    if (type === "line" || type === "rect") el.color = type === "line" ? doc.accent : "#e6f5ef";
+    setEls([...doc.elements, el]);
+    setSelectedId(el.id);
+  }
+
+  function findBodyId(): string {
+    if (selected && (selected.type === "text")) return selected.id;
+    const texts = doc.elements.filter((e) => e.type === "text");
+    if (texts.length) return texts.reduce((a, b) => (b.h > a.h ? b : a)).id;
+    const nb = makeEl("text", 64, 272);
+    nb.w = 666; nb.h = 360;
+    setEls([...doc.elements, nb]);
+    return nb.id;
+  }
 
   async function generate() {
     if (!company.trim()) return;
@@ -125,46 +124,16 @@ export function Write() {
     abortRef.current = controller;
     setStreaming(true);
     setGenerated(true);
-
-    const { name, contact } = profileRef.current;
-    const bodyId = uid();
-    setDoc((d) => ({
-      ...d,
-      blocks: [
-        makeBlock("heading", esc(name)),
-        { id: uid(), type: "text", html: esc(contact), align: "left", size: 0.85 },
-        makeBlock("divider"),
-        { id: uid(), type: "text", html: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }), align: "left", size: 0.85 },
-        makeBlock("subheading", esc(role ? `Application for the ${role} position` : "Cover letter")),
-        makeBlock("text", esc(`Dear ${company} Hiring Team,`)),
-        { id: bodyId, type: "text", html: "", align: "left" },
-      ],
-    }));
-
+    const bodyId = findBodyId();
+    ops.setHtml(bodyId, "");
     let acc = "";
     try {
       await streamCoverLetter(
         { company_name: company, role_title: role || null, job_description: jd || null, tone },
         (event) => {
-          if (event.type === "token") {
-            acc += event.text;
-            const clean = acc.replace(/^\s*dear[^\n]*\n+/i, "").replace(/\n*(warmly|sincerely|best regards|regards)[,]?\s*$/i, "");
-            setDoc((d) => ({ ...d, blocks: d.blocks.map((b) => (b.id === bodyId ? { ...b, html: esc(clean).replace(/\n/g, "<br>") } : b)) }));
-          } else if (event.type === "done") {
-            // Split the streamed body into paragraph blocks.
-            setDoc((d) => {
-              const i = d.blocks.findIndex((b) => b.id === bodyId);
-              if (i < 0) return d;
-              const paras = paragraphsToBlocks(acc.replace(/^\s*dear[^\n]*\n+/i, "").replace(/\n*(warmly|sincerely|best regards|regards)[,]?\s*$/i, ""));
-              const next = [...d.blocks];
-              next.splice(i, 1, ...(paras.length ? paras : [d.blocks[i]!]));
-              return { ...d, blocks: next };
-            });
-            setStreaming(false);
-          } else if (event.type === "fatal") {
-            toast.danger("Generation failed", event.error);
-            setStreaming(false);
-          }
+          if (event.type === "token") { acc += event.text; ops.setHtml(bodyId, esc(acc).replace(/\n/g, "<br>")); }
+          else if (event.type === "done") setStreaming(false);
+          else if (event.type === "fatal") { toast.danger("Generation failed", event.error); setStreaming(false); }
         },
         controller.signal,
       );
@@ -176,51 +145,52 @@ export function Write() {
 
   async function save() {
     setSaving(true);
-    const payload: Job = {
-      company: company || "Untitled",
-      role: role || "Role",
-      status: "draft",
-      letter: { content: { subject: role ? `Application for the ${role}` : "Cover letter" }, design: {}, doc } as unknown as Job["letter"],
-    };
+    const payload: Job = { company: company || "Untitled", role: role || "Role", status: "draft", letter: { canvas: doc } as unknown as Job["letter"] };
     try {
       if (jobId != null) await updateJob(jobId, { ...payload, id: jobId });
-      else {
-        const created = await createJob(payload);
-        if (created.id != null) { setJobId(created.id); setParams({ job: String(created.id) }, { replace: true }); }
-      }
+      else { const created = await createJob(payload); if (created.id != null) { setJobId(created.id); setParams({ job: String(created.id) }, { replace: true }); } }
       toast.success("Saved to applications");
-    } catch (err) {
-      toast.danger("Couldn't save", errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { toast.danger("Couldn't save", errorMessage(err)); }
+    finally { setSaving(false); }
   }
 
-  function copy() {
-    navigator.clipboard?.writeText(plainText(doc.blocks));
-    toast.success("Copied to clipboard");
-  }
+  function copy() { navigator.clipboard?.writeText(plainText(doc.elements)); toast.success("Copied to clipboard"); }
   function downloadTxt() {
-    const blob = new Blob([plainText(doc.blocks)], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "cover-letter.txt"; a.click();
-    URL.revokeObjectURL(url);
+    const blob = new Blob([plainText(doc.elements)], { type: "text/plain" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "cover-letter.txt"; a.click(); URL.revokeObjectURL(url);
   }
   async function downloadPdf() {
+    setSelectedId(null); setEditingId(null);
     setExporting(true);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
     try { await exportLetterPdf("letter-print"); toast.success("PDF downloaded"); }
     catch { toast.danger("Couldn't export PDF", "Try again in a moment."); }
     finally { setExporting(false); }
   }
 
+  const ADD_ITEMS: { type: ElType; label: string; icon: typeof Type }[] = [
+    { type: "text", label: "Text", icon: Type },
+    { type: "heading", label: "Heading", icon: Heading },
+    { type: "line", label: "Line", icon: LineIcon },
+    { type: "rect", label: "Box", icon: Square },
+  ];
+
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-bg-2">
       <EditorTopBar onCopy={copy} onPdf={downloadPdf} onTxt={downloadTxt} onPrint={() => window.print()} onSave={save} exporting={exporting} saving={saving} />
       <div className="flex flex-1 overflow-hidden">
-        {/* Style rail */}
-        <aside className="w-[220px] shrink-0 overflow-y-auto bg-navy p-4 text-white">
-          <p className="mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45">Accent color</p>
+        {/* Left rail: add + accent */}
+        <aside className="w-[210px] shrink-0 overflow-y-auto bg-navy p-4 text-white">
+          <p className="mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45">Add element</p>
+          <div className="grid grid-cols-2 gap-2">
+            {ADD_ITEMS.map(({ type, label, icon: Icon }) => (
+              <button key={type} type="button" onClick={() => add(type)}
+                className="flex flex-col items-center gap-1.5 rounded-[10px] border border-white/12 py-3 text-[12px] font-medium text-white/70 transition-colors hover:border-white/30 hover:text-white">
+                <Icon size={18} /> {label}
+              </button>
+            ))}
+          </div>
+          <p className="mb-2.5 mt-6 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45">Accent</p>
           <div className="flex flex-wrap gap-2.5">
             {ACCENTS.map((c) => (
               <button key={c} type="button" aria-label={`Accent ${c}`} onClick={() => setDoc((d) => ({ ...d, accent: c }))}
@@ -228,40 +198,26 @@ export function Write() {
                 style={{ background: c }} />
             ))}
           </div>
-          <p className="mb-2.5 mt-6 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45">Base font</p>
-          <div className="grid grid-cols-2 gap-2">
-            {FONTS.map((f) => (
-              <button key={f.id} type="button" onClick={() => { setFontId(f.id); setDoc((d) => ({ ...d, fontCss: f.css })); }} style={{ fontFamily: f.css }}
-                className={cn("rounded-[9px] border px-3 py-2 text-[13px] font-semibold transition", fontId === f.id ? "border-accent bg-accent/20 text-white" : "border-white/12 text-white/60 hover:border-white/30")}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <p className="mb-2.5 mt-6 text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45">Base size</p>
-          <div className="inline-flex rounded-[9px] border border-white/12 p-1">
-            {SIZES.map((s) => (
-              <button key={s.id} type="button" onClick={() => { setSizeId(s.id); setDoc((d) => ({ ...d, fontScale: s.scale })); }}
-                className={cn("rounded-[6px] px-3.5 py-1.5 text-[13px] font-semibold transition", sizeId === s.id ? "bg-accent text-on-accent" : "text-white/55 hover:text-white")}>
-                {s.label}
-              </button>
-            ))}
-          </div>
           <p className="mt-6 text-[11px] leading-relaxed text-white/40">
-            Click any block to edit it. Use the toolbar to format, drag the handle to reorder, or add and delete blocks.
+            Click an element to select · drag to move · pull the corners to resize · double-click text to edit.
           </p>
         </aside>
 
         {/* Canvas */}
-        <main className="flex-1 overflow-auto px-6 py-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setActiveId(null); }}>
-          {streaming && (
-            <div className="mx-auto mb-3 flex max-w-[794px] items-center gap-2 text-[12.5px] font-medium text-text-2">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent" /> Writing your letter…
-            </div>
-          )}
-          <BlockCanvas doc={doc} ops={ops} />
+        <main className="flex flex-1 flex-col overflow-auto">
+          <div className="sticky top-0 z-20 border-b border-border bg-bg-2/80 px-6 py-3 backdrop-blur">
+            <CanvasToolbar el={selected} onEl={updateSel} onDelete={remove} onDuplicate={duplicate} onForward={() => layer(1)} onBack={() => layer(-1)} onAdd={add} />
+          </div>
+          <div className="flex-1 px-6 py-8">
+            {streaming && (
+              <div className="mx-auto mb-3 flex max-w-[794px] items-center gap-2 text-[12.5px] font-medium text-text-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" /> Writing your letter…
+              </div>
+            )}
+            <Canvas elements={doc.elements} ops={ops} />
+          </div>
         </main>
 
-        {/* AI panel */}
         <AiPanel company={company} role={role} tone={tone} jd={jd} streaming={streaming}
           onCompany={setCompany} onRole={setRole} onTone={setTone} onJd={setJd} onGenerate={generate} hasContent={generated} />
       </div>
