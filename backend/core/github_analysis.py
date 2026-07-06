@@ -16,8 +16,8 @@ from core import llm
 from core.cv_structuring import _extract_json
 from core.prompts.github import build_messages
 
-CHUNK = 5            # repos analyzed per LLM call (keeps the prompt within context limits)
-README_CAP = 1200    # README chars sent to the model
+CHUNK = 4            # repos analyzed per LLM call (keeps the prompt within context limits)
+README_CAP = 4000    # README chars sent to the model (deeper comprehension)
 README_STORE = 8000  # README chars stored in the DB
 RETRIES = 3          # transient provider errors (e.g. Gemini "503 high demand") are retried
 
@@ -27,7 +27,7 @@ def _complete_with_retry(messages: list[dict]) -> str:
     last: Exception | None = None
     for attempt in range(RETRIES):
         try:
-            return llm.complete(messages, temperature=0.0, max_tokens=2048)
+            return llm.complete(messages, temperature=0.0, max_tokens=4096)
         except Exception as exc:  # noqa: BLE001 — retry any provider error
             last = exc
             time.sleep(2 * (attempt + 1))
@@ -45,8 +45,8 @@ def _clamp_rating(value: object) -> int | None:
 def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
     """Analyze repos in batches; return enriched repos + a deduplicated skill list."""
     analyses: dict[str, dict] = {}
-    skills_order: list[str] = []
-    seen_skills: set[str] = set()
+    skill_display: dict[str, str] = {}   # key → first-seen display name
+    skill_score: dict[str, int] = {}     # key → best score
     last_error: Exception | None = None
 
     for start in range(0, len(repos), CHUNK):
@@ -64,10 +64,14 @@ def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
             if item.get("repo_name"):
                 analyses[str(item["repo_name"]).strip().lower()] = item
         for skill in data.get("skills", []):
-            key = str(skill).strip().lower()
-            if skill and key not in seen_skills:
-                seen_skills.add(key)
-                skills_order.append(str(skill).strip())
+            name = (skill.get("name") if isinstance(skill, dict) else skill) or ""
+            name = str(name).strip()
+            if not name:
+                continue
+            score = _clamp_rating(skill.get("score") if isinstance(skill, dict) else None) or 3
+            key = name.lower()
+            skill_display.setdefault(key, name)
+            skill_score[key] = max(skill_score.get(key, 0), score)
 
     # If every batch failed (e.g. quota exhausted), surface the error instead of
     # silently returning repos with no analysis.
@@ -77,6 +81,7 @@ def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
     enriched = []
     for r in repos:
         a = analyses.get((r.get("repo_name") or "").strip().lower(), {})
+        highlights = a.get("highlights")
         enriched.append({
             "repo_name": r.get("repo_name"),
             "url": r.get("url"),
@@ -84,9 +89,15 @@ def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
             "last_updated": r.get("last_updated"),
             "technologies": a.get("technologies") or r.get("technologies") or [],
             "description": a.get("summary") or r.get("description"),
+            "purpose": a.get("purpose"),
+            "highlights": [str(h) for h in highlights] if isinstance(highlights, list) else [],
             "contribution": a.get("contribution"),
             "involvement_rating": _clamp_rating(a.get("involvement")),
             "readme": (r.get("readme") or "")[:README_STORE] or None,
         })
 
-    return {"repos": enriched, "skills": skills_order}
+    skills = [
+        {"name": skill_display[k], "score": skill_score[k]}
+        for k in sorted(skill_score, key=lambda k: -skill_score[k])
+    ]
+    return {"repos": enriched, "skills": skills}

@@ -79,9 +79,16 @@ export interface GithubRepo {
   last_updated?: string | null;
   technologies?: string[];
   description?: string | null;
+  purpose?: string | null;
+  highlights?: string[];
   contribution?: string | null;
   involvement_rating?: number | null;
   readme?: string | null;
+}
+
+export interface ScoredSkill {
+  name: string;
+  score?: number | null;
 }
 
 export interface Project {

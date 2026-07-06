@@ -32,7 +32,7 @@ _TABLES = frozenset({
 # Columns stored as JSON text — (de)serialized transparently.
 _JSON_COLUMNS: dict[str, set[str]] = {
     "profile": {"style_profile"},
-    "github_repos": {"technologies"},
+    "github_repos": {"technologies", "highlights"},
     "projects": {"technologies"},
     "jobs": {"match_breakdown", "company_research", "letter"},
 }
