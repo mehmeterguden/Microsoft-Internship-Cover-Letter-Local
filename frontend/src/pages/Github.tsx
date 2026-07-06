@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Github as GithubIcon, RefreshCw, Sparkles, Star, Trash2, Users } from "lucide-react";
+import { Github as GithubIcon, Sparkles, Star, Trash2, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +31,30 @@ const STATUS: Record<Status, { label: string; tone: "success" | "neutral" | "gol
   saved: { label: "Saved", tone: "neutral" },
   updated: { label: "Update available", tone: "gold" },
 };
+
+function mergeSkills(prev: ScoredSkill[], incoming: ScoredSkill[]): ScoredSkill[] {
+  const map = new Map(prev.map((s) => [s.name.toLowerCase(), s]));
+  for (const s of incoming) {
+    const k = s.name.toLowerCase();
+    const ex = map.get(k);
+    if (!ex || (s.score ?? 0) > (ex.score ?? 0)) map.set(k, s);
+  }
+  return Array.from(map.values()).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+}
+
+/** Fold a saved repo's analysis onto a freshly-fetched repo so its data shows. */
+function withSaved(r: GithubRepo, s: GithubRepo | undefined): GithubRepo {
+  if (!s) return r;
+  return {
+    ...r,
+    description: s.description ?? r.description,
+    purpose: s.purpose,
+    highlights: s.highlights ?? [],
+    technologies: s.technologies?.length ? s.technologies : r.technologies,
+    contribution: s.contribution,
+    involvement_rating: s.involvement_rating,
+  };
+}
 
 /** Shared display of a repo's analyzed content. */
 function RepoBody({ r }: { r: GithubRepo }) {
@@ -104,7 +128,6 @@ export function Github() {
   const saved = useAsync(listSavedRepos, []);
   const savedByName = new Map((saved.data ?? []).map((r) => [(r.repo_name ?? "").toLowerCase(), r]));
 
-  // Import tab state.
   const [username, setUsername] = useState("mehmeterguden");
   const [login, setLogin] = useState("");
   const [profile, setProfile] = useState<GithubProfile | null>(null);
@@ -115,7 +138,6 @@ export function Github() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [skills, setSkills] = useState<ScoredSkill[]>([]);
   const [analysis, setAnalysis] = useState<AnalyzeResult | null>(null);
-  const [savingImport, setSavingImport] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<GithubRepo | null>(null);
 
   function statusOf(r: GithubRepo): Status {
@@ -123,14 +145,18 @@ export function Github() {
     if (!s) return "new";
     return (r.last_updated ?? "") > (s.last_updated ?? "") ? "updated" : "saved";
   }
+  const isSaved = (r: GithubRepo) => savedByName.has((r.repo_name ?? "").toLowerCase());
 
   async function fetchRepos() {
     if (!username.trim()) return;
     setPhase("fetching");
     try {
       const result = await apiFetchRepos(username, false);
-      setRepos(result.repos);
-      setSelected(new Set(result.repos.map((r) => r.repo_name)));
+      const savedMap = new Map((saved.data ?? []).map((r) => [(r.repo_name ?? "").toLowerCase(), r]));
+      const merged = result.repos.map((r) => withSaved(r, savedMap.get(r.repo_name.toLowerCase())));
+      setRepos(merged);
+      // Pre-select only what isn't already in the profile.
+      setSelected(new Set(merged.filter((r) => !savedMap.has(r.repo_name.toLowerCase())).map((r) => r.repo_name)));
       setSkills([]);
       setAnalysis(null);
       setProfile(result.profile);
@@ -150,10 +176,8 @@ export function Github() {
       return next;
     });
   }
-  function toggleAll() {
-    setSelected((prev) => (prev.size === repos.length ? new Set() : new Set(repos.map((r) => r.repo_name))));
-  }
 
+  /** Analyze repos, merge results in place, and persist immediately. */
   async function runAnalysis(list: GithubRepo[]) {
     if (list.length === 0) {
       toast.warning("Nothing selected", "Pick at least one repository to analyze.");
@@ -163,23 +187,23 @@ export function Github() {
     setAnalyzingSet((prev) => new Set([...prev, ...names]));
     try {
       const result = await analyzeRepos(login || username, list);
-      setAnalysis(result);
-      setRepos((prev) =>
-        prev.map((r) => {
-          const found = result.repos?.find((x) => x.repo_name === r.repo_name);
-          return found ? { ...r, ...found } : r;
-        }),
-      );
-      setSkills((prev) => {
-        const map = new Map(prev.map((s) => [s.name.toLowerCase(), s]));
-        for (const s of result.skills ?? []) {
-          const k = s.name.toLowerCase();
-          const ex = map.get(k);
-          if (!ex || (s.score ?? 0) > (ex.score ?? 0)) map.set(k, s);
-        }
-        return Array.from(map.values()).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      const enriched = list.map((r) => {
+        const found = result.repos?.find((x) => x.repo_name === r.repo_name);
+        return found ? { ...r, ...found } : r;
       });
-      toast.success(names.length === 1 ? `Analyzed ${names[0]}` : `${names.length} repositories analyzed`);
+      setRepos((prev) => prev.map((r) => enriched.find((e) => e.repo_name === r.repo_name) ?? r));
+      const union = mergeSkills(skills, result.skills ?? []);
+      setSkills(union);
+      setAnalysis(result);
+      // Auto-save: analyzing a README persists it into the profile right away.
+      await saveRepos(enriched, union);
+      saved.reload();
+      setSelected((prev) => {
+        const next = new Set(prev);
+        names.forEach((n) => next.delete(n));
+        return next;
+      });
+      toast.success(names.length === 1 ? `Analyzed & saved ${names[0]}` : `${names.length} analyzed & saved`);
     } catch (err) {
       toast.danger("Analysis failed", errorMessage(err));
     } finally {
@@ -200,24 +224,6 @@ export function Github() {
     }
   }
 
-  async function saveSelected() {
-    const chosen = repos.filter((r) => selected.has(r.repo_name));
-    if (chosen.length === 0) {
-      toast.warning("Nothing selected", "Pick the repositories to save.");
-      return;
-    }
-    setSavingImport(true);
-    try {
-      const result = await saveRepos(chosen, skills);
-      toast.success("Saved to profile", `${result.saved_repos} added, ${result.updated_repos} updated, ${result.added_skills} new skills.`);
-      saved.reload();
-    } catch (err) {
-      toast.danger("Save failed", errorMessage(err));
-    } finally {
-      setSavingImport(false);
-    }
-  }
-
   async function confirmDelete() {
     if (pendingDelete?.id == null) return;
     try {
@@ -230,8 +236,47 @@ export function Github() {
     }
   }
 
-  const allSelected = repos.length > 0 && selected.size === repos.length;
   const savedCount = saved.data?.length ?? 0;
+
+  function RepoCard({ r, selectable }: { r: GithubRepo; selectable: boolean }) {
+    const isSel = selected.has(r.repo_name);
+    const busy = analyzingSet.has(r.repo_name);
+    const st = statusOf(r);
+    return (
+      <Card className={cn("transition-colors", isSel && "ring-1 ring-accent/40")}>
+        <CardContent className="pt-5">
+          <div className="flex items-start gap-3">
+            {selectable && (
+              <Checkbox className="mt-1" checked={isSel} onChange={() => toggle(r.repo_name)} aria-label={`Select ${r.repo_name}`} />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <a href={r.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-[15.5px] font-bold text-text hover:text-accent-ink">
+                    {r.repo_name}
+                  </a>
+                  <Badge tone={STATUS[st].tone}>{STATUS[st].label}</Badge>
+                </div>
+                <span className="inline-flex items-center gap-1 font-mono text-[12px] text-text-3">
+                  <Star size={13} className="fill-gold text-gold" /> {r.stars ?? 0}
+                </span>
+              </div>
+              <RepoBody r={r} />
+              <div className="mt-3 flex justify-end">
+                <Button size="sm" variant="ghost" onClick={() => runAnalysis([r])} loading={busy}>
+                  <Sparkles size={14} /> {isSaved(r) ? "Re-analyze" : "Analyze & save"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const fresh = repos.filter((r) => !isSaved(r));
+  const inProfile = repos.filter((r) => isSaved(r));
+  const freshSelected = fresh.filter((r) => selected.has(r.repo_name)).length;
 
   return (
     <>
@@ -239,7 +284,7 @@ export function Github() {
         eyebrow="Build your profile"
         title="GitHub import"
         icon={GithubIcon}
-        description="Import repositories, analyze their READMEs, and keep them in your profile. Re-import any time to add new work or refresh what changed."
+        description="Import repositories and analyze their READMEs — each analysis is saved to your profile automatically. Re-import any time to add new work or refresh what changed."
       />
 
       <Tabs defaultValue="saved">
@@ -255,7 +300,7 @@ export function Github() {
               <EmptyState
                 icon={GithubIcon}
                 title="No repositories saved yet"
-                description="Switch to Import from GitHub to pull and analyze your work."
+                description="Switch to Import from GitHub, then analyze a repo — it's saved here automatically."
               />
             ) : (
               <div className="grid gap-4">
@@ -324,61 +369,40 @@ export function Github() {
           {phase === "loaded" && (
             <div className="grid gap-4" style={{ animation: "cll-rise 0.4s both" }}>
               {profile && <ProfileBanner p={profile} count={repos.length} />}
-              <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border bg-surface/90 px-4 py-3 shadow-soft backdrop-blur">
-                <label className="flex cursor-pointer items-center gap-2.5 text-[13.5px] font-medium text-text">
-                  <Checkbox checked={allSelected} onChange={toggleAll} />
-                  {selected.size} of {repos.length} selected
-                </label>
-                <Button variant="secondary" onClick={analyzeSelected} loading={bulkBusy} disabled={selected.size === 0}>
-                  <Sparkles size={16} /> Analyze selected ({selected.size})
-                </Button>
-              </div>
 
-              {repos.map((r) => {
-                const isSel = selected.has(r.repo_name);
-                const busy = analyzingSet.has(r.repo_name);
-                const st = statusOf(r);
-                return (
-                  <Card key={r.repo_name} className={cn("transition-colors", isSel && "ring-1 ring-accent/40")}>
-                    <CardContent className="pt-5">
-                      <div className="flex items-start gap-3">
-                        <Checkbox className="mt-1" checked={isSel} onChange={() => toggle(r.repo_name)} aria-label={`Select ${r.repo_name}`} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <a href={r.url ?? "#"} target="_blank" rel="noopener noreferrer" className="text-[15.5px] font-bold text-text hover:text-accent-ink">
-                                {r.repo_name}
-                              </a>
-                              <Badge tone={STATUS[st].tone}>{STATUS[st].label}</Badge>
-                            </div>
-                            <span className="inline-flex items-center gap-1 font-mono text-[12px] text-text-3">
-                              <Star size={13} className="fill-gold text-gold" /> {r.stars ?? 0}
-                            </span>
-                          </div>
-                          <RepoBody r={r} />
-                          <div className="mt-3 flex justify-end">
-                            <Button size="sm" variant="ghost" onClick={() => runAnalysis([r])} loading={busy}>
-                              <Sparkles size={14} /> Analyze
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {fresh.length > 0 && (
+                <>
+                  <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border bg-surface/90 px-4 py-3 shadow-soft backdrop-blur">
+                    <span className="text-[13.5px] font-semibold text-text">
+                      New — not in your profile yet ({fresh.length})
+                    </span>
+                    <Button variant="secondary" onClick={analyzeSelected} loading={bulkBusy} disabled={freshSelected === 0}>
+                      <Sparkles size={16} /> Analyze &amp; save selected ({freshSelected})
+                    </Button>
+                  </div>
+                  {fresh.map((r) => <RepoCard key={r.repo_name} r={r} selectable />)}
+                  {skills.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border bg-surface-2 px-4 py-3">
+                      <span className="text-[13px] font-semibold text-text">Skills extracted:</span>
+                      {skills.map((s) => (
+                        <Badge key={s.name} tone="accent">{s.name}{s.score ? ` · ${s.score}/5` : ""}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
 
-              <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border bg-surface-2 px-4 py-3">
-                <span className="text-[13px] font-semibold text-text">
-                  {skills.length > 0 ? "Skills found:" : "Analyze repositories to extract skills."}
-                </span>
-                {skills.map((s) => (
-                  <Badge key={s.name} tone="accent">{s.name}{s.score ? ` · ${s.score}/5` : ""}</Badge>
-                ))}
-                <Button size="sm" className="ml-auto" onClick={saveSelected} loading={savingImport} disabled={selected.size === 0}>
-                  <RefreshCw size={14} /> Save / update ({selected.size})
-                </Button>
-              </div>
+              {inProfile.length > 0 && (
+                <div className="mt-2 grid gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-3">
+                      Already in your profile ({inProfile.length})
+                    </span>
+                    <span className="h-px flex-1 bg-line" />
+                  </div>
+                  {inProfile.map((r) => <RepoCard key={r.repo_name} r={r} selectable={false} />)}
+                </div>
+              )}
 
               {analysis && <DevInspector json={analysis} title="Developer · view AI analysis (JSON)" />}
             </div>
