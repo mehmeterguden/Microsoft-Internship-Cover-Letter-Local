@@ -41,6 +41,23 @@ export function streamImportCv(
   return streamSSERequest<CvImportEvent>("/cv/import/stream", { method: "POST", body: form }, onEvent, signal);
 }
 
+export interface ParseResult {
+  filename: string;
+  text: string;
+  num_pages: number;
+  source_type: string;
+}
+
+/** Extract plain text from a PDF/DOCX/image without structuring it. */
+export async function parseDocument(file: File): Promise<ParseResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await client.post<ParseResult>("/cv/parse", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
 export interface SaveExtractionResult {
   ok: boolean;
   saved: Record<string, number>;
