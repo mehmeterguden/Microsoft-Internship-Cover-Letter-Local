@@ -30,12 +30,13 @@ from models import VoiceProfile
 _SAMPLE_TABLE = "past_cover_letters"
 _COLLECTION = vs.COVER_LETTERS
 _MIN_CHUNK = 40
-_CORPUS_CAP = 9000
+_CORPUS_CAP = 18000   # include all letters; a handful of cover letters fits comfortably
 
 _VOICE_FIELDS = {
-    "summary", "self_presentation", "tone", "signature_phrases", "vocabulary",
-    "sentence_patterns", "rhetorical_moves", "emphasis", "opening_habits",
-    "closing_habits", "avoid",
+    "summary", "self_presentation", "tone", "formality", "strengths", "themes",
+    "signature_phrases", "vocabulary", "sentence_patterns", "rhetorical_moves",
+    "structure", "emphasis", "opening_habits", "closing_habits", "example_sentences",
+    "avoid",
 }
 
 
@@ -76,7 +77,7 @@ def analyze(texts: list[str]) -> VoiceProfile | None:
         return None
 
     fields: dict[str, Any] = _metrics(corpus, texts)
-    voice = _llm_voice(corpus)
+    voice = _llm_voice(corpus, len([t for t in texts if t and t.strip()]))
     if voice:
         fields.update(voice)
         fields["llm_analyzed"] = True
@@ -94,6 +95,14 @@ def build_voice_guide(v: VoiceProfile) -> str:
         lines.append(f"How they present themselves: {v.self_presentation}")
     if v.tone:
         lines.append(f"Tone: {v.tone}")
+    if v.formality:
+        lines.append(f"Formality: {v.formality}")
+    if v.structure:
+        lines.append(f"How they structure a letter: {v.structure}")
+    if v.themes:
+        lines.append("Themes they return to: " + ", ".join(v.themes))
+    if v.strengths:
+        lines.append("Strengths they foreground: " + ", ".join(v.strengths))
     if v.sentence_patterns:
         lines.append(f"Sentence patterns: {v.sentence_patterns}")
     elif v.sentence_style:
@@ -115,6 +124,9 @@ def build_voice_guide(v: VoiceProfile) -> str:
     if v.signature_phrases:
         lines.append("Reuse their signature phrasing where it fits (adapt, don't force): "
                      + "; ".join(f'"{p}"' for p in v.signature_phrases))
+    if v.example_sentences:
+        lines.append("Echo the rhythm/voice of these real sentences of theirs (don't copy verbatim): "
+                     + " | ".join(v.example_sentences))
     if v.avoid:
         lines.append("Never use (they wouldn't): " + ", ".join(v.avoid))
 
@@ -145,10 +157,10 @@ def style_context(query_text: str) -> dict[str, Any]:
 #  Deep analysis (LLM)
 # ─────────────────────────────────────────────────────────────
 
-def _llm_voice(corpus: str) -> dict[str, Any]:
+def _llm_voice(corpus: str, count: int = 0) -> dict[str, Any]:
     """Reverse-engineer the voice with the LLM. Returns {} if unavailable/malformed."""
     try:
-        raw = llm.complete(build_analysis_messages(corpus[:_CORPUS_CAP]), temperature=0.0, max_tokens=1500)
+        raw = llm.complete(build_analysis_messages(corpus[:_CORPUS_CAP], count), temperature=0.0, max_tokens=2600)
         data = json.loads(_extract_json(raw))
     except Exception:  # noqa: BLE001 — deep analysis is optional; fall back to metrics only
         return {}

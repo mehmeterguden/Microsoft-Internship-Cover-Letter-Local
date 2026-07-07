@@ -25,7 +25,7 @@ _FORMAL = (
 @pytest.fixture(autouse=True)
 def _no_llm(monkeypatch):
     # Default: no deep analysis, so analyze() returns metrics-only VoiceProfiles.
-    monkeypatch.setattr(style, "_llm_voice", lambda corpus: {})
+    monkeypatch.setattr(style, "_llm_voice", lambda corpus, count=0: {})
 
 
 # ── metrics ──
@@ -52,7 +52,7 @@ def test_analyze_detects_formal_long_sentences():
 # ── deep analysis merges in ──
 
 def test_deep_analysis_enriches_profile(monkeypatch):
-    monkeypatch.setattr(style, "_llm_voice", lambda corpus: {
+    monkeypatch.setattr(style, "_llm_voice", lambda corpus, count=0: {
         "summary": "You write with quiet confidence.",
         "signature_phrases": ["I couldn't stop tinkering"],
         "vocabulary": ["ship", "craft"],

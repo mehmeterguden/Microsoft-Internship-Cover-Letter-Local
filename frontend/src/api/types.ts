@@ -39,13 +39,18 @@ export interface VoiceProfile {
   summary?: string;
   self_presentation?: string;
   tone?: string;
+  formality?: string;
+  strengths?: string[];
+  themes?: string[];
   signature_phrases?: string[];
   vocabulary?: string[];
   sentence_patterns?: string;
   rhetorical_moves?: string;
+  structure?: string;
   emphasis?: string[];
   opening_habits?: string;
   closing_habits?: string;
+  example_sentences?: string[];
   avoid?: string[];
   llm_analyzed?: boolean;
 }
