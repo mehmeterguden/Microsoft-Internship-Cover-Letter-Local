@@ -403,5 +403,6 @@ class CVExtraction(BaseModel):
     education: list[Education] = []
     projects: list[Project] = []
     certificates: list[Certificate] = []
+    trainings: list[Training] = []
     languages: list[Language] = []
     links: list[Link] = []

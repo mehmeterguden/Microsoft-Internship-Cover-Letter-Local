@@ -246,6 +246,7 @@ export interface CVExtraction {
   education: Education[];
   projects: Project[];
   certificates: Certificate[];
+  trainings: Training[];
   languages: Language[];
   links: Link[];
 }

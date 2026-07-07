@@ -31,6 +31,9 @@ CV_JSON_SCHEMA = """{
                     "cert_type": "professional"|"course"|"exam"|"language"|"award"|"bootcamp"|"other"|null,
                     "issue_date": string|null, "expiry_date": string|null,
                     "credential_id": string|null, "url": string|null, "confidence": 0-100 }],
+  "trainings":   [{ "name": string, "provider": string|null,
+                    "completion_date": string|null, "url": string|null,
+                    "description": string|null, "confidence": 0-100 }],
   "languages":   [{ "name": string,
                     "proficiency": "native"|"fluent"|"professional"|"intermediate"|"basic"|null, "confidence": 0-100 }],
   "links":       [{ "label": string, "url": string, "description": string|null, "confidence": 0-100 }]
@@ -61,7 +64,16 @@ GitHub, blog, etc. (often in the header). Give each a short label ("Website", "L
 from the distinct technologies, programming languages, frameworks, and tools that are \
 EXPLICITLY named in the experience and project descriptions (e.g. Python, React, Node.js, \
 TypeScript). Use only items literally written in the CV — never add related or implied ones. \
-Deduplicate.
+Deduplicate. For each skill set "category" to a concise, tidy grouping so the profile stays \
+organized — e.g. "Languages", "Frameworks", "Databases", "Tools", "Cloud & DevOps", "Design", \
+"Soft skills". This classification of an item you already extracted is allowed even when the CV \
+does not label it; it is grouping, not inventing.
+- certificates vs trainings — route each correctly:
+  - certificates: formal credentials, certifications, standardized exams, or awards, typically \
+with an issuer and/or a credential id (e.g. "AWS Certified Solutions Architect", "TOEFL").
+  - trainings: courses, bootcamps, workshops, or online courses the person COMPLETED, usually \
+with a provider (Coursera, Udemy, a university short course) and no formal credential id. \
+When unsure and there is no credential id, prefer trainings.
 
 Confidence scoring — REQUIRED on every object:
 - Add an integer "confidence" (0-100) to each item, scoring how certain you are the value \
