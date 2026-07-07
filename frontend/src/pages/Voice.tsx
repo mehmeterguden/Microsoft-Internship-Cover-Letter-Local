@@ -104,7 +104,7 @@ export function Voice() {
 
   const [letters, setLetters] = useState<PastCoverLetter[]>([]);
   const [draft, setDraft] = useState("");
-  const [tab, setTab] = useState("paste");
+  const [tab, setTab] = useState("upload");
   const [adding, setAdding] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [learning, setLearning] = useState(false);
@@ -211,8 +211,8 @@ export function Voice() {
             <CardContent>
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="paste" className="flex-1"><Quote size={14} /> Paste text</TabsTrigger>
                   <TabsTrigger value="upload" className="flex-1"><FileText size={14} /> Upload PDF</TabsTrigger>
+                  <TabsTrigger value="paste" className="flex-1"><Quote size={14} /> Paste text</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="paste" className="grid gap-3">

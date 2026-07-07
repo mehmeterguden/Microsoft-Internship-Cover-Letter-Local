@@ -12,7 +12,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SkillTag } from "@/components/common/SkillTag";
-import { RatingInput } from "@/components/common/RatingInput";
 import { DevInspector } from "@/components/common/DevInspector";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import type { GithubRepo, ScoredSkill } from "@/api/types";
@@ -80,11 +79,6 @@ function RepoBody({ r }: { r: GithubRepo }) {
               {t}
             </SkillTag>
           ))}
-        </div>
-      )}
-      {r.involvement_rating != null && (
-        <div className="mt-3 flex items-center gap-2 text-[12.5px] text-text-3">
-          Involvement <RatingInput value={r.involvement_rating} readOnly />
         </div>
       )}
     </>

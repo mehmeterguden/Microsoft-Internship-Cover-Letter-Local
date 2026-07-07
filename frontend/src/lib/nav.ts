@@ -11,30 +11,39 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+export type NavGroup = "home" | "setup" | "create" | "system";
+
 export type NavItem = {
   to: string;
   label: string;
+  hint: string; // short description shown under the label
   icon: LucideIcon;
-  /** Short mono caption shown under the section group. */
-  group: "start" | "prepare" | "create" | "system";
+  group: NavGroup;
 };
 
-/** Primary navigation — the whole product surface, grouped by workflow stage. */
+/**
+ * Primary navigation, split into two clear stages:
+ *  • Setup — one-time: add your CV, profile, GitHub, and writing voice.
+ *  • Write & apply — the ongoing loop: research, generate, track applications.
+ */
 export const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Home", icon: Home, group: "start" },
-  { to: "/onboarding", label: "Import CV", icon: FileUp, group: "start" },
-  { to: "/profile", label: "Profile & Skills", icon: UserRound, group: "prepare" },
-  { to: "/github", label: "GitHub", icon: Github, group: "prepare" },
-  { to: "/voice", label: "Writing Voice", icon: AudioLines, group: "prepare" },
-  { to: "/research", label: "Company Research", icon: Building2, group: "create" },
-  { to: "/write", label: "Generate Letter", icon: PenLine, group: "create" },
-  { to: "/applications", label: "Applications", icon: LayoutGrid, group: "create" },
-  { to: "/settings", label: "Settings", icon: Settings, group: "system" },
+  { to: "/", label: "Home", hint: "Overview", icon: Home, group: "home" },
+
+  { to: "/onboarding", label: "Import CV", hint: "Add your CV", icon: FileUp, group: "setup" },
+  { to: "/profile", label: "Profile & Skills", hint: "Your details", icon: UserRound, group: "setup" },
+  { to: "/github", label: "GitHub", hint: "Import projects", icon: Github, group: "setup" },
+  { to: "/voice", label: "Writing Voice", hint: "Learn your style", icon: AudioLines, group: "setup" },
+
+  { to: "/research", label: "Company Research", hint: "Research a role", icon: Building2, group: "create" },
+  { to: "/write", label: "Write Cover Letter", hint: "Generate & design", icon: PenLine, group: "create" },
+  { to: "/applications", label: "Applications", hint: "Track & revisit", icon: LayoutGrid, group: "create" },
+
+  { to: "/settings", label: "Settings", hint: "Model & keys", icon: Settings, group: "system" },
 ];
 
-export const GROUP_LABELS: Record<NavItem["group"], string> = {
-  start: "Get started",
-  prepare: "Build your profile",
-  create: "Apply",
-  system: "System",
+export const GROUP_LABELS: Record<NavGroup, string> = {
+  home: "",
+  setup: "1 · Set up your profile",
+  create: "2 · Write & apply",
+  system: "",
 };
