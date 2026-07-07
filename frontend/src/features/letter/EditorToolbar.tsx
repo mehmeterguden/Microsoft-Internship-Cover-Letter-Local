@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Align, Block, BlockType } from "./blockTypes";
+import { Select } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export const FONTS = [
@@ -108,30 +109,30 @@ export function EditorToolbar({
 
       <Sep />
       {/* Block-level controls. */}
-      <select
+      <Select
         value={active?.type ?? "text"}
         disabled={disabled}
         onChange={(e) => onBlock({ type: e.target.value as BlockType })}
-        className="h-8 rounded-[8px] border border-border bg-surface px-2 text-[12.5px] font-medium text-text disabled:opacity-50"
+        className="h-8 w-auto rounded-[8px] px-2 text-[12.5px] font-medium disabled:opacity-50"
       >
         <option value="heading">Heading</option>
         <option value="subheading">Subheading</option>
         <option value="text">Body text</option>
         <option value="divider">Divider</option>
         <option value="spacer">Spacer</option>
-      </select>
+      </Select>
 
       {isText && (
         <>
-          <select
+          <Select
             value={FONTS.find((f) => f.css === active?.fontFamily)?.id ?? "__doc"}
             onChange={(e) => onBlock({ fontFamily: e.target.value === "__doc" ? undefined : FONTS.find((f) => f.id === e.target.value)?.css })}
-            className="h-8 rounded-[8px] border border-border bg-surface px-2 text-[12.5px] font-medium text-text"
+            className="h-8 w-auto rounded-[8px] px-2 text-[12.5px] font-medium"
             title="Font"
           >
             <option value="__doc">Default font</option>
             {FONTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
+          </Select>
 
           <div className="flex items-center rounded-[8px] border border-border" title="Text size">
             <button type="button" aria-label="Smaller" onClick={() => onBlock({ size: Math.max(0.6, (active!.size ?? 1) - 0.1) })} className="grid h-8 w-7 place-items-center text-text-2 hover:text-text"><Minus size={13} /></button>
@@ -160,10 +161,10 @@ export function EditorToolbar({
       <TBtn icon={Trash2} label="Delete block" onClick={onDelete} />
 
       <Sep />
-      <select
+      <Select
         value=""
-        onChange={(e) => { if (e.target.value) onAdd(e.target.value as BlockType); e.currentTarget.value = ""; }}
-        className="h-8 rounded-[8px] border border-accent/40 bg-accent-soft px-2 text-[12.5px] font-semibold text-accent-ink"
+        onChange={(e) => { if (e.target.value) onAdd(e.target.value as BlockType); }}
+        className="h-8 w-auto rounded-[8px] border-accent/40 bg-accent-soft px-2 text-[12.5px] font-semibold text-accent-ink"
       >
         <option value="">+ Add block</option>
         <option value="text">Body text</option>
@@ -171,7 +172,7 @@ export function EditorToolbar({
         <option value="subheading">Subheading</option>
         <option value="divider">Divider</option>
         <option value="spacer">Spacer</option>
-      </select>
+      </Select>
     </div>
   );
 }

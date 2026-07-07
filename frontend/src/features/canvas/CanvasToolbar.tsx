@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Align, El, ElType } from "./types";
+import { Select } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export const FONTS = [
@@ -74,17 +75,17 @@ export function CanvasToolbar({
   return (
     <div className="flex flex-wrap items-center gap-1 rounded-[12px] border border-border bg-surface px-2 py-1.5 shadow-soft">
       {/* Add elements */}
-      <select
+      <Select
         value=""
-        onChange={(e) => { if (e.target.value) onAdd(e.target.value as ElType); e.currentTarget.value = ""; }}
-        className="h-8 rounded-[8px] border border-accent/40 bg-accent-soft px-2 text-[12.5px] font-semibold text-accent-ink"
+        onChange={(e) => { if (e.target.value) onAdd(e.target.value as ElType); }}
+        className="h-8 w-auto rounded-[8px] border-accent/40 bg-accent-soft px-2 text-[12.5px] font-semibold text-accent-ink"
       >
         <option value="">+ Add</option>
         <option value="text">Text</option>
         <option value="heading">Heading</option>
         <option value="line">Line</option>
         <option value="rect">Box</option>
-      </select>
+      </Select>
 
       {el && <Sep />}
 
@@ -95,14 +96,14 @@ export function CanvasToolbar({
           <Btn icon={Underline} label="Underline" keepSel onClick={() => exec("underline")} />
           <Btn icon={List} label="List" keepSel onClick={() => exec("insertUnorderedList")} />
           <Sep />
-          <select
+          <Select
             value={FONTS.find((f) => f.css === el?.fontFamily)?.id ?? "sans"}
             onChange={(e) => onEl({ fontFamily: FONTS.find((f) => f.id === e.target.value)?.css })}
-            className="h-8 rounded-[8px] border border-border bg-surface px-2 text-[12.5px] font-medium text-text"
+            className="h-8 w-auto rounded-[8px] px-2 text-[12.5px] font-medium"
             title="Font"
           >
             {FONTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
+          </Select>
           <div className="flex items-center rounded-[8px] border border-border" title="Font size">
             <button type="button" aria-label="Smaller" onClick={() => onEl({ fontSize: Math.max(8, (el!.fontSize ?? 16) - 1) })} className="grid h-8 w-7 place-items-center text-text-2 hover:text-text"><Minus size={13} /></button>
             <span className="w-7 text-center text-[12px] tabular-nums text-text-2">{el!.fontSize ?? 16}</span>

@@ -80,7 +80,6 @@ const PROFICIENCY = [
   { value: "basic", label: "Basic" },
 ];
 
-const DATE_HINT = "YYYY-MM";
 
 // Join defined parts of a subtitle line with a middot separator.
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
@@ -214,8 +213,8 @@ export function Profile() {
       { key: "company", label: "Company", required: true },
       { key: "employment_type", label: "Employment type", type: "select", options: EMPLOYMENT },
       { key: "location", label: "Location" },
-      { key: "start_date", label: "Start", hint: DATE_HINT },
-      { key: "end_date", label: "End", hint: "Leave blank if current" },
+      { key: "start_date", label: "Start", type: "month" },
+      { key: "end_date", label: "End", type: "month", hint: "Leave blank if current" },
       { key: "is_current", label: "I currently work here", type: "switch" },
       { key: "description", label: "Description", type: "textarea", colSpan: 2 },
     ],
@@ -241,8 +240,8 @@ export function Profile() {
       { key: "degree", label: "Degree", placeholder: "e.g. BSc" },
       { key: "field", label: "Field of study" },
       { key: "location", label: "Location" },
-      { key: "start_date", label: "Start", hint: DATE_HINT },
-      { key: "end_date", label: "End", hint: DATE_HINT },
+      { key: "start_date", label: "Start", type: "month" },
+      { key: "end_date", label: "End", type: "month" },
       { key: "is_current", label: "Currently studying", type: "switch" },
       { key: "gpa", label: "GPA" },
     ],
@@ -275,8 +274,8 @@ export function Profile() {
       { key: "role", label: "Your role" },
       { key: "url", label: "URL", placeholder: "https://" },
       { key: "technologies", label: "Technologies", type: "tags", placeholder: "React, Node, Postgres" },
-      { key: "start_date", label: "Start", hint: DATE_HINT },
-      { key: "end_date", label: "End", hint: DATE_HINT },
+      { key: "start_date", label: "Start", type: "month" },
+      { key: "end_date", label: "End", type: "month" },
       { key: "description", label: "Description", type: "textarea", colSpan: 2 },
     ],
     primary: (p) => p.name,
@@ -303,8 +302,8 @@ export function Profile() {
       { key: "name", label: "Certificate", required: true },
       { key: "issuer", label: "Issuer" },
       { key: "cert_type", label: "Type", type: "select", options: CERT_TYPES },
-      { key: "issue_date", label: "Issued", hint: DATE_HINT },
-      { key: "expiry_date", label: "Expires", hint: "Leave blank if none" },
+      { key: "issue_date", label: "Issued", type: "month" },
+      { key: "expiry_date", label: "Expires", type: "month", maxMonthsAhead: null, hint: "Leave blank if none" },
       { key: "credential_id", label: "Credential ID" },
       { key: "url", label: "URL", placeholder: "https://", colSpan: 2 },
     ],
@@ -322,7 +321,7 @@ export function Profile() {
     fields: [
       { key: "name", label: "Training", required: true },
       { key: "provider", label: "Provider" },
-      { key: "completion_date", label: "Completed", hint: DATE_HINT },
+      { key: "completion_date", label: "Completed", type: "month" },
       { key: "url", label: "URL", placeholder: "https://" },
       { key: "description", label: "Description", type: "textarea", colSpan: 2 },
     ],
