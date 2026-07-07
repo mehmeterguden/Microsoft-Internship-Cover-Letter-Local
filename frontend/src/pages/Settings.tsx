@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, Save, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Save, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
+import { ResetDataDialog } from "@/components/common/ResetDataDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
@@ -73,6 +74,7 @@ export function Settings() {
     loading: false,
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [resetOpen, setResetOpen] = useState(false);
 
   useEffect(() => {
     if (loaded.data) setSettings(loaded.data);
@@ -260,9 +262,32 @@ export function Settings() {
             </label>
           </CardContent>
         </Card>
+
+        {/* Danger zone */}
+        <div className="rounded-[var(--radius-card)] border border-danger/30 bg-danger-soft/40 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-danger-soft text-danger">
+                <Trash2 size={18} />
+              </span>
+              <div>
+                <p className="text-[15px] font-bold text-text">Reset all profile data</p>
+                <p className="mt-0.5 max-w-md text-[13px] text-text-2">
+                  Permanently delete your profile, skills, GitHub repos, letters, applications, and learned voice.
+                  Your settings are kept. This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <Button variant="danger" onClick={() => setResetOpen(true)}>
+              <Trash2 size={16} /> Reset everything
+            </Button>
+          </div>
+        </div>
       </div>
         )}
       </AsyncBoundary>
+
+      <ResetDataDialog open={resetOpen} onOpenChange={setResetOpen} />
     </>
   );
 }

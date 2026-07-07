@@ -31,7 +31,7 @@ _TABLES = frozenset({
 
 # Columns stored as JSON text — (de)serialized transparently.
 _JSON_COLUMNS: dict[str, set[str]] = {
-    "profile": {"style_profile"},
+    "profile": {"style_profile", "field_sources"},
     "github_repos": {"technologies", "highlights"},
     "projects": {"technologies"},
     "jobs": {"match_breakdown", "company_research", "letter"},
@@ -159,6 +159,44 @@ def clear(table: str) -> int:
         return cur.rowcount
     finally:
         conn.close()
+
+
+def clear_except_github(table: str) -> int:
+    """Delete every row NOT imported from GitHub. Used by the CV full-refresh so
+    re-importing a CV never wipes the user's imported GitHub work. Rows with a
+    NULL/legacy source count as non-GitHub. Returns how many were removed."""
+    _check(table)
+    conn = get_connection()
+    try:
+        cur = conn.execute(f"DELETE FROM {table} WHERE source IS NULL OR source != 'github'")
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+# Every user-data table, ordered so child rows go before their parents (FKs).
+_RESET_TABLES = (
+    "skill_links", "cover_letters", "jobs", "past_cover_letters", "documents",
+    "projects", "experiences", "education", "trainings", "certificates",
+    "languages", "links", "github_repos", "skills", "company_research_cache",
+    "profile",
+)
+
+
+def reset_all() -> dict[str, int]:
+    """Wipe ALL user data (everything except the settings row). Irreversible.
+    Returns how many rows were removed per table."""
+    conn = get_connection()
+    removed: dict[str, int] = {}
+    try:
+        for table in _RESET_TABLES:
+            cur = conn.execute(f"DELETE FROM {table}")
+            removed[table] = cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return removed
 
 
 # ── Settings (singleton — id always 1, seeded at init) ───────────

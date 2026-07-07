@@ -44,6 +44,9 @@ export interface SaveResult {
   ok: boolean;
   saved_repos: number;
   updated_repos: number;
+  added_projects: number;
+  updated_projects: number;
+  skipped_projects: number;
   added_skills: number;
 }
 

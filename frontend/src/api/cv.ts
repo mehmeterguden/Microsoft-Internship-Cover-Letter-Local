@@ -63,7 +63,13 @@ export interface SaveExtractionResult {
   saved: Record<string, number>;
 }
 
-export async function saveExtraction(extraction: CVExtraction, replace = true): Promise<SaveExtractionResult> {
-  const { data } = await client.post<SaveExtractionResult>(`/cv/save?replace=${replace}`, extraction);
+export async function saveExtraction(
+  extraction: CVExtraction,
+  replace = true,
+  sourceDetail?: string,
+): Promise<SaveExtractionResult> {
+  const params = new URLSearchParams({ replace: String(replace) });
+  if (sourceDetail) params.set("source_detail", sourceDetail);
+  const { data } = await client.post<SaveExtractionResult>(`/cv/save?${params}`, extraction);
   return data;
 }

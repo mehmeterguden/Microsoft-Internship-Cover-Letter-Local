@@ -1,5 +1,17 @@
 import { client } from "./client";
-import type { Education, Experience, Language, Profile, Skill } from "./types";
+import type {
+  Certificate,
+  Education,
+  Experience,
+  Language,
+  Link,
+  Profile,
+  Project,
+  Skill,
+  Training,
+} from "./types";
+
+// ── Profile (singleton) ──────────────────────────────────────────
 
 export async function getProfile(): Promise<Profile> {
   const { data } = await client.get<Profile>("/profile");
@@ -11,36 +23,37 @@ export async function saveProfile(profile: Profile): Promise<Profile> {
   return data;
 }
 
-export async function listSkills(): Promise<Skill[]> {
-  const { data } = await client.get<Skill[]>("/skills");
-  return data;
+// ── Generic CRUD factory for the id-keyed list entities ──────────
+// Every list endpoint follows the same REST shape (see the backend routers),
+// so one factory gives us typed list/create/update/delete per resource.
+
+function crud<T extends { id?: number | null }>(path: string) {
+  return {
+    list: async (): Promise<T[]> => (await client.get<T[]>(path)).data,
+    create: async (item: T): Promise<T> => (await client.post<T>(path, item)).data,
+    update: async (id: number, item: T): Promise<T> =>
+      (await client.put<T>(`${path}/${id}`, item)).data,
+    remove: async (id: number): Promise<void> => {
+      await client.delete(`${path}/${id}`);
+    },
+  };
 }
 
-export async function createSkill(skill: Skill): Promise<Skill> {
-  const { data } = await client.post<Skill>("/skills", skill);
-  return data;
-}
+export const skillsApi = crud<Skill>("/skills");
+export const experiencesApi = crud<Experience>("/experiences");
+export const educationApi = crud<Education>("/education");
+export const languagesApi = crud<Language>("/languages");
+export const projectsApi = crud<Project>("/projects");
+export const certificatesApi = crud<Certificate>("/certificates");
+export const trainingsApi = crud<Training>("/trainings");
+export const linksApi = crud<Link>("/links");
 
-export async function updateSkill(id: number, skill: Skill): Promise<Skill> {
-  const { data } = await client.put<Skill>(`/skills/${id}`, skill);
-  return data;
-}
+// ── Backwards-compatible named exports (used elsewhere) ──────────
 
-export async function deleteSkill(id: number): Promise<void> {
-  await client.delete(`/skills/${id}`);
-}
-
-export async function listExperiences(): Promise<Experience[]> {
-  const { data } = await client.get<Experience[]>("/experiences");
-  return data;
-}
-
-export async function listEducation(): Promise<Education[]> {
-  const { data } = await client.get<Education[]>("/education");
-  return data;
-}
-
-export async function listLanguages(): Promise<Language[]> {
-  const { data } = await client.get<Language[]>("/languages");
-  return data;
-}
+export const listSkills = skillsApi.list;
+export const createSkill = skillsApi.create;
+export const deleteSkill = skillsApi.remove;
+export const updateSkill = (id: number, skill: Skill) => skillsApi.update(id, skill);
+export const listExperiences = experiencesApi.list;
+export const listEducation = educationApi.list;
+export const listLanguages = languagesApi.list;
