@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/date-picker";
 import { Field } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 import type { SectionState } from "@/lib/useSection";
 import type { Sourced } from "@/api/types";
 
-export type FieldType = "text" | "textarea" | "select" | "number" | "tags" | "switch";
+export type FieldType = "text" | "textarea" | "select" | "number" | "tags" | "switch" | "month";
 
 export interface FieldSpec<T> {
   key: keyof T & string;
@@ -29,6 +30,8 @@ export interface FieldSpec<T> {
   options?: { value: string; label: string }[];
   colSpan?: 1 | 2;
   hint?: string;
+  /** For "month" fields: how far ahead is selectable (default 2; null = any). */
+  maxMonthsAhead?: number | null;
 }
 
 export interface SectionConfig<T> {
@@ -75,6 +78,12 @@ function DynamicField<T extends Item>({
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </Select>
+    );
+  } else if (type === "month") {
+    control = (
+      <MonthPicker id={id} value={(raw as string) ?? ""} placeholder={spec.placeholder ?? "Pick a month"}
+        maxMonthsAhead={spec.maxMonthsAhead === undefined ? 2 : spec.maxMonthsAhead}
+        onChange={(v) => set(spec.key, v || null)} />
     );
   } else if (type === "switch") {
     control = (
@@ -134,7 +143,17 @@ function EditorDialog<T extends Item>({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[min(94vw,600px)]">
+      <DialogContent
+        className="w-[min(94vw,600px)]"
+        // Selects and the date picker portal their popups outside this dialog's
+        // DOM. Without this guard the dialog treats a click inside those popups as
+        // an outside click and closes (the click then falls through to whatever is
+        // beneath). Keep the dialog open when the interaction is in a popper layer.
+        onInteractOutside={(e) => {
+          const target = e.target as Element | null;
+          if (target?.closest("[data-radix-popper-content-wrapper]")) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {initial.id == null ? `Add ${config.singular}` : `Edit ${config.singular}`}
