@@ -324,11 +324,19 @@ def _build_request(steps: list[dict[str, Any]], ctx: dict[str, Any]) -> str:
                 hint = " — a date \"YYYY-MM\""
             lines.append(f'  - "{s["id"]}": {s["label"]} for {s["context_label"]}{hint}')
 
-    return "\n".join(lines) if lines else "(nothing structured to fill)"
+    gen_steps = [s for s in steps if s["kind"] == "generative"]
+    if gen_steps:
+        lines.append("DRAFTS (return under \"drafts\" keyed by the exact step id — grounded first-person prose):")
+        for s in gen_steps:
+            target = f" for {s['context_label']}" if s["context_label"] else ""
+            lines.append(f'  - "{s["id"]}": {s["label"]}{target}')
+
+    return "\n".join(lines) if lines else "(nothing to fill)"
 
 
 def suggest_structured(steps: list[dict[str, Any]]) -> dict[str, Any]:
-    """One LLM call proposing values for all non-generative gaps.
+    """One LLM call proposing values for every gap — short/enumerated values AND
+    grounded first-person drafts for the free-text fields.
 
     Returns {"ok": True, "suggestions": {...}} or {"ok": False, "error": ...}.
     Raises only if the LLM call itself fails (caller maps to 503).
@@ -337,7 +345,7 @@ def suggest_structured(steps: list[dict[str, Any]]) -> dict[str, Any]:
     request = _build_request(steps, ctx)
     raw = llm.complete(
         build_suggestions_messages(_format_context(ctx), request),
-        temperature=0.0, max_tokens=2048,
+        temperature=0.2, max_tokens=3500,
     )
     try:
         data = json.loads(_extract_json(raw))
@@ -351,6 +359,7 @@ def suggest_structured(steps: list[dict[str, Any]]) -> dict[str, Any]:
         "skills_ratings": data.get("skills_ratings") or {},
         "skills_new": _valid_new_skills(data.get("skills_new") or []),
         "items": data.get("items") or {},
+        "drafts": {k: v for k, v in (data.get("drafts") or {}).items() if isinstance(v, str) and v.strip()},
     }
     return {"ok": True, "suggestions": suggestions}
 

@@ -59,6 +59,35 @@ export interface Suggestions {
   skills_ratings: Record<string, number>;
   skills_new: { name: string; category: string | null; self_rating: number }[];
   items: Record<string, string>;
+  drafts: Record<string, string>;
+}
+
+// ── Collected-answer shapes (per step kind) ──────────────────────
+
+export type Answer = unknown;
+
+export interface LangEntry {
+  id?: number;
+  name: string;
+  proficiency: string | null;
+}
+
+export interface SkillEntry {
+  id?: number;
+  name: string;
+  category: string | null;
+  self_rating: number | null;
+  isNew: boolean;
+  include: boolean;
+}
+
+export interface RepoPick {
+  github_repo_id: number;
+  name: string;
+  description: string | null;
+  technologies: string[];
+  url: string | null;
+  picked: boolean;
 }
 
 export interface SuggestResult {
