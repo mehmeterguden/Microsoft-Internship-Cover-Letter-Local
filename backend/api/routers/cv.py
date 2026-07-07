@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from datetime import date
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -24,7 +25,7 @@ from starlette.concurrency import iterate_in_threadpool
 
 from core import cv_structuring, document_parser
 from db import queries
-from models import CVExtraction, Document
+from models import CVExtraction, Document, Source
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
@@ -184,14 +185,34 @@ def structure_cv(req: StructureRequest) -> dict:
 
 
 @router.post("/save")
-def save_structured(cv: CVExtraction, replace: bool = True) -> dict:
+def save_structured(cv: CVExtraction, replace: bool = True, source_detail: str | None = None) -> dict:
     """Persist structured CV data into the profile/skills/experience/... tables.
 
+    Everything saved here came from a CV import, so each row is stamped with
+    `source='cv'`, the originating filename (`source_detail`), and today's date —
+    that provenance is what the Profile page surfaces on each card. The profile's
+    per-field `field_sources` map is filled the same way.
+
     `replace=True` (default) clears each list table first so re-importing a CV
-    doesn't pile up duplicates; the profile is a singleton and is always replaced.
-    Returns how many rows were written per section.
+    doesn't pile up duplicates. GitHub-imported rows are preserved (a CV refresh
+    never wipes the user's imported repos) — but the CV is authoritative, so a CV
+    skill/project overwrites a GitHub row of the same name. Returns how many rows
+    were written per section.
     """
-    queries.save_profile(cv.profile.model_dump(mode="json"))
+    today = date.today().isoformat()
+    stamp = {"source": Source.cv.value, "source_detail": source_detail, "source_at": today}
+    # Sections that GitHub also writes to, keyed by name — used to resolve clashes.
+    github_sections = {"skills", "projects"}
+
+    # Profile: stamp provenance for every field the CV actually filled.
+    profile_data = cv.profile.model_dump(mode="json")
+    field_source = {"source": Source.cv.value, "detail": source_detail, "at": today}
+    profile_data["field_sources"] = {
+        key: field_source
+        for key, value in profile_data.items()
+        if key not in ("style_profile", "field_sources") and value not in (None, "", [])
+    }
+    queries.save_profile(profile_data)
     saved: dict[str, int] = {"profile": 1}
 
     sections: dict[str, list] = {
@@ -199,16 +220,25 @@ def save_structured(cv: CVExtraction, replace: bool = True) -> dict:
         "experiences": cv.experiences,
         "education": cv.education,
         "projects": cv.projects,
+        "certificates": cv.certificates,
         "languages": cv.languages,
         "links": cv.links,
     }
     for table, items in sections.items():
         if replace:
-            queries.clear(table)
+            # Preserve GitHub-imported rows; drop everything else in this section.
+            queries.clear_except_github(table)
+            if table in github_sections:
+                # CV wins over GitHub for a same-named skill/project: drop the
+                # preserved GitHub row so the CV version replaces it below.
+                cv_names = {(getattr(it, "name", "") or "").strip().lower() for it in items}
+                for row in queries.list_all(table):
+                    if (row.get("name") or "").strip().lower() in cv_names:
+                        queries.delete(table, row["id"])
         written = 0
         for item in items:
             try:
-                queries.insert(table, item.model_dump(mode="json", exclude={"id"}))
+                queries.insert(table, {**item.model_dump(mode="json", exclude={"id"}), **stamp})
                 written += 1
             except sqlite3.IntegrityError:
                 pass  # skip rows that violate a constraint (e.g. a stale FK)

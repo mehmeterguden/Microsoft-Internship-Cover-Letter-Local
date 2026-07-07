@@ -168,7 +168,7 @@ export function Onboarding() {
     if (!extraction) return;
     setSaving(true);
     try {
-      await saveExtraction(extraction);
+      await saveExtraction(extraction, true, fileName || undefined);
       toast.success("Profile saved", "Your CV is now part of your profile.");
       navigate("/profile");
     } catch (err) {

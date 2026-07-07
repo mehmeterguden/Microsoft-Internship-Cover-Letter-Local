@@ -190,14 +190,23 @@ export function Github() {
       setSkills(union);
       setAnalysis(result);
       // Auto-save: analyzing a README persists it into the profile right away.
-      await saveRepos(enriched, union);
+      const result2 = await saveRepos(enriched, union);
       saved.reload();
       setSelected((prev) => {
         const next = new Set(prev);
         names.forEach((n) => next.delete(n));
         return next;
       });
-      toast.success(names.length === 1 ? `Analyzed & saved ${names[0]}` : `${names.length} analyzed & saved`);
+      const syncedProjects = result2.added_projects + result2.updated_projects;
+      const detail = [
+        syncedProjects ? `${syncedProjects} project${syncedProjects === 1 ? "" : "s"} on your profile` : null,
+        result2.added_skills ? `${result2.added_skills} new skill${result2.added_skills === 1 ? "" : "s"}` : null,
+        result2.skipped_projects ? `${result2.skipped_projects} kept as-is (from CV/manual)` : null,
+      ].filter(Boolean).join(" · ");
+      toast.success(
+        names.length === 1 ? `Analyzed & saved ${names[0]}` : `${names.length} analyzed & saved`,
+        detail || undefined,
+      );
     } catch (err) {
       toast.danger("Analysis failed", errorMessage(err));
     } finally {

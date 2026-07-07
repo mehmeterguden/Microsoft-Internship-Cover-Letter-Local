@@ -29,6 +29,23 @@ export type JobStatus = "draft" | "sent" | "interview" | "rejected" | "offer";
 
 export type LLMProviderId = "foundry_local" | "ollama" | "openai" | "anthropic" | "gemini";
 
+/** Where a piece of profile data originally came from. */
+export type Source = "manual" | "cv" | "github" | "linkedin";
+
+/** Provenance carried by every list entity (see backend `Sourced`). */
+export interface Sourced {
+  source?: Source;
+  source_detail?: string | null;
+  source_at?: string | null;
+}
+
+/** Provenance for a single profile field. */
+export interface FieldSource {
+  source?: Source;
+  detail?: string | null;
+  at?: string | null;
+}
+
 export type Tone = "professional" | "warm" | "confident" | "concise";
 
 export interface VoiceProfile {
@@ -66,9 +83,10 @@ export interface Profile {
   github?: string | null;
   summary?: string | null;
   style_profile?: VoiceProfile | null;
+  field_sources?: Record<string, FieldSource>;
 }
 
-export interface Skill {
+export interface Skill extends Sourced {
   id?: number | null;
   name: string;
   category?: string | null;
@@ -98,7 +116,7 @@ export interface ScoredSkill {
   score?: number | null;
 }
 
-export interface Project {
+export interface Project extends Sourced {
   id?: number | null;
   name: string;
   description?: string | null;
@@ -110,7 +128,7 @@ export interface Project {
   github_repo_id?: number | null;
 }
 
-export interface Experience {
+export interface Experience extends Sourced {
   id?: number | null;
   company: string;
   title: string;
@@ -122,7 +140,7 @@ export interface Experience {
   description?: string | null;
 }
 
-export interface Education {
+export interface Education extends Sourced {
   id?: number | null;
   institution: string;
   degree?: string | null;
@@ -134,7 +152,7 @@ export interface Education {
   gpa?: string | null;
 }
 
-export interface Training {
+export interface Training extends Sourced {
   id?: number | null;
   name: string;
   provider?: string | null;
@@ -143,7 +161,7 @@ export interface Training {
   url?: string | null;
 }
 
-export interface Certificate {
+export interface Certificate extends Sourced {
   id?: number | null;
   name: string;
   issuer?: string | null;
@@ -154,13 +172,13 @@ export interface Certificate {
   url?: string | null;
 }
 
-export interface Language {
+export interface Language extends Sourced {
   id?: number | null;
   name: string;
   proficiency?: LanguageLevel | null;
 }
 
-export interface Link {
+export interface Link extends Sourced {
   id?: number | null;
   label: string;
   url: string;

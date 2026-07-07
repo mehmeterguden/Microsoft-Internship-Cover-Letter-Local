@@ -12,6 +12,7 @@ from api.routers import (
     certificates,
     cover_letter,
     cv,
+    data,
     education,
     experiences,
     github,
@@ -56,3 +57,4 @@ api_router.include_router(languages.router)
 api_router.include_router(links.router)
 api_router.include_router(past_cover_letters.router)
 api_router.include_router(jobs.router)  # saved applications + letter snapshots
+api_router.include_router(data.router)  # destructive: reset all profile data

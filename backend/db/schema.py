@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS profile (
     linkedin      TEXT,
     github        TEXT,
     summary       TEXT,                                   -- short professional summary / headline
-    style_profile TEXT                                    -- JSON: StyleProfile
+    style_profile TEXT,                                   -- JSON: StyleProfile
+    field_sources TEXT                                    -- JSON: {field: {source, detail, at}} — per-field provenance
 );
 
 -- Personal links (website, portfolio, blog, Stack Overflow, …), each with a note.
@@ -232,9 +233,26 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+# Provenance columns every content table carries: where the row came from
+# (cv|github|linkedin|manual), a human detail (e.g. the CV filename), and the
+# ISO date the source recorded it. Added via migration so older DBs upgrade too.
+_SOURCE_COLUMNS = {
+    "source": "TEXT NOT NULL DEFAULT 'manual'",  # cv|github|linkedin|manual
+    "source_detail": "TEXT",                     # e.g. "resume.pdf", "octocat/repo"
+    "source_at": "TEXT",                         # ISO date the source recorded it
+}
+_SOURCED_TABLES = (
+    "skills", "experiences", "education", "languages",
+    "projects", "certificates", "trainings", "links",
+)
+
 # Columns added to a table after it first shipped. ALTER ADD COLUMN backfills
 # existing rows with the DEFAULT, so older local DBs upgrade in place.
 _COLUMNS_ADDED = {
+    "profile": {
+        "field_sources": "TEXT",  # JSON: {field: {source, detail, at}} — per-field provenance
+    },
+    **{table: dict(_SOURCE_COLUMNS) for table in _SOURCED_TABLES},
     "settings": {
         "llm_provider": "TEXT NOT NULL DEFAULT 'foundry_local'",
         "openai_api_key": "TEXT NOT NULL DEFAULT ''",

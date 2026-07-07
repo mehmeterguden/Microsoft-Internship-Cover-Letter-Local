@@ -65,6 +65,17 @@ def init_collections() -> None:
         client.get_or_create_collection(name)
 
 
+def reset() -> None:
+    """Drop and recreate every collection — wipes all indexed embeddings."""
+    client = get_client()
+    for name in COLLECTIONS:
+        try:
+            client.delete_collection(name)
+        except Exception:  # noqa: BLE001 — absent collection is fine
+            pass
+    init_collections()
+
+
 # ── Low-level ops (embeddings are produced elsewhere and passed in) ──
 
 def delete_where(name: str, where: dict) -> None:

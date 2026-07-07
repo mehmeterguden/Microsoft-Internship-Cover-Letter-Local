@@ -50,6 +50,15 @@ class SkillEntity(str, Enum):
     training = "training"
 
 
+class Source(str, Enum):
+    """Where a piece of profile data originally came from."""
+
+    manual = "manual"       # typed in by the user
+    cv = "cv"               # extracted from an uploaded CV
+    github = "github"       # imported from a GitHub repo
+    linkedin = "linkedin"   # imported from LinkedIn
+
+
 class LanguageLevel(str, Enum):
     native = "native"
     fluent = "fluent"
@@ -172,6 +181,30 @@ class Settings(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────
+#  Provenance — where each record came from
+# ─────────────────────────────────────────────────────────────
+
+class Sourced(BaseModel):
+    """Mixin: every list entity records where it came from.
+
+    `source` defaults to `manual` (typed in by the user). CV import stamps `cv`
+    plus the filename in `source_detail` and the import date in `source_at`.
+    """
+
+    source: Source = Source.manual
+    source_detail: str | None = None     # e.g. the CV filename, or a repo name
+    source_at: str | None = None         # ISO date the source recorded it
+
+
+class FieldSource(BaseModel):
+    """Provenance for a single profile field (name, email, summary, …)."""
+
+    source: Source = Source.manual
+    detail: str | None = None
+    at: str | None = None
+
+
+# ─────────────────────────────────────────────────────────────
 #  Profile (single user)
 # ─────────────────────────────────────────────────────────────
 
@@ -184,9 +217,10 @@ class Profile(BaseModel):
     github: str | None = None
     summary: str | None = None           # short professional summary / headline
     style_profile: VoiceProfile | None = None   # deep voice fingerprint (see core/style.py)
+    field_sources: dict[str, FieldSource] = Field(default_factory=dict)   # per-field provenance
 
 
-class Link(BaseModel):
+class Link(Sourced):
     """A personal link (website, portfolio, blog, Stack Overflow, …) with a note."""
 
     id: int | None = None
@@ -195,7 +229,7 @@ class Link(BaseModel):
     description: str | None = None       # user's note about the link
 
 
-class Language(BaseModel):
+class Language(Sourced):
     id: int | None = None
     name: str
     proficiency: LanguageLevel | None = None
@@ -205,7 +239,7 @@ class Language(BaseModel):
 #  Skills + evidence links
 # ─────────────────────────────────────────────────────────────
 
-class Skill(BaseModel):
+class Skill(Sourced):
     id: int | None = None
     name: str
     category: str | None = None
@@ -249,7 +283,7 @@ class GithubRepo(BaseModel):
         return v if v is not None else []
 
 
-class Project(BaseModel):
+class Project(Sourced):
     id: int | None = None
     name: str
     description: str | None = None
@@ -261,7 +295,7 @@ class Project(BaseModel):
     github_repo_id: int | None = None    # optional link to a github_repos row
 
 
-class Experience(BaseModel):
+class Experience(Sourced):
     id: int | None = None
     company: str
     title: str
@@ -273,7 +307,7 @@ class Experience(BaseModel):
     description: str | None = None
 
 
-class Education(BaseModel):
+class Education(Sourced):
     id: int | None = None
     institution: str
     degree: str | None = None
@@ -285,7 +319,7 @@ class Education(BaseModel):
     gpa: str | None = None
 
 
-class Training(BaseModel):
+class Training(Sourced):
     id: int | None = None
     name: str
     provider: str | None = None
@@ -294,7 +328,7 @@ class Training(BaseModel):
     url: str | None = None
 
 
-class Certificate(BaseModel):
+class Certificate(Sourced):
     id: int | None = None
     name: str
     issuer: str | None = None
