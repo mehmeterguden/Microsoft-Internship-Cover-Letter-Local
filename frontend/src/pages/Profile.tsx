@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Award,
   BookOpen,
@@ -7,6 +8,7 @@ import {
   GraduationCap,
   Languages as LangIcon,
   Link2,
+  Sparkles,
   User,
   Wrench,
 } from "lucide-react";
@@ -46,6 +48,7 @@ import {
   skillsApi,
   trainingsApi,
 } from "@/api/profile";
+import { getCompletionPlan } from "@/api/profileCompletion";
 import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { useSection } from "@/lib/useSection";
@@ -139,6 +142,10 @@ export function Profile() {
     },
     [],
   );
+
+  const navigate = useNavigate();
+  const gaps = useAsync(getCompletionPlan, []);
+  const gapCount = gaps.data?.total ?? 0;
 
   const [profile, setProfileState] = useState<ProfileType>({});
   const [saving, setSaving] = useState(false);
@@ -359,7 +366,21 @@ export function Profile() {
         title="Profile & Skills"
         icon={User}
         description="Everything the generator draws from. Each item shows where it came from — keep it sharp."
-        actions={<Button onClick={saveIdentity} loading={saving}>Save identity</Button>}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => navigate("/profile/complete")}>
+              <Sparkles size={16} /> Complete with AI
+              {gapCount > 0 && (
+                <span className="ml-0.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-[11px] font-bold text-accent-ink">
+                  {gapCount}
+                </span>
+              )}
+            </Button>
+            <Button onClick={saveIdentity} loading={saving}>
+              Save identity
+            </Button>
+          </>
+        }
       />
 
       {!loaded.loading && !loaded.error && (

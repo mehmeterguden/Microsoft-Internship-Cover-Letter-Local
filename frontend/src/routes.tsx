@@ -3,6 +3,7 @@ import { AppShell } from "@/components/common/AppShell";
 import { Home } from "@/pages/Home";
 import { Onboarding } from "@/pages/Onboarding";
 import { Profile } from "@/pages/Profile";
+import { ProfileComplete } from "@/pages/ProfileComplete";
 import { Github } from "@/pages/Github";
 import { Voice } from "@/pages/Voice";
 import { Research } from "@/pages/Research";
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
     children: [
       { path: "onboarding", element: <Onboarding /> },
       { path: "profile", element: <Profile /> },
+      { path: "profile/complete", element: <ProfileComplete /> },
       { path: "github", element: <Github /> },
       { path: "voice", element: <Voice /> },
       { path: "research", element: <Research /> },
