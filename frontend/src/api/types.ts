@@ -36,6 +36,8 @@ export interface VoiceProfile {
   length?: string;
   sentence_style?: string;
   pronoun_style?: string;
+  enough_signal?: boolean;
+  tagline?: string;
   summary?: string;
   self_presentation?: string;
   tone?: string;

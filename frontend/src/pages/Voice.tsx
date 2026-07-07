@@ -65,6 +65,9 @@ function VoiceFingerprint({ v, letters, embeddings }: { v: VoiceProfile; letters
         </div>
       </CardHeader>
       <CardContent className="grid gap-5">
+        {v.tagline && (
+          <p className="text-[15px] font-bold text-accent-ink">{v.tagline}</p>
+        )}
         {v.summary && (
           <blockquote className="flex gap-3 rounded-[12px] bg-accent-soft p-4">
             <Quote size={18} className="shrink-0 text-accent-ink" />
@@ -308,6 +311,14 @@ export function Voice() {
               <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
                 <Spinner size={34} />
                 <p className="text-[14px] text-text-2">Studying your letters…</p>
+              </CardContent>
+            </Card>
+          ) : voice && voice.enough_signal === false ? (
+            <Card>
+              <CardContent className="pt-5">
+                <Alert tone="warning" title="Not enough to learn a voice">
+                  {voice.summary || "This text doesn't look like real cover letters."} Add a couple of genuine letters (paste or upload a PDF), then press “Learn my voice” again.
+                </Alert>
               </CardContent>
             </Card>
           ) : voice ? (
