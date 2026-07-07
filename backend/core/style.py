@@ -33,10 +33,10 @@ _MIN_CHUNK = 40
 _CORPUS_CAP = 18000   # include all letters; a handful of cover letters fits comfortably
 
 _VOICE_FIELDS = {
-    "summary", "self_presentation", "tone", "formality", "strengths", "themes",
-    "signature_phrases", "vocabulary", "sentence_patterns", "rhetorical_moves",
-    "structure", "emphasis", "opening_habits", "closing_habits", "example_sentences",
-    "avoid",
+    "enough_signal", "tagline", "summary", "self_presentation", "tone", "formality",
+    "strengths", "themes", "signature_phrases", "vocabulary", "sentence_patterns",
+    "rhetorical_moves", "structure", "emphasis", "opening_habits", "closing_habits",
+    "example_sentences", "avoid",
 }
 
 
@@ -86,6 +86,9 @@ def analyze(texts: list[str]) -> VoiceProfile | None:
 
 def build_voice_guide(v: VoiceProfile) -> str:
     """Render a VoiceProfile into a rich, imitation-grade instruction block."""
+    # No trustworthy voice was learned (thin/gibberish samples) — don't fake one.
+    if not v.enough_signal or (v.llm_analyzed and not v.summary):
+        return ""
     lines = ["Write this letter EXACTLY as this specific person writes — it must be "
              "indistinguishable from something they wrote themselves.", ""]
 
@@ -164,7 +167,10 @@ def _llm_voice(corpus: str, count: int = 0) -> dict[str, Any]:
         data = json.loads(_extract_json(raw))
     except Exception:  # noqa: BLE001 — deep analysis is optional; fall back to metrics only
         return {}
-    return {k: v for k, v in data.items() if k in _VOICE_FIELDS and v}
+    # Keep truthy fields; always keep enough_signal (a real False must survive).
+    out = {k: v for k, v in data.items() if k in _VOICE_FIELDS and (v or k == "enough_signal")}
+    out["enough_signal"] = bool(data.get("enough_signal", True))
+    return out
 
 
 def _extract_json(text: str) -> str:

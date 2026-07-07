@@ -106,6 +106,8 @@ class VoiceProfile(BaseModel):
     pronoun_style: str = ""
 
     # ── deep, LLM-derived voice (grounded in the actual letters) ──
+    enough_signal: bool = True                               # false = input too thin/gibberish to analyze
+    tagline: str = ""                                        # 3-6 word voice descriptor
     summary: str = ""                                        # how they write AND think
     self_presentation: str = ""                              # how they frame themselves
     tone: str = ""
