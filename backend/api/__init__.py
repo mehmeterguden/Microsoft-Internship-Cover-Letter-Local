@@ -23,6 +23,7 @@ from api.routers import (
     llm,
     past_cover_letters,
     profile,
+    profile_completion,
     projects,
     research,
     settings,
@@ -45,6 +46,7 @@ api_router.include_router(style.router)  # writing-style learning
 
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)
+api_router.include_router(profile_completion.router)  # AI-guided gap filling
 api_router.include_router(skills.router)
 api_router.include_router(skill_links.router)
 api_router.include_router(github_repos.router)
