@@ -36,7 +36,8 @@ _SUGGESTIONS_SCHEMA = """{
   "skills_categories": { "<skill name>": string, ... },   // a tidy group for each listed skill
   "skills_ratings":    { "<skill name>": 1-5, ... },      // honest self-rating estimate for each listed skill
   "skills_new":        [ { "name": string, "category": string, "self_rating": 1-5 } ],
-  "items": { "<step id>": string, ... }       // one value per listed step id (enums use the allowed value; dates "YYYY-MM")
+  "items":  { "<step id>": string, ... },      // one value per listed step id (enums use the allowed value; dates "YYYY-MM")
+  "drafts": { "<step id>": string, ... }       // grounded first-person prose for each free-text field listed
 }"""
 
 _SUGGESTIONS_SYSTEM = f"""You help a developer finish their professional profile. You are given their \
@@ -64,6 +65,10 @@ already listed. Deduplicate against existing skills.
 - items: for each step id listed, return the single best value. Enum steps must use one of their \
 allowed values exactly; date steps use "YYYY-MM" (or "YYYY"); short-text steps a concise string. \
 Omit any id you cannot ground.
+- drafts: for each step id listed, write polished first-person prose for that field, grounded in \
+the material — a professional summary is 2-4 sentences; a role/project description is 1-3 sentences. \
+No labels, no quotes, no markdown; just the text. Never invent facts. Omit an id only if there is \
+truly nothing to ground it in.
 - Match the language of the user's CV where you write prose."""
 
 
