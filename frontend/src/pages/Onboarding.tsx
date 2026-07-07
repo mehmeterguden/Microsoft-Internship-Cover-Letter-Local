@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  Award, Briefcase, CheckCircle2, FileText, FileUp, FolderGit2,
-  GraduationCap, Languages as LangIcon, Link2, Sparkles, User, XCircle,
+  Award, BookOpen, Briefcase, CheckCircle2, FileText, FileUp, FolderGit2,
+  Github, GraduationCap, Languages as LangIcon, Link2, Linkedin, Mail, Phone,
+  Sparkles, User, XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -185,6 +186,7 @@ export function Onboarding() {
   const education = extraction?.education ?? [];
   const projects = extraction?.projects ?? [];
   const certificates = extraction?.certificates ?? [];
+  const trainings = extraction?.trainings ?? [];
   const languages = extraction?.languages ?? [];
   const links = extraction?.links ?? [];
 
@@ -264,7 +266,7 @@ export function Onboarding() {
                 {[
                   ["skills", skills.length], ["experience", experiences.length], ["education", education.length],
                   ["projects", projects.length], ["certificates", certificates.length],
-                  ["languages", languages.length], ["links", links.length],
+                  ["trainings", trainings.length], ["languages", languages.length], ["links", links.length],
                 ].filter(([, n]) => (n as number) > 0).map(([label, n]) => (
                   <Badge key={label as string} tone="accent">{n} {label}</Badge>
                 ))}
@@ -272,11 +274,11 @@ export function Onboarding() {
 
               <SectionCard icon={User} title="Profile">
                 <p className="text-[16px] font-bold text-text">{fullName(prof?.name, prof?.surname)}</p>
-                <div className="grid gap-1 text-[13.5px] text-text-2 sm:grid-cols-2">
-                  {prof?.email && <span>✉ {prof.email}</span>}
-                  {prof?.phone && <span>☎ {prof.phone}</span>}
-                  {prof?.linkedin && <span className="truncate">in {prof.linkedin}</span>}
-                  {prof?.github && <span className="truncate">gh {prof.github}</span>}
+                <div className="grid gap-1.5 text-[13.5px] text-text-2 sm:grid-cols-2">
+                  {prof?.email && <span className="flex items-center gap-1.5"><Mail size={13} className="shrink-0 text-text-3" /> {prof.email}</span>}
+                  {prof?.phone && <span className="flex items-center gap-1.5"><Phone size={13} className="shrink-0 text-text-3" /> {prof.phone}</span>}
+                  {prof?.linkedin && <span className="flex items-center gap-1.5 truncate"><Linkedin size={13} className="shrink-0 text-text-3" /> <span className="truncate">{prof.linkedin}</span></span>}
+                  {prof?.github && <span className="flex items-center gap-1.5 truncate"><Github size={13} className="shrink-0 text-text-3" /> <span className="truncate">{prof.github}</span></span>}
                 </div>
                 {prof?.summary && <p className="mt-1 text-[14px] text-text-2">{prof.summary}</p>}
               </SectionCard>
@@ -339,6 +341,18 @@ export function Onboarding() {
                     <div key={c.id ?? i} className="border-b border-line pb-3 last:border-0 last:pb-0">
                       <p className="text-[14.5px] font-semibold text-text">{c.name}</p>
                       <Meta>{span(c.issuer ?? undefined, c.cert_type ?? undefined, c.issue_date ?? undefined, c.credential_id ? `ID ${c.credential_id}` : undefined)}</Meta>
+                    </div>
+                  ))}
+                </SectionCard>
+              )}
+
+              {trainings.length > 0 && (
+                <SectionCard icon={BookOpen} title="Trainings" count={trainings.length}>
+                  {trainings.map((t, i) => (
+                    <div key={t.id ?? i} className="border-b border-line pb-3 last:border-0 last:pb-0">
+                      <p className="text-[14.5px] font-semibold text-text">{t.name}</p>
+                      <Meta>{span(t.provider ?? undefined, t.completion_date ?? undefined)}</Meta>
+                      {t.description && <p className="mt-1 text-[13.5px] text-text-2">{t.description}</p>}
                     </div>
                   ))}
                 </SectionCard>

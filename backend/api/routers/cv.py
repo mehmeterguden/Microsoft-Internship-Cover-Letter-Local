@@ -221,6 +221,7 @@ def save_structured(cv: CVExtraction, replace: bool = True, source_detail: str |
         "education": cv.education,
         "projects": cv.projects,
         "certificates": cv.certificates,
+        "trainings": cv.trainings,
         "languages": cv.languages,
         "links": cv.links,
     }
@@ -235,10 +236,12 @@ def save_structured(cv: CVExtraction, replace: bool = True, source_detail: str |
                 for row in queries.list_all(table):
                     if (row.get("name") or "").strip().lower() in cv_names:
                         queries.delete(table, row["id"])
+        # Skills genuinely appear on the CV, so flag them as such for the UI.
+        extra = {"cv_mentioned": True} if table == "skills" else {}
         written = 0
         for item in items:
             try:
-                queries.insert(table, {**item.model_dump(mode="json", exclude={"id"}), **stamp})
+                queries.insert(table, {**item.model_dump(mode="json", exclude={"id"}), **stamp, **extra})
                 written += 1
             except sqlite3.IntegrityError:
                 pass  # skip rows that violate a constraint (e.g. a stale FK)

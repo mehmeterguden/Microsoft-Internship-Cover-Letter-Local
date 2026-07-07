@@ -157,7 +157,8 @@ def save_repos(req: SaveReposRequest, replace: bool = False) -> dict:
                 Skill(
                     name=name,
                     self_rating=rating,
-                    category="From GitHub",
+                    # Origin is shown by the profile's provenance badge, so no
+                    # need for a "From GitHub" category here.
                     source=Source.github,
                     source_detail="GitHub analysis",
                     source_at=today,
