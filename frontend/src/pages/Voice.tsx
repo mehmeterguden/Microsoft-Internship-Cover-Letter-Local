@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioLines, Ban, FileText, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AudioLines, Ban, Database, FileText, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,14 +51,18 @@ function Trait({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function VoiceFingerprint({ v }: { v: VoiceProfile }) {
+function VoiceFingerprint({ v, letters, embeddings }: { v: VoiceProfile; letters: number; embeddings: boolean }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="flex items-center gap-2">
-          <Wand2 size={16} className="text-accent-ink" /> Your voice fingerprint
+          <Wand2 size={16} className="text-accent-ink" /> What we learned
         </CardTitle>
-        {v.llm_analyzed && <Badge tone="accent">Deep analysis</Badge>}
+        <div className="flex flex-wrap gap-1.5">
+          <Badge tone="neutral">{letters} letter{letters === 1 ? "" : "s"}</Badge>
+          {v.llm_analyzed && <Badge tone="accent">Deep analysis</Badge>}
+          {embeddings && <Badge tone="violet"><Database size={11} /> RAG on</Badge>}
+        </div>
       </CardHeader>
       <CardContent className="grid gap-5">
         {v.summary && (
@@ -67,17 +71,37 @@ function VoiceFingerprint({ v }: { v: VoiceProfile }) {
             <p className="text-[14.5px] italic leading-relaxed text-text">{v.summary}</p>
           </blockquote>
         )}
+
         <div>
           <Trait label="Self-image" value={v.self_presentation} />
           <Trait label="Tone" value={v.tone} />
+          <Trait label="Formality" value={v.formality} />
+          <Trait label="Structure" value={v.structure} />
           <Trait label="Sentences" value={v.sentence_patterns} />
           <Trait label="Argument" value={v.rhetorical_moves} />
           <Trait label="Opens" value={v.opening_habits} />
           <Trait label="Closes" value={v.closing_habits} />
         </div>
-        <ChipRow label="Emphasizes" items={v.emphasis ?? []} tone="accent" />
+
+        <ChipRow label="Themes they return to" items={v.themes ?? []} tone="accent" />
+        <ChipRow label="Strengths they foreground" items={v.strengths ?? []} tone="accent" />
+        <ChipRow label="Emphasizes" items={v.emphasis ?? []} tone="gold" />
         <ChipRow label="Signature phrases" items={v.signature_phrases ?? []} tone="violet" />
         <ChipRow label="Favored vocabulary" items={v.vocabulary ?? []} tone="gold" />
+
+        {(v.example_sentences?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-1.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-3">
+              Signature sentences (verbatim)
+            </p>
+            <div className="grid gap-2">
+              {v.example_sentences!.map((s) => (
+                <p key={s} className="border-l-2 border-accent bg-surface-2 px-3 py-2 text-[13px] italic leading-relaxed text-text-2">“{s}”</p>
+              ))}
+            </div>
+          </div>
+        )}
+
         {(v.avoid?.length ?? 0) > 0 && (
           <div>
             <p className="mb-1.5 flex items-center gap-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text-3">
@@ -109,6 +133,7 @@ export function Voice() {
   const [parsing, setParsing] = useState(false);
   const [learning, setLearning] = useState(false);
   const [voice, setVoice] = useState<VoiceProfile | null>(null);
+  const embeddingsOn = loaded.data?.style.embeddings_available ?? false;
 
   useEffect(() => {
     if (loaded.data) {
@@ -286,7 +311,7 @@ export function Voice() {
               </CardContent>
             </Card>
           ) : voice ? (
-            <VoiceFingerprint v={voice} />
+            <VoiceFingerprint v={voice} letters={letters.length} embeddings={embeddingsOn} />
           ) : (
             <EmptyState
               icon={Wand2}
@@ -295,8 +320,10 @@ export function Voice() {
             />
           )}
           {voice && (
-            <Alert tone="info" className="mt-4">
-              This fingerprint guides every letter you generate, so they sound like you.
+            <Alert tone="info" title="How this is used" className="mt-4">
+              Every letter you generate is guided by this fingerprint, and — with RAG —
+              your most relevant past passages are retrieved from a local vector store and
+              woven in, so new letters read like you. All on your device.
             </Alert>
           )}
           {voice && <DevInspector json={voice} title="Developer · view voice profile (JSON)" />}

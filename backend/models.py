@@ -109,13 +109,18 @@ class VoiceProfile(BaseModel):
     summary: str = ""                                        # how they write AND think
     self_presentation: str = ""                              # how they frame themselves
     tone: str = ""
+    formality: str = ""                                      # formal ↔ casual placement
+    strengths: list[str] = Field(default_factory=list)       # qualities they foreground
+    themes: list[str] = Field(default_factory=list)          # recurring topics/values
     signature_phrases: list[str] = Field(default_factory=list)
     vocabulary: list[str] = Field(default_factory=list)
     sentence_patterns: str = ""
     rhetorical_moves: str = ""
+    structure: str = ""                                      # how they structure a whole letter
     emphasis: list[str] = Field(default_factory=list)
     opening_habits: str = ""
     closing_habits: str = ""
+    example_sentences: list[str] = Field(default_factory=list)  # verbatim standout sentences
     avoid: list[str] = Field(default_factory=list)
     llm_analyzed: bool = False                               # was the deep analysis applied?
 
