@@ -29,6 +29,7 @@ from core import llm
 from core.prompts.profile_completion import (
     build_draft_messages,
     build_refine_messages,
+    build_stream_messages,
     build_suggestions_messages,
 )
 from models import CertificateType, EmploymentType, LanguageLevel
@@ -385,6 +386,106 @@ def _valid_new_skills(items: list[Any]) -> list[dict[str, Any]]:
                 "self_rating": rating if isinstance(rating, int) and 1 <= rating <= 5 else 3,
             })
     return out
+
+
+# ── Streaming suggestions (one object per field, as generated) ───
+
+_SHAPE = {
+    "short_text": "text", "enum": "enum", "date": "date",
+    "generative": "draft", "languages": "languages", "skills": "skills",
+}
+# Emit fast/cheap fields first so the page can open immediately; drafts (longest)
+# come last. Composites sit in the middle.
+_STREAM_ORDER = {"short_text": 0, "enum": 0, "date": 0, "languages": 1, "skills": 2, "generative": 3}
+
+
+def _stream_line(step: dict[str, Any]) -> str:
+    """One line describing a field to fill in the streamed request."""
+    shape = _SHAPE[step["kind"]]
+    parts = [f'- id "{step["id"]}": {shape} — {step["label"]}']
+    if step["context_label"]:
+        parts.append(f'for {step["context_label"]}')
+    if step["kind"] == "enum" and step.get("options"):
+        parts.append("(allowed: " + ", ".join(o["value"] for o in step["options"]) + ")")
+    if step["kind"] == "skills":
+        names = [x["name"] for x in step["extra"]["existing"]]
+        if names:
+            parts.append("— categorize + rate: " + ", ".join(names))
+        if step["extra"]["empty"]:
+            parts.append("— also propose new skills evidenced in the CV/repos")
+    if step["kind"] == "languages":
+        existing = ", ".join(x["name"] for x in step["extra"]["existing"] if x.get("name"))
+        parts.append(f"(already listed: {existing or 'none'})")
+    return " ".join(parts)
+
+
+def _build_stream_request(steps: list[dict[str, Any]]) -> str:
+    ordered = sorted(steps, key=lambda s: _STREAM_ORDER.get(s["kind"], 9))
+    return "\n".join(_stream_line(s) for s in ordered)
+
+
+def _iter_json_objects(chunks: Iterator[str]) -> Iterator[str]:
+    """Yield each complete top-level JSON object from a stream of text chunks.
+
+    A brace-depth scanner (string/escape aware) so it tolerates newlines and prose
+    between objects — more robust than splitting on line breaks.
+    """
+    cur: list[str] = []
+    depth = 0
+    in_str = False
+    esc = False
+    for chunk in chunks:
+        for ch in chunk:
+            if depth == 0:
+                if ch == "{":
+                    depth = 1
+                    cur = ["{"]
+                    in_str = False
+                    esc = False
+                continue
+            cur.append(ch)
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    yield "".join(cur)
+                    cur = []
+
+
+def suggest_stream(steps: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Stream one AI suggestion per field as the model writes it.
+
+    Yields `{"type": "suggestion", "id": <step id>, "value": <shaped by kind>}`
+    for each field (fast/short ones first, drafts last), then `{"type": "done"}`.
+    `projects_from_github` is excluded — it needs no LLM (seeded client-side).
+    Raises only if the LLM call itself fails (the router maps that to a stream error).
+    """
+    wanted = [s for s in steps if s["kind"] in _SHAPE]
+    if not wanted:
+        yield {"type": "done"}
+        return
+    messages = build_stream_messages(_format_context(_gather()), _build_stream_request(wanted))
+    seen = 0
+    for obj_text in _iter_json_objects(llm.stream(messages, temperature=0.2)):
+        try:
+            obj = json.loads(obj_text, strict=False)  # tolerate raw newlines in draft prose
+        except json.JSONDecodeError:
+            continue
+        sid = obj.get("id")
+        if isinstance(sid, str) and sid:
+            seen += 1
+            yield {"type": "suggestion", "id": sid, "value": obj.get("value")}
+    yield {"type": "done", "count": seen}
 
 
 # ── Generative draft + refine (streamed) ─────────────────────────

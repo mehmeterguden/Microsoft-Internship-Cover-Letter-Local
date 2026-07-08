@@ -58,6 +58,15 @@ def suggest(req: SuggestRequest) -> dict[str, Any]:
         ) from exc
 
 
+@router.post("/suggest/stream", summary="Stream one suggestion per field as generated (SSE)")
+def suggest_stream(req: SuggestRequest) -> StreamingResponse:
+    """Stream AI suggestions field by field so the page can open on the first one.
+
+    Emits `suggestion` events (fast/short fields first, drafts last), then `done`.
+    """
+    return _sse(profile_completion.suggest_stream(req.steps))
+
+
 class DraftRequest(BaseModel):
     field_label: str
     target: str = ""
