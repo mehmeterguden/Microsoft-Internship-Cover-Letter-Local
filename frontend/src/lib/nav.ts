@@ -7,11 +7,10 @@ import {
   AudioLines,
   PenLine,
   LayoutGrid,
-  Settings,
   type LucideIcon,
 } from "lucide-react";
 
-export type NavGroup = "home" | "setup" | "create" | "system";
+export type NavGroup = "home" | "setup" | "create";
 
 export type NavItem = {
   to: string;
@@ -37,13 +36,10 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/research", label: "Company Research", hint: "Research a role", icon: Building2, group: "create" },
   { to: "/write", label: "Write Cover Letter", hint: "Generate & design", icon: PenLine, group: "create" },
   { to: "/applications", label: "Applications", hint: "Track & revisit", icon: LayoutGrid, group: "create" },
-
-  { to: "/settings", label: "Settings", hint: "Model & keys", icon: Settings, group: "system" },
 ];
 
 export const GROUP_LABELS: Record<NavGroup, string> = {
   home: "",
   setup: "1 · Set up your profile",
   create: "2 · Write & apply",
-  system: "",
 };

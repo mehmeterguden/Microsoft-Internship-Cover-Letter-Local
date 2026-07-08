@@ -2,7 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Sidebar } from "./Sidebar";
 
-/** App frame for the tool pages: fixed navy sidebar + light content area. */
+/** App frame for the tool pages: sticky theme-aware sidebar + content area. */
 export function AppShell() {
   const location = useLocation();
   return (
