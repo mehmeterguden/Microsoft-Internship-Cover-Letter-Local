@@ -84,6 +84,43 @@ def build_suggestions_messages(context: str, request: str) -> list[dict[str, str
     ]
 
 
+# ── 1b. Streaming suggestions — one object per field, in order ───
+
+_STREAM_SYSTEM = """You help a developer finish their professional profile, grounded in their current \
+profile, CV text, and GitHub repositories.
+
+You are given an ORDERED list of fields to fill, each with an id and the value shape it needs. \
+Produce ONE result per field, IN THE GIVEN ORDER, as a SEQUENCE of JSON objects:
+
+{"id": "<field id>", "value": <value>}
+
+Output rules — follow exactly:
+- Emit the objects one after another, first to last — one per field id. NOT wrapped in an array. \
+No prose, no markdown, no code fences.
+- Keep each object on a single line (escape any newline inside a string as \\n).
+- The value shape is stated per field:
+  - text  → a concise string. Copy contact details / URLs verbatim from the CV; never fabricate one.
+  - enum  → exactly one of the allowed values listed for that field.
+  - date  → "YYYY-MM" (or "YYYY").
+  - draft → grounded first-person prose (a summary is 2-4 sentences; a description is 1-3 \
+sentences). No labels, no quotes, no markdown.
+  - languages → an array [{"name": string, "proficiency": "native"|"fluent"|"professional"|\
+"intermediate"|"basic"}] of the SPOKEN languages the person likely knows (NOT programming languages).
+  - skills → {"categories": {"<skill>": string}, "ratings": {"<skill>": 1-5}, "new": \
+[{"name": string, "category": string, "self_rating": 1-5}]}.
+- Ground everything in the supplied material. NEVER invent employers, schools, dates, or facts. \
+If you truly cannot ground a value, emit the object with an empty value ("" or []).
+- Match the language of the user's CV in any prose."""
+
+
+def build_stream_messages(context: str, request: str) -> list[dict[str, str]]:
+    """Messages for the streamed, one-object-per-field suggestions call."""
+    return [
+        {"role": "system", "content": _STREAM_SYSTEM},
+        {"role": "user", "content": f"{_context_block(context)}\n\n---\n\nFill these fields, in this order:\n{request}"},
+    ]
+
+
 # ── 2. Generative draft (streamed) ───────────────────────────────
 
 _DRAFT_SYSTEM = """You write one short, polished section of a developer's professional profile, in \

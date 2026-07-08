@@ -33,7 +33,7 @@ import { toast } from "@/store/toast";
 import {
   applyCompletion,
   getCompletionPlan,
-  suggestCompletion,
+  streamSuggestions,
   type Answer,
   type ApplyPayload,
   type CompletionStep,
@@ -201,31 +201,92 @@ export function ProfileComplete() {
   const plan = useAsync(getCompletionPlan, []);
   const steps = useMemo(() => plan.data?.steps ?? [], [plan.data]);
 
-  const [phase, setPhase] = useState<"preparing" | "review">("preparing");
-  const [suggestions, setSuggestions] = useState<Suggestions>(EMPTY_SUGGESTIONS);
+  const [phase, setPhase] = useState<"loading" | "review">("loading");
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const [suggested, setSuggested] = useState<Record<string, string>>({}); // scalar/generative AI text (for the "AI" badge)
+  const [received, setReceived] = useState<Set<string>>(new Set());
+  const [streamDone, setStreamDone] = useState(false);
   const [saving, setSaving] = useState(false);
   const ranRef = useRef(false);
+  const editedRef = useRef<Set<string>>(new Set());
+  const stepMap = useMemo(() => new Map(steps.map((s) => [s.id, s])), [steps]);
 
-  // On entry: one batch call drafts every free-text field and suggests every value.
+  // Merge one streamed suggestion into the answers (skipping fields the user already touched).
+  function applySuggestion(id: string, value: unknown) {
+    const step = stepMap.get(id);
+    if (!step) return;
+    if (step.kind === "generative" || step.kind === "short_text" || step.kind === "enum" || step.kind === "date") {
+      const text = typeof value === "string" ? value : "";
+      setSuggested((prev) => ({ ...prev, [id]: text }));
+      if (!editedRef.current.has(id) && text) {
+        setAnswers((prev) => ({ ...prev, [id]: step.kind === "generative" ? { text } : text }));
+      }
+    } else if (step.kind === "languages") {
+      const list = Array.isArray(value) ? value : [];
+      setAnswers((prev) => {
+        const cur = (prev[id] as LangEntry[]) ?? [];
+        const have = new Set(cur.map((e) => e.name.toLowerCase()));
+        const add: LangEntry[] = list
+          .filter((l): l is { name: string; proficiency?: unknown } => Boolean(l) && typeof l.name === "string" && !have.has(l.name.toLowerCase()))
+          .map((l) => ({ name: l.name, proficiency: typeof l.proficiency === "string" ? l.proficiency : null }));
+        return { ...prev, [id]: [...cur, ...add] };
+      });
+    } else if (step.kind === "skills") {
+      const v = (value ?? {}) as { categories?: Record<string, string>; ratings?: Record<string, number>; new?: { name?: string; category?: string; self_rating?: number }[] };
+      setAnswers((prev) => {
+        const cur = (prev[id] as SkillEntry[]) ?? [];
+        const merged = cur.map((e) => ({
+          ...e,
+          category: e.category ?? v.categories?.[e.name] ?? null,
+          self_rating: e.self_rating ?? v.ratings?.[e.name] ?? null,
+        }));
+        const have = new Set(merged.map((e) => e.name.toLowerCase()));
+        const fresh: SkillEntry[] = (v.new ?? [])
+          .filter((s): s is { name: string; category?: string; self_rating?: number } => Boolean(s) && typeof s.name === "string" && !have.has(s.name.toLowerCase()))
+          .map((s) => ({ name: s.name, category: s.category ?? null, self_rating: typeof s.self_rating === "number" ? s.self_rating : 3, isNew: true, include: true }));
+        return { ...prev, [id]: [...merged, ...fresh] };
+      });
+    }
+  }
+
+  // On entry: seed instant defaults, then stream the AI's suggestions field by field.
   useEffect(() => {
     if (ranRef.current || !steps.length) return;
     ranRef.current = true;
-    suggestCompletion(steps)
-      .then((r) => {
-        const s = r.ok && r.suggestions ? r.suggestions : EMPTY_SUGGESTIONS;
-        if (!r.ok) toast.warning("AI suggestions unavailable", "You can still fill everything in by hand.");
-        setSuggestions(s);
-        setAnswers(seedAnswers(steps, s));
-      })
-      .catch((err) => {
-        toast.warning("AI suggestions unavailable", errorMessage(err));
-        setAnswers(seedAnswers(steps, EMPTY_SUGGESTIONS));
-      })
-      .finally(() => setPhase("review"));
+    setAnswers(seedAnswers(steps, EMPTY_SUGGESTIONS));
+    const ac = new AbortController();
+    streamSuggestions(
+      steps,
+      (e) => {
+        if (e.type === "suggestion") {
+          applySuggestion(e.id, e.value);
+          setReceived((prev) => new Set(prev).add(e.id));
+          setPhase("review"); // open as soon as the first result lands
+        } else if (e.type === "done") {
+          setStreamDone(true);
+          setPhase("review");
+        } else if (e.type === "fatal") {
+          setStreamDone(true);
+          setPhase("review");
+          toast.warning("AI suggestions stopped early", e.error);
+        }
+      },
+      ac.signal,
+    ).catch((err) => {
+      setStreamDone(true);
+      setPhase("review");
+      toast.warning("AI suggestions unavailable", errorMessage(err));
+    });
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steps]);
 
-  const setAnswer = (id: string, value: Answer) => setAnswers((prev) => ({ ...prev, [id]: value }));
+  const setAnswer = (id: string, value: Answer) => {
+    editedRef.current.add(id);
+    setAnswers((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const isPending = (s: CompletionStep) => !streamDone && !received.has(s.id) && s.kind !== "projects_from_github";
 
   const groups = useMemo<CardGroup[]>(() => {
     const out: CardGroup[] = [];
@@ -276,26 +337,26 @@ export function ProfileComplete() {
   }
 
   function renderField(step: CompletionStep) {
+    const pending = isPending(step);
     switch (step.kind) {
       case "generative":
         return (
           <GenerativeField
             step={step}
-            suggested={suggestions.drafts[step.id] ?? ""}
+            pending={pending}
+            suggested={suggested[step.id] ?? ""}
             value={(answers[step.id] as { text?: string } | undefined)?.text ?? ""}
             onChange={(t) => setAnswer(step.id, { text: t })}
           />
         );
       case "languages":
-        return <LanguagesCard step={step} value={(answers[step.id] as LangEntry[]) ?? []} onChange={(v) => setAnswer(step.id, v)} />;
+        return <LanguagesCard step={step} pending={pending} value={(answers[step.id] as LangEntry[]) ?? []} onChange={(v) => setAnswer(step.id, v)} />;
       case "skills":
-        return <SkillsCard value={(answers[step.id] as SkillEntry[]) ?? []} onChange={(v) => setAnswer(step.id, v)} />;
+        return <SkillsCard pending={pending} value={(answers[step.id] as SkillEntry[]) ?? []} onChange={(v) => setAnswer(step.id, v)} />;
       case "projects_from_github":
         return <ProjectsCard value={(answers[step.id] as RepoPick[]) ?? []} onChange={(v) => setAnswer(step.id, v)} />;
-      default: {
-        const suggested = step.section === "identity" && step.field ? suggestions.identity[step.field] ?? "" : suggestions.items[step.id] ?? "";
-        return <ScalarField step={step} suggested={suggested} value={(answers[step.id] as string) ?? ""} onChange={(v) => setAnswer(step.id, v)} />;
-      }
+      default:
+        return <ScalarField step={step} pending={pending} suggested={suggested[step.id] ?? ""} value={(answers[step.id] as string) ?? ""} onChange={(v) => setAnswer(step.id, v)} />;
     }
   }
 
@@ -318,7 +379,7 @@ export function ProfileComplete() {
       <AsyncBoundary loading={plan.loading} error={plan.error} onRetry={plan.reload}>
         {steps.length === 0 ? (
           <Done navigate={navigate} />
-        ) : phase === "preparing" ? (
+        ) : phase === "loading" ? (
           <Preparing count={steps.length} />
         ) : (
           <>

@@ -51,19 +51,45 @@ function FieldFrame({
   );
 }
 
+/** Placeholder while the AI hasn't streamed this field's suggestion yet. */
+function PendingRow({ label }: { label: string }) {
+  return (
+    <div className="rounded-[12px] border-l-[3px] border-accent/40 py-1 pl-3.5">
+      <div className="mb-1.5">
+        <Label>{label}</Label>
+      </div>
+      <div className="flex items-center gap-2 rounded-[10px] bg-accent-soft/40 px-3 py-2.5 text-[13px] text-accent-ink">
+        <Spinner size={14} /> Drafting from your CV &amp; GitHub…
+      </div>
+    </div>
+  );
+}
+
+/** Thin banner shown atop a composite card while its suggestion streams in. */
+function PendingBanner() {
+  return (
+    <div className="flex items-center gap-2 rounded-[10px] bg-accent-soft/40 px-3 py-2 text-[12.5px] font-semibold text-accent-ink">
+      <Spinner size={13} /> AI is suggesting from your CV &amp; GitHub…
+    </div>
+  );
+}
+
 // ── Scalar: short_text / enum / date ──────────────────────────────
 
 export function ScalarField({
   step,
   suggested,
   value,
+  pending,
   onChange,
 }: {
   step: CompletionStep;
   suggested: string;
   value: string;
+  pending?: boolean;
   onChange: (v: string) => void;
 }) {
+  if (pending) return <PendingRow label={step.label} />;
   const filled = Boolean(value.trim());
   const isAI = filled && value === suggested;
   return (
@@ -92,11 +118,13 @@ export function GenerativeField({
   step,
   suggested,
   value,
+  pending,
   onChange,
 }: {
   step: CompletionStep;
   suggested: string;
   value: string;
+  pending?: boolean;
   onChange: (v: string) => void;
 }) {
   const [streaming, setStreaming] = useState(false);
@@ -142,6 +170,8 @@ export function GenerativeField({
     setInstruction("");
     run(streamRefine, { field_label: step.label, current: value, instruction: trimmed });
   }
+
+  if (pending) return <PendingRow label={step.label} />;
 
   return (
     <FieldFrame label={step.label} filled={filled} isAI={isAI}>
@@ -202,10 +232,12 @@ export function GenerativeField({
 export function LanguagesCard({
   step,
   value,
+  pending,
   onChange,
 }: {
   step: CompletionStep;
   value: LangEntry[];
+  pending?: boolean;
   onChange: (v: LangEntry[]) => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -221,6 +253,7 @@ export function LanguagesCard({
 
   return (
     <div className="grid gap-2">
+      {pending && <PendingBanner />}
       {value.map((e, i) => {
         const missing = !e.proficiency;
         return (
@@ -260,10 +293,11 @@ export function LanguagesCard({
 
 // ── Skills (composite card) ───────────────────────────────────────
 
-export function SkillsCard({ value, onChange }: { value: SkillEntry[]; onChange: (v: SkillEntry[]) => void }) {
+export function SkillsCard({ value, pending, onChange }: { value: SkillEntry[]; pending?: boolean; onChange: (v: SkillEntry[]) => void }) {
   const patch = (i: number, p: Partial<SkillEntry>) => onChange(value.map((e, j) => (j === i ? { ...e, ...p } : e)));
   return (
     <div className="grid gap-2">
+      {pending && <PendingBanner />}
       {value.map((e, i) => {
         const missing = !e.category || !e.self_rating;
         return (

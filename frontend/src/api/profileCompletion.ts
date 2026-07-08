@@ -101,6 +101,11 @@ export type DraftEvent =
   | { type: "done"; text: string }
   | { type: "fatal"; error: string };
 
+export type SuggestionEvent =
+  | { type: "suggestion"; id: string; value: unknown }
+  | { type: "done"; count?: number }
+  | { type: "fatal"; error: string };
+
 export interface ApplyPayload {
   profile?: Record<string, string>;
   languages_new?: { name: string; proficiency: string | null }[];
@@ -125,6 +130,15 @@ export async function getCompletionPlan(): Promise<CompletionPlan> {
 export async function suggestCompletion(steps: CompletionStep[]): Promise<SuggestResult> {
   const { data } = await client.post<SuggestResult>("/profile-completion/suggest", { steps });
   return data;
+}
+
+/** Stream one suggestion per field as the model writes it (fast fields first). */
+export function streamSuggestions(
+  steps: CompletionStep[],
+  onEvent: (e: SuggestionEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamSSE("/profile-completion/suggest/stream", { steps }, onEvent, signal);
 }
 
 export function streamDraft(
