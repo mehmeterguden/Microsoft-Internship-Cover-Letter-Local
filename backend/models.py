@@ -9,7 +9,7 @@ singleton `Profile` has no id.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -165,6 +165,45 @@ class CompanyResearch(BaseModel):
 #  Settings (single row — user-editable config, no id exposed)
 # ─────────────────────────────────────────────────────────────
 
+#: What to do when the active API key hits its rate/quota limit.
+#: "auto" rotates to the next key automatically; "manual" stops and lets the
+#: user pick which key to use.
+KeySwitchMode = Literal["auto", "manual"]
+
+#: Where company-name autocomplete gets its data.
+#: "wikidata" is free and keyless (default); "brandfetch" needs a free public
+#: client id but gives cleaner brand results + logos.
+CompanySearchProvider = Literal["wikidata", "brandfetch"]
+
+
+class CompanySuggestion(BaseModel):
+    """One autocomplete result for the company-name field."""
+
+    name: str
+    domain: str | None = None          # e.g. "aselsan.com.tr"
+    description: str | None = None     # e.g. "Turkish defense corporation"
+    logo: str | None = None            # upstream logo URL (the frontend loads it via our proxy)
+
+
+class GeminiKey(BaseModel):
+    """One entry in the rotating Gemini key pool.
+
+    Gemini's free tier is per-key rate-limited, so the user can register several
+    keys and the app rotates between them (see `key_switch_mode`)."""
+
+    id: str                              # stable client id (uuid); rotation cursor points at it
+    key: str                             # the raw API key
+    label: str = ""                      # optional human name ("Personal", "Work", …)
+
+
+class GeminiKeyConfig(BaseModel):
+    """The whole Gemini key setup — returned by the /settings/gemini-keys endpoints."""
+
+    keys: list[GeminiKey] = []
+    active_id: str = ""                  # id of the key currently in use / manually selected
+    mode: KeySwitchMode = "auto"
+
+
 class Settings(BaseModel):
     """Runtime config the user can change from the frontend (DB-backed, not env)."""
 
@@ -173,7 +212,12 @@ class Settings(BaseModel):
     llm_model: str                       # model name/id to request
     openai_api_key: str = ""             # key for the OpenAI provider
     anthropic_api_key: str = ""          # key for the Claude provider
-    gemini_api_key: str = ""             # key for the Gemini provider
+    gemini_api_key: str = ""             # legacy single Gemini key (kept for migration)
+    gemini_api_keys: list[GeminiKey] = []  # rotating Gemini key pool
+    gemini_active_key_id: str = ""       # id of the active/selected key in the pool
+    key_switch_mode: KeySwitchMode = "auto"  # auto-rotate vs manual on rate limit
+    company_search_provider: CompanySearchProvider = "wikidata"  # company autocomplete source
+    brandfetch_client_id: str = ""       # public Brandfetch client id (for provider=brandfetch)
     embedding_model: str                 # sentence-transformers model (later phases)
     tavily_api_key: str = ""             # company research key (only external call)
     ocr_enabled: bool = False            # optional feature: read images via OCR (needs tesseract)

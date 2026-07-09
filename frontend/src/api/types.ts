@@ -207,7 +207,37 @@ export interface Job {
   match_score?: number | null;
   match_breakdown?: MatchBreakdown | null;
   status: JobStatus;
-  letter?: { content: Record<string, string>; design: Record<string, unknown> } | null;
+  /** The saved cover letter: plain text plus a user-set completed flag.
+   *  `canvas` may exist on letters saved by the old design editor (read-only). */
+  letter?: { text?: string; completed?: boolean; canvas?: unknown } | null;
+}
+
+/** How the app reacts when the active API key hits its rate/quota limit. */
+export type KeySwitchMode = "auto" | "manual";
+
+/** One entry in the rotating Gemini key pool (see backend `GeminiKey`). */
+export interface GeminiKey {
+  id: string;
+  key: string;
+  label?: string;
+}
+
+/** The whole Gemini key setup, returned by the /settings/gemini-keys endpoints. */
+export interface GeminiKeyConfig {
+  keys: GeminiKey[];
+  active_id: string;
+  mode: KeySwitchMode;
+}
+
+/** Where company-name autocomplete gets its data. */
+export type CompanySearchProvider = "wikidata" | "brandfetch";
+
+/** One company autocomplete suggestion (see backend `CompanySuggestion`). */
+export interface CompanySuggestion {
+  name: string;
+  domain?: string | null;
+  description?: string | null;
+  logo?: string | null;
 }
 
 export interface Settings {
@@ -217,6 +247,11 @@ export interface Settings {
   openai_api_key?: string;
   anthropic_api_key?: string;
   gemini_api_key?: string;
+  gemini_api_keys?: GeminiKey[];
+  gemini_active_key_id?: string;
+  key_switch_mode?: KeySwitchMode;
+  company_search_provider?: CompanySearchProvider;
+  brandfetch_client_id?: string;
   embedding_model: string;
   tavily_api_key?: string;
   ocr_enabled?: boolean;

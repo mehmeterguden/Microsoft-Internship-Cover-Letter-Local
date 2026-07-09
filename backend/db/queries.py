@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -201,20 +202,37 @@ def reset_all() -> dict[str, int]:
 
 # ── Settings (singleton — id always 1, seeded at init) ───────────
 
+# Settings columns stored as JSON text that we (de)serialize transparently.
+# (`mcp_servers` is intentionally NOT here — its one reader parses the raw string
+# itself, so decoding it early would break that call.)
+_SETTINGS_JSON_COLUMNS = ("gemini_api_keys",)
+
+
 def get_settings() -> dict[str, Any]:
-    """Return the settings row (without its id). Always exists after init_db."""
+    """Return the settings row (without its id). Always exists after init_db.
+
+    JSON columns (e.g. the Gemini key pool) are parsed back to Python lists."""
     conn = get_connection()
     try:
         row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
         data = dict(row)
         data.pop("id", None)
+        for col in _SETTINGS_JSON_COLUMNS:
+            if isinstance(data.get(col), str):
+                data[col] = json.loads(data[col] or "[]")
         return data
     finally:
         conn.close()
 
 
 def save_settings(data: dict[str, Any]) -> None:
-    """Update the single settings row in place."""
+    """Update the single settings row in place. Only the given columns change.
+
+    List/JSON columns are serialized to TEXT before writing."""
+    data = dict(data)
+    for col in _SETTINGS_JSON_COLUMNS:
+        if col in data and not isinstance(data[col], str):
+            data[col] = json.dumps(data[col])
     cols = list(data.keys())
     assignments = ", ".join(f"{c} = ?" for c in cols)
     conn = get_connection()
@@ -226,6 +244,63 @@ def save_settings(data: dict[str, Any]) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# ── Gemini key pool (add / remove / select / mode) ───────────────
+# The frontend edits these one action at a time so each change persists to the DB
+# immediately (survives a page reload) — independent of the main "Save settings".
+
+def gemini_key_config() -> dict[str, Any]:
+    """Return the current pool: {"keys": [...], "active_id": str, "mode": str}."""
+    s = get_settings()
+    return {
+        "keys": s.get("gemini_api_keys") or [],
+        "active_id": s.get("gemini_active_key_id") or "",
+        "mode": s.get("key_switch_mode") or "auto",
+    }
+
+
+def add_gemini_key(key: str, label: str = "") -> dict[str, Any]:
+    """Add a key to the pool and persist. The first key added becomes active.
+    Ignores exact-duplicate keys (returns the pool unchanged)."""
+    s = get_settings()
+    keys = list(s.get("gemini_api_keys") or [])
+    key = key.strip()
+    if key and not any(k["key"] == key for k in keys):
+        new_id = uuid.uuid4().hex[:12]
+        keys.append({"id": new_id, "key": key, "label": label.strip() or f"Key {len(keys) + 1}"})
+        patch: dict[str, Any] = {"gemini_api_keys": keys}
+        if not (s.get("gemini_active_key_id") or ""):
+            patch["gemini_active_key_id"] = new_id
+        save_settings(patch)
+    return gemini_key_config()
+
+
+def remove_gemini_key(key_id: str) -> dict[str, Any]:
+    """Remove a key from the pool and persist. If it was the active key, the
+    active pointer moves to the first remaining key."""
+    s = get_settings()
+    keys = [k for k in (s.get("gemini_api_keys") or []) if k["id"] != key_id]
+    patch: dict[str, Any] = {"gemini_api_keys": keys}
+    if (s.get("gemini_active_key_id") or "") == key_id:
+        patch["gemini_active_key_id"] = keys[0]["id"] if keys else ""
+    save_settings(patch)
+    return gemini_key_config()
+
+
+def set_gemini_active_key(key_id: str) -> dict[str, Any]:
+    """Point the active/selected key at `key_id` (used by manual selection and by
+    auto-rotation to remember the working key). No-op if the id isn't in the pool."""
+    s = get_settings()
+    if any(k["id"] == key_id for k in (s.get("gemini_api_keys") or [])):
+        save_settings({"gemini_active_key_id": key_id})
+    return gemini_key_config()
+
+
+def set_key_switch_mode(mode: str) -> dict[str, Any]:
+    """Set how the app reacts when a key hits its limit: 'auto' or 'manual'."""
+    save_settings({"key_switch_mode": "manual" if mode == "manual" else "auto"})
+    return gemini_key_config()
 
 
 # ── Profile (singleton — exactly one row, no id) ─────────────────
