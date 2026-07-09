@@ -12,7 +12,9 @@ are real data — stored as ISO text ("YYYY-MM" or "YYYY-MM-DD"), not record met
 
 from __future__ import annotations
 
+import json
 import sqlite3
+import uuid
 from pathlib import Path
 
 import config
@@ -31,7 +33,12 @@ CREATE TABLE IF NOT EXISTS settings (
     llm_model         TEXT NOT NULL,                        -- model name/id to request
     openai_api_key    TEXT NOT NULL DEFAULT '',             -- key for the OpenAI provider
     anthropic_api_key TEXT NOT NULL DEFAULT '',             -- key for the Claude provider
-    gemini_api_key    TEXT NOT NULL DEFAULT '',             -- key for the Gemini provider
+    gemini_api_key    TEXT NOT NULL DEFAULT '',             -- legacy single Gemini key (superseded by gemini_api_keys)
+    gemini_api_keys   TEXT NOT NULL DEFAULT '[]',           -- JSON: [{"id","key","label"}] rotating Gemini key pool
+    gemini_active_key_id TEXT NOT NULL DEFAULT '',          -- id of the Gemini key currently in use / manually selected
+    key_switch_mode   TEXT NOT NULL DEFAULT 'auto',         -- auto|manual — what to do when a key hits its rate limit
+    company_search_provider TEXT NOT NULL DEFAULT 'wikidata', -- wikidata (free, keyless) | brandfetch (needs client id)
+    brandfetch_client_id TEXT NOT NULL DEFAULT '',          -- public Brandfetch client id (only used when provider=brandfetch)
     embedding_model   TEXT NOT NULL,                        -- sentence-transformers model (later phases)
     tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
     ocr_enabled       INTEGER NOT NULL DEFAULT 0,           -- optional: read images via OCR (needs tesseract)
@@ -261,6 +268,11 @@ _COLUMNS_ADDED = {
         "ocr_enabled": "INTEGER NOT NULL DEFAULT 0",
         "github_token": "TEXT NOT NULL DEFAULT ''",
         "mcp_servers": "TEXT NOT NULL DEFAULT '[]'",  # JSON: [{"name","url"}] MCP tool servers
+        "gemini_api_keys": "TEXT NOT NULL DEFAULT '[]'",  # JSON: [{"id","key","label"}] rotating Gemini key pool
+        "gemini_active_key_id": "TEXT NOT NULL DEFAULT ''",  # id of the active/selected Gemini key
+        "key_switch_mode": "TEXT NOT NULL DEFAULT 'auto'",  # auto|manual on rate-limit
+        "company_search_provider": "TEXT NOT NULL DEFAULT 'wikidata'",  # wikidata|brandfetch
+        "brandfetch_client_id": "TEXT NOT NULL DEFAULT ''",  # public Brandfetch client id
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary
@@ -280,6 +292,29 @@ def _migrate(conn: sqlite3.Connection) -> None:
         for column, declaration in columns.items():
             if column not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
+    _seed_gemini_key_pool(conn)
+
+
+def _seed_gemini_key_pool(conn: sqlite3.Connection) -> None:
+    """One-time upgrade: fold a pre-existing single Gemini key into the key pool.
+
+    Older databases stored one key in `gemini_api_key`. If the pool is still empty
+    but that legacy key is set, add it as the first pooled key and make it active,
+    so upgrading users keep working without re-entering anything."""
+    row = conn.execute(
+        "SELECT gemini_api_key, gemini_api_keys FROM settings WHERE id = 1"
+    ).fetchone()
+    if row is None:
+        return
+    legacy = (row["gemini_api_key"] or "").strip()
+    pool = json.loads(row["gemini_api_keys"] or "[]")
+    if legacy and not pool:
+        key_id = uuid.uuid4().hex[:12]
+        pool = [{"id": key_id, "key": legacy, "label": "Key 1"}]
+        conn.execute(
+            "UPDATE settings SET gemini_api_keys = ?, gemini_active_key_id = ? WHERE id = 1",
+            (json.dumps(pool), key_id),
+        )
 
 
 def init_db() -> None:

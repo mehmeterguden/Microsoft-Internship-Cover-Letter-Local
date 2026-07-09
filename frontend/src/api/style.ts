@@ -17,6 +17,16 @@ export interface LearnResult {
   chunks_indexed: number;
   embeddings: boolean;
   llm_analyzed: boolean;
+  /** True when there were letters but the deep LLM analysis couldn't complete. */
+  analysis_failed: boolean;
+  error: string | null;
+  /** Why it failed, e.g. ["unavailable"] (model busy) or ["limit"] (quota). */
+  failure_reasons?: string[];
+  /** True when switching model would likely help (the model itself is unavailable). */
+  suggest_model_switch?: boolean;
+  /** The model that was in use when it failed. */
+  model?: string;
+  provider?: string;
   style_profile: VoiceProfile | null;
 }
 

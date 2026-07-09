@@ -9,7 +9,8 @@ import { Field } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import type { LLMProviderId, Settings as SettingsType } from "@/api/types";
+import { GeminiKeys } from "@/components/settings/GeminiKeys";
+import type { GeminiKeyConfig, LLMProviderId, Settings as SettingsType } from "@/api/types";
 import { getSettings, saveSettings } from "@/api/settings";
 import { listModels } from "@/api/llm";
 import { errorMessage } from "@/api/client";
@@ -85,6 +86,18 @@ export function Settings() {
 
   function set<K extends keyof SettingsType>(key: K, value: SettingsType[K]) {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  // The Gemini key pool persists itself via its own endpoints; mirror each change
+  // into `settings` so the main Save stays consistent, and re-run model discovery
+  // (the active key just changed, so different models may become reachable).
+  function applyGemini(cfg: GeminiKeyConfig) {
+    setSettings((prev) =>
+      prev
+        ? { ...prev, gemini_api_keys: cfg.keys, gemini_active_key_id: cfg.active_id, key_switch_mode: cfg.mode }
+        : prev,
+    );
+    setRefreshNonce((n) => n + 1);
   }
 
   // Switching provider auto-selects that provider's default model and endpoint.
@@ -232,9 +245,14 @@ export function Settings() {
               </Field>
             )}
             {settings.llm_provider === "gemini" && (
-              <Field label="Gemini API key" htmlFor="gemini">
-                <Input id="gemini" type="password" value={settings.gemini_api_key ?? ""} onChange={(e) => set("gemini_api_key", e.target.value)} placeholder="AIza…" />
-              </Field>
+              <GeminiKeys
+                config={{
+                  keys: settings.gemini_api_keys ?? [],
+                  active_id: settings.gemini_active_key_id ?? "",
+                  mode: settings.key_switch_mode ?? "auto",
+                }}
+                onChange={applyGemini}
+              />
             )}
           </CardContent>
         </Card>
@@ -260,6 +278,49 @@ export function Settings() {
               </span>
               <Switch checked={settings.ocr_enabled ?? false} onCheckedChange={(v) => set("ocr_enabled", v)} />
             </label>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Company search</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <Field
+              label="Autocomplete source"
+              htmlFor="cosearch"
+              hint="Predicts companies as you type on the Research page, with logos."
+            >
+              <Select
+                id="cosearch"
+                value={settings.company_search_provider ?? "wikidata"}
+                onChange={(e) => set("company_search_provider", e.target.value as "wikidata" | "brandfetch")}
+              >
+                <option value="wikidata">Wikidata · free, no key (default)</option>
+                <option value="brandfetch">Brandfetch · sharper results, needs a free client id</option>
+              </Select>
+            </Field>
+
+            {settings.company_search_provider === "brandfetch" && (
+              <>
+                <Field
+                  label="Brandfetch client id"
+                  htmlFor="bfid"
+                  hint="A free, public client id (not a secret key). Leave blank to try keyless mode."
+                >
+                  <Input
+                    id="bfid"
+                    value={settings.brandfetch_client_id ?? ""}
+                    onChange={(e) => set("brandfetch_client_id", e.target.value)}
+                    placeholder="1id…"
+                  />
+                </Field>
+                <Alert tone="info" title="How to get it (free, no credit card)">
+                  Create a free account at brandfetch.com/developers, open the dashboard, and copy your
+                  Brand Search / Logo Link <strong>client id</strong>. It's a public token — safe to store here.
+                </Alert>
+              </>
+            )}
           </CardContent>
         </Card>
 

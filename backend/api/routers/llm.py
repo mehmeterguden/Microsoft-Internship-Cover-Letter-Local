@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core import llm
+from core.llm.gemini import effective_key
 from db import queries
 
 router = APIRouter(prefix="/llm", tags=["llm"])
@@ -52,7 +53,7 @@ def _discover_models(provider: str, base_url: str, settings: dict) -> tuple[list
             data = _get_json("https://api.anthropic.com/v1/models", {"x-api-key": key, "anthropic-version": "2023-06-01"})
             return [m["id"] for m in data.get("data", [])], None
         if provider == "gemini":
-            key = settings.get("gemini_api_key") or ""
+            key = effective_key(settings)
             if not key:
                 return [], "Add your Gemini API key to list models."
             data = _get_json(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}")

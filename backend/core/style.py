@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import statistics
+import time
 from typing import Any
 
 from core import embeddings, llm
@@ -31,6 +32,22 @@ _SAMPLE_TABLE = "past_cover_letters"
 _COLLECTION = vs.COVER_LETTERS
 _MIN_CHUNK = 40
 _CORPUS_CAP = 18000   # include all letters; a handful of cover letters fits comfortably
+_ANALYSIS_MAX_TOKENS = 4096   # headroom for the full voice JSON so it can't truncate mid-object
+_ANALYSIS_ATTEMPTS = 3        # retry transient model/parse failures before giving up
+_ANALYSIS_BACKOFF = 2.0       # seconds; grows per attempt so a demand spike can clear
+
+
+class VoiceAnalysisError(RuntimeError):
+    """The deep LLM voice analysis couldn't be produced (model error, or a reply we
+    couldn't parse) after retries. Distinct from "ran fine, but the samples were too
+    thin" — that is a normal result carried by `enough_signal=False`.
+
+    `reasons` propagates the provider's failure reasons (e.g. {"unavailable"}) so the
+    caller can decide whether to suggest switching model."""
+
+    def __init__(self, message: str, *, reasons: set[str] | None = None) -> None:
+        super().__init__(message)
+        self.reasons: set[str] = reasons or set()
 
 _VOICE_FIELDS = {
     "enough_signal", "tagline", "summary", "self_presentation", "tone", "formality",
@@ -45,12 +62,38 @@ _VOICE_FIELDS = {
 # ─────────────────────────────────────────────────────────────
 
 def learn() -> dict[str, Any]:
-    """Analyze past letters (metrics + deep LLM voice), store, and (re)index exemplars."""
+    """Analyze past letters (metrics + deep LLM voice), store, and (re)index exemplars.
+
+    If the deep analysis fails (a transient model error), we do NOT silently persist a
+    thin, metrics-only profile over a good one — we keep the existing deep profile and
+    report `analysis_failed` so the UI can ask the user to try again."""
     letters = _sorted_letters()
     texts = [row["content"] for row in letters if row.get("content")]
+    corpus = "\n\n---\n\n".join(t.strip() for t in texts if t and t.strip())
 
-    voice = analyze(texts)
-    if voice is not None:
+    voice: VoiceProfile | None = None
+    llm_ok = False
+    error: str | None = None
+    reasons: set[str] = set()
+    if corpus:
+        fields = _metrics(corpus, texts)
+        try:
+            deep = _llm_voice(corpus, len(texts))
+        except VoiceAnalysisError as exc:
+            deep = {}
+            error = str(exc)
+            reasons = exc.reasons
+        if deep:
+            fields.update(deep)
+            fields["llm_analyzed"] = True
+            llm_ok = True
+        voice = VoiceProfile(**fields)
+
+    # Never downgrade a previously-learned deep profile because of a transient failure.
+    existing = _stored_voice()
+    keep_existing = not llm_ok and existing is not None and existing.llm_analyzed
+    stored = existing if keep_existing else voice
+    if voice is not None and not keep_existing:
         _save_voice(voice)
 
     chunks, used_embeddings = 0, False
@@ -61,12 +104,23 @@ def learn() -> dict[str, Any]:
         except Exception:  # noqa: BLE001 — indexing is best-effort; the profile is still saved
             chunks = 0
 
+    settings = queries.get_settings()
+    # Switching model only helps when the model itself is the blocker (busy/unavailable),
+    # not when the keys are quota-exhausted or rejected.
+    suggest_model_switch = settings.get("llm_provider") == "gemini" and "unavailable" in reasons
+
     return {
         "samples": len(texts),
         "chunks_indexed": chunks,
         "embeddings": used_embeddings,
-        "llm_analyzed": bool(voice and voice.llm_analyzed),
-        "style_profile": voice.model_dump() if voice else None,
+        "llm_analyzed": bool(stored and stored.llm_analyzed),
+        "analysis_failed": bool(corpus) and not llm_ok,
+        "error": error,
+        "failure_reasons": sorted(reasons),
+        "suggest_model_switch": suggest_model_switch,
+        "model": settings.get("llm_model"),
+        "provider": settings.get("llm_provider"),
+        "style_profile": stored.model_dump(mode="json") if stored else None,
     }
 
 
@@ -77,7 +131,10 @@ def analyze(texts: list[str]) -> VoiceProfile | None:
         return None
 
     fields: dict[str, Any] = _metrics(corpus, texts)
-    voice = _llm_voice(corpus, len([t for t in texts if t and t.strip()]))
+    try:
+        voice = _llm_voice(corpus, len([t for t in texts if t and t.strip()]))
+    except VoiceAnalysisError:  # generation path: degrade to metrics only, never break
+        voice = {}
     if voice:
         fields.update(voice)
         fields["llm_analyzed"] = True
@@ -161,16 +218,32 @@ def style_context(query_text: str) -> dict[str, Any]:
 # ─────────────────────────────────────────────────────────────
 
 def _llm_voice(corpus: str, count: int = 0) -> dict[str, Any]:
-    """Reverse-engineer the voice with the LLM. Returns {} if unavailable/malformed."""
-    try:
-        raw = llm.complete(build_analysis_messages(corpus[:_CORPUS_CAP], count), temperature=0.0, max_tokens=2600)
-        data = json.loads(_extract_json(raw))
-    except Exception:  # noqa: BLE001 — deep analysis is optional; fall back to metrics only
-        return {}
-    # Keep truthy fields; always keep enough_signal (a real False must survive).
-    out = {k: v for k, v in data.items() if k in _VOICE_FIELDS and (v or k == "enough_signal")}
-    out["enough_signal"] = bool(data.get("enough_signal", True))
-    return out
+    """Reverse-engineer the voice with the LLM.
+
+    Retries a few times on a transient model error or an unparseable reply (a later
+    attempt nudges the temperature so a deterministic parse failure can differ).
+    Raises `VoiceAnalysisError` if every attempt fails — callers decide whether that
+    is fatal (explicit "Learn my voice") or a soft fallback (letter generation)."""
+    messages = build_analysis_messages(corpus[:_CORPUS_CAP], count)
+    last_error: Exception | None = None
+    for attempt in range(_ANALYSIS_ATTEMPTS):
+        try:
+            raw = llm.complete(messages, temperature=0.0 if attempt == 0 else 0.3, max_tokens=_ANALYSIS_MAX_TOKENS)
+            data = json.loads(_extract_json(raw))
+        except Exception as exc:  # noqa: BLE001 — retry transient model/parse errors
+            last_error = exc
+            if attempt < _ANALYSIS_ATTEMPTS - 1:
+                time.sleep(_ANALYSIS_BACKOFF * (attempt + 1))
+            continue
+        # Keep truthy fields; always keep enough_signal (a real False must survive).
+        out = {k: v for k, v in data.items() if k in _VOICE_FIELDS and (v or k == "enough_signal")}
+        out["enough_signal"] = bool(data.get("enough_signal", True))
+        return out
+    raise VoiceAnalysisError(
+        f"Voice analysis failed after {_ANALYSIS_ATTEMPTS} attempts: "
+        f"{type(last_error).__name__}: {last_error}",
+        reasons=getattr(last_error, "reasons", None),
+    )
 
 
 def _extract_json(text: str) -> str:
