@@ -4,7 +4,7 @@ import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 
 const LINKS = [
-  { to: "/onboarding", label: "Import CV" },
+  { to: "/onboarding", label: "CV" },
   { to: "/write", label: "Cover letter" },
   { to: "/research", label: "Company research" },
   { to: "/voice", label: "Writing voice" },
