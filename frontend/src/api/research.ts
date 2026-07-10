@@ -14,6 +14,7 @@ export type ResearchEvent =
   | { type: "phase"; phase: "gather" | "analyze"; agents: string[]; total: number }
   | { type: "agent_started"; agent: string; section: string }
   | { type: "source"; agent: string; source: string; ok: boolean }
+  | { type: "agent_progress"; agent: string; text: string }
   | { type: "agent_done"; agent: string; section: string; data: unknown; sources: { label?: string; source?: string; url?: string; ok: boolean }[] }
   | { type: "agent_error"; agent: string; error: string }
   | { type: "cached"; cached_at: string }
@@ -26,6 +27,19 @@ export function streamResearch(
   signal?: AbortSignal,
 ): Promise<void> {
   return streamSSE<ResearchEvent>("/research/company", input, onEvent, signal);
+}
+
+/** What POST /research/job-url extracts from a pasted job posting link. */
+export interface JobUrlExtract {
+  company: string;
+  role: string;
+  job_description: string;
+}
+
+/** Read a job posting page and let the LLM fill in company/role/JD. */
+export async function autofillFromJobUrl(url: string): Promise<JobUrlExtract> {
+  const { data } = await client.post<JobUrlExtract>("/research/job-url", { url });
+  return data;
 }
 
 export interface CachedReport {

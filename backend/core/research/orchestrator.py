@@ -10,6 +10,7 @@ Event shapes (all JSON-serialisable dicts with a `type`):
     {"type": "phase",        "phase": str, "agents": [str], "total": int}
     {"type": "agent_started","agent": str, "section": str}
     {"type": "source",       "agent": str, "source": str, "ok": bool}
+    {"type": "agent_progress","agent": str, "text": str}   # live, partial reasoning
     {"type": "agent_done",   "agent": str, "section": str, "data": ...}
     {"type": "agent_error",  "agent": str, "error": str}
     {"type": "done",         "report": {...}, "duration_s": float}
@@ -81,7 +82,9 @@ async def stream_research(
     results: dict[str, AgentResult] = {}
 
     async def worker(agent: Agent) -> None:
-        results[agent.name] = await agent.run(ctx, queue.put)
+        # queue.put_nowait is the thread-safe sink for streamed progress; the base
+        # only ever calls it via loop.call_soon_threadsafe, so it runs on this loop.
+        results[agent.name] = await agent.run(ctx, queue.put, queue.put_nowait)
 
     async def runner() -> None:
         await asyncio.gather(*(worker(a) for a in fleet))

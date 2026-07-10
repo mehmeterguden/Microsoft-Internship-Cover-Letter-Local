@@ -15,7 +15,9 @@ import time
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
+from core import job_posting
 from core.research.orchestrator import _cache_key, stream_research
 from core.research.schema import ResearchInput
 from core.research.tools import registry
@@ -31,6 +33,37 @@ def cached_report(company: str = Query(..., min_length=1), role: str | None = No
     if hit is None:
         raise HTTPException(status_code=404, detail="No cached report for this company/role.")
     return {"cached_at": hit["created_at"], "report": hit["report"]}
+
+
+class JobUrlRequest(BaseModel):
+    url: str = Field(..., min_length=4, description="A job posting page URL")
+
+
+class JobUrlResponse(BaseModel):
+    company: str = ""
+    role: str = ""
+    job_description: str = ""
+
+
+@router.post("/job-url", response_model=JobUrlResponse, summary="Autofill company/role/JD from a job posting link")
+def autofill_from_job_url(req: JobUrlRequest) -> JobUrlResponse:
+    """Read a job posting page and extract company/role/job description with the LLM.
+
+    Only the public page text is sent to the model (never the profile). Sync `def`
+    so FastAPI runs the blocking fetch + LLM call in its threadpool.
+    """
+    url = req.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Enter a full URL starting with http:// or https://")
+    try:
+        data = job_posting.extract_from_url(url)
+    except job_posting.JobPostingError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — LLM/provider failure → surface to the UI
+        raise HTTPException(
+            status_code=503, detail=f"AI request failed ({type(exc).__name__}): {exc}"
+        ) from exc
+    return JobUrlResponse(**data)
 
 
 @router.get("/mcp", summary="Discover configured MCP servers and register their tools")
