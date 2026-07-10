@@ -10,6 +10,7 @@ from fastapi import APIRouter
 
 from api.routers import (
     certificates,
+    companies,
     cover_letter,
     cv,
     data,
@@ -38,6 +39,7 @@ api_router = APIRouter(prefix="/api")
 # Config, model health, CV parsing, and GitHub import.
 api_router.include_router(settings.router)
 api_router.include_router(llm.router)
+api_router.include_router(companies.router)  # company-name autocomplete
 api_router.include_router(cv.router)
 api_router.include_router(github.router)
 api_router.include_router(research.router)  # dev demo for Phase 1 tools

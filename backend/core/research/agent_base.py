@@ -38,6 +38,11 @@ from core.research.tools.registry import ToolResult
 
 # An event sink — the orchestrator passes one in; the base awaits it per event.
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
+# A synchronous, thread-safe sink (queue.put_nowait) used to stream token
+# progress from the reasoning thread back onto the event loop.
+EmitSync = Callable[[dict[str, Any]], None]
+
+_PROGRESS_EVERY = 24  # emit a live-progress event roughly every N new chars
 
 _MAX_CONTEXT_CHARS = 4_000   # per gathered source, keeps small-model context sane
 _RETRIES = 4                 # transient provider errors (Gemini "503 overloaded") are retried
@@ -92,8 +97,13 @@ class Agent(ABC):
 
     # ── engine ──
 
-    async def run(self, ctx: AgentContext, emit: Emit) -> AgentResult:
-        """Gather, reason, and emit progress. Never raises — failures are reported."""
+    async def run(self, ctx: AgentContext, emit: Emit, emit_sync: EmitSync) -> AgentResult:
+        """Gather, reason, and emit progress. Never raises — failures are reported.
+
+        `emit` is the async sink for milestone events; `emit_sync` is its thread-safe
+        counterpart used to stream the model's partial JSON out of the reasoning
+        thread (via `agent_progress` events) so the UI shows work as it happens.
+        """
         await emit({"type": "agent_started", "agent": self.name, "section": self.section})
 
         gathered = await asyncio.to_thread(self._gather_safe, ctx)
@@ -105,9 +115,17 @@ class Agent(ABC):
         # invented). Shown under the section so every fact is traceable.
         sources = provenance(gathered)
 
+        # Stream partial reasoning back to the loop from the worker thread.
+        loop = asyncio.get_running_loop()
+
+        def on_token(text: str) -> None:
+            loop.call_soon_threadsafe(
+                emit_sync, {"type": "agent_progress", "agent": self.name, "text": text}
+            )
+
         try:
             async with _llm_gate:
-                validated = await asyncio.to_thread(self._reason, ctx, gathered)
+                validated = await asyncio.to_thread(self._reason, ctx, gathered, on_token)
             section = self.section_from(validated)
         except Exception as exc:  # noqa: BLE001 — one bad agent must not sink the run
             await emit({"type": "agent_error", "agent": self.name, "error": str(exc)})
@@ -130,10 +148,15 @@ class Agent(ABC):
         except Exception:  # noqa: BLE001 — tools already fail soft; guard anything else
             return []
 
-    def _reason(self, ctx: AgentContext, gathered: list[ToolResult]) -> BaseModel:
-        """One LLM call → validated `output_model`, with a single repair retry."""
+    def _reason(
+        self, ctx: AgentContext, gathered: list[ToolResult], on_token: EmitSync | None = None
+    ) -> BaseModel:
+        """One LLM call → validated `output_model`, with a single repair retry.
+
+        The first pass streams so the UI can watch the JSON being written; the
+        repair pass (if needed) runs without streaming."""
         messages = self.build_messages(ctx, gathered)
-        raw = _complete(messages)
+        raw = _complete(messages, on_token)
         try:
             return self.output_model(**json.loads(_extract_json(raw)))
         except (ValueError, json.JSONDecodeError, ValidationError) as first:
@@ -154,17 +177,32 @@ class Agent(ABC):
 #  Shared helpers
 # ─────────────────────────────────────────────────────────────
 
-def _complete(messages: list[Message]) -> str:
+def _complete(messages: list[Message], on_token: EmitSync | None = None) -> str:
     """Call the LLM, retrying on transient overload only.
 
-    Overload (503 / "UNAVAILABLE" / "overloaded" / timeouts) is retried with
-    backoff. A quota error (429 / "RESOURCE_EXHAUSTED") is permanent for now —
-    retrying just wastes time and more quota — so it fails fast.
+    When `on_token` is given, the reply is streamed and the growing text is pushed
+    out (throttled) so the UI can render it live; otherwise a single blocking call
+    is made. Overload (503 / "UNAVAILABLE" / "overloaded" / timeouts) is retried
+    with backoff. A quota error (429 / "RESOURCE_EXHAUSTED") fails fast.
     """
     last: Exception | None = None
     for attempt in range(_RETRIES):
         try:
-            return llm.complete(messages, temperature=0.0, max_tokens=1500)
+            if on_token is None:
+                return llm.complete(messages, temperature=0.0, max_tokens=1500)
+            acc = ""
+            emitted = 0
+            for chunk in llm.stream(messages, temperature=0.0):
+                if not chunk:
+                    continue
+                acc += chunk
+                if len(acc) - emitted >= _PROGRESS_EVERY:
+                    emitted = len(acc)
+                    on_token(acc)
+            if not acc.strip():
+                raise ValueError("Empty response from model.")
+            on_token(acc)  # final flush so the whole reply is shown
+            return acc
         except Exception as exc:  # noqa: BLE001 — inspect the message to decide
             last = exc
             if not _is_transient(exc):

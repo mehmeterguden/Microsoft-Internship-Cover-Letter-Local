@@ -45,7 +45,7 @@ class _FakeAgent(Agent):
     def build_messages(self, ctx, gathered):
         return []
 
-    async def run(self, ctx, emit):
+    async def run(self, ctx, emit, emit_sync=None):
         await emit({"type": "agent_started", "agent": self.name, "section": self.section})
         await emit({"type": "source", "agent": self.name, "source": "https://x", "ok": True})
         event = "agent_done" if self._ok else "agent_error"

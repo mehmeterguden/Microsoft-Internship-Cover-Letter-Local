@@ -27,13 +27,21 @@ class _OverviewLike(Agent):
         return [{"role": "user", "content": "summarize"}]
 
 
+def _stream_of(text: str):
+    """A fake llm.stream that yields `text` as a single chunk."""
+    def _stream(messages, **kwargs):
+        yield text
+    return _stream
+
+
 def _run(agent, ctx):
     events: list[dict] = []
 
     async def emit(event):
         events.append(event)
 
-    result = asyncio.run(agent.run(ctx, emit))
+    # The second arg is the thread-safe sync sink used for streamed progress.
+    result = asyncio.run(agent.run(ctx, emit, events.append))
     return result, events
 
 
@@ -52,7 +60,8 @@ def test_extract_json_raises_without_object():
 # ── run flow ──
 
 def test_run_success_emits_and_validates(monkeypatch):
-    monkeypatch.setattr(agent_base.llm, "complete", lambda *a, **k: '{"summary": "A dev tool company."}')
+    # The first reasoning pass streams (so the UI can watch it), so patch stream.
+    monkeypatch.setattr(agent_base.llm, "stream", _stream_of('{"summary": "A dev tool company."}'))
     result, events = _run(_OverviewLike(), AgentContext("Acme"))
 
     assert result.ok and isinstance(result.data, Overview)
@@ -60,18 +69,21 @@ def test_run_success_emits_and_validates(monkeypatch):
     types = [e["type"] for e in events]
     assert types[0] == "agent_started"
     assert "source" in types
+    assert "agent_progress" in types  # live, partial reasoning was streamed
     assert types[-1] == "agent_done"
 
 
 def test_run_repairs_invalid_then_valid_json(monkeypatch):
-    replies = iter(["not json at all", '{"summary": "fixed"}'])
-    monkeypatch.setattr(agent_base.llm, "complete", lambda *a, **k: next(replies))
+    # First (streamed) pass is invalid; the repair pass uses the blocking complete.
+    monkeypatch.setattr(agent_base.llm, "stream", _stream_of("not json at all"))
+    monkeypatch.setattr(agent_base.llm, "complete", lambda *a, **k: '{"summary": "fixed"}')
     result, _ = _run(_OverviewLike(), AgentContext("Acme"))
 
     assert result.ok and result.data.summary == "fixed"
 
 
 def test_run_reports_error_when_both_attempts_fail(monkeypatch):
+    monkeypatch.setattr(agent_base.llm, "stream", _stream_of("still not json"))
     monkeypatch.setattr(agent_base.llm, "complete", lambda *a, **k: "still not json")
     result, events = _run(_OverviewLike(), AgentContext("Acme"))
 
@@ -84,6 +96,6 @@ def test_gather_failure_does_not_crash(monkeypatch):
         def gather(self, ctx):
             raise RuntimeError("source down")
 
-    monkeypatch.setattr(agent_base.llm, "complete", lambda *a, **k: '{"summary": "ok"}')
+    monkeypatch.setattr(agent_base.llm, "stream", _stream_of('{"summary": "ok"}'))
     result, _ = _run(_Boom(), AgentContext("Acme"))
     assert result.ok  # gather swallowed, reasoning still ran
