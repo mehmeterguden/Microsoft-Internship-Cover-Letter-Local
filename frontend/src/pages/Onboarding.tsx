@@ -16,8 +16,9 @@ import { Stepper } from "@/components/common/Stepper";
 import { FileDropzone } from "@/components/common/FileDropzone";
 import { SkillTag } from "@/components/common/SkillTag";
 import { DevInspector } from "@/components/common/DevInspector";
-import type { CVExtraction } from "@/api/types";
+import type { CVExtraction, Profile } from "@/api/types";
 import { saveExtraction, streamImportCv } from "@/api/cv";
+import { getProfile } from "@/api/profile";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
@@ -33,6 +34,14 @@ function fmt(seconds: number): string {
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
   const m = Math.floor(seconds / 60);
   return `${m}m ${Math.round(seconds % 60)}s`;
+}
+
+/** ISO date → a short, friendly label ("9 Jul 2026"); falls back to the raw string. */
+function friendlyDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 /** Auto-scrolling code block that shows the model's JSON as it streams in. */
@@ -99,7 +108,24 @@ export function Onboarding() {
   const [extraction, setExtraction] = useState<CVExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // A CV imported on a previous visit, detected from the profile's `cv` provenance.
+  const [existingCv, setExistingCv] = useState<{ filename: string | null; at: string | null; profile: Profile } | null>(null);
   const navigate = useNavigate();
+
+  // On load, surface any CV that was already imported so the user sees it instead
+  // of a blank dropzone (they can still import a new one, which replaces it).
+  useEffect(() => {
+    let alive = true;
+    getProfile()
+      .then((p) => {
+        const cvSource = Object.values(p.field_sources ?? {}).find((s) => s?.source === "cv");
+        if (alive && cvSource) setExistingCv({ filename: cvSource.detail ?? null, at: cvSource.at ?? null, profile: p });
+      })
+      .catch(() => {}); // no profile yet / offline — just show the empty dropzone
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -205,6 +231,37 @@ export function Onboarding() {
         <div className="min-w-0">
           {phase === "upload" && (
             <div className="grid gap-5">
+              {existingCv && (
+                <div className="flex flex-wrap items-center gap-4 rounded-[16px] border border-border bg-surface p-4 shadow-soft" style={{ animation: "cll-rise 0.3s both" }}>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[13px] bg-accent-soft text-accent-ink">
+                    <FileText size={22} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-[15px] font-bold text-text">{existingCv.filename || "Imported CV"}</p>
+                      <Badge tone="accent">On file</Badge>
+                    </div>
+                    <p className="mt-0.5 truncate text-[13px] text-text-2">
+                      {span(
+                        fullName(existingCv.profile.name, existingCv.profile.surname),
+                        existingCv.profile.email ?? undefined,
+                        existingCv.at ? `imported ${friendlyDate(existingCv.at)}` : undefined,
+                      )}
+                    </p>
+                  </div>
+                  <Button variant="secondary" onClick={() => navigate("/profile")}>
+                    <User size={16} /> View in profile
+                  </Button>
+                </div>
+              )}
+
+              {existingCv && (
+                <p className="text-[13.5px] font-semibold text-text">
+                  Import a new CV{" "}
+                  <span className="font-normal text-text-3">— this replaces what's currently in your profile</span>
+                </p>
+              )}
+
               <FileDropzone accept=".pdf,.docx,.png,.jpg,.jpeg" hint="PDF, DOCX or image · max 15 MB" onFile={handleFile} />
               <div className="grid gap-3 sm:grid-cols-3">
                 {[

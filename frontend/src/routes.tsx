@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/components/common/AppShell";
+import { RouteError } from "@/components/common/RouteError";
 import { Home } from "@/pages/Home";
 import { Onboarding } from "@/pages/Onboarding";
 import { Profile } from "@/pages/Profile";
@@ -8,16 +9,16 @@ import { Github } from "@/pages/Github";
 import { Voice } from "@/pages/Voice";
 import { Research } from "@/pages/Research";
 import { Write } from "@/pages/Write";
-import { Applications } from "@/pages/Applications";
+import { CoverLetters } from "@/pages/CoverLetters";
 import { Settings } from "@/pages/Settings";
 import { ComponentsShowcase } from "@/pages/ComponentsShowcase";
 import { NotFound } from "@/pages/NotFound";
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Home /> },
-  { path: "write", element: <Write /> },
+  { path: "/", element: <Home />, errorElement: <RouteError /> },
   {
     element: <AppShell />,
+    errorElement: <RouteError />,
     children: [
       { path: "onboarding", element: <Onboarding /> },
       { path: "profile", element: <Profile /> },
@@ -25,7 +26,8 @@ export const router = createBrowserRouter([
       { path: "github", element: <Github /> },
       { path: "voice", element: <Voice /> },
       { path: "research", element: <Research /> },
-      { path: "applications", element: <Applications /> },
+      { path: "write", element: <Write /> },
+      { path: "cover-letters", element: <CoverLetters /> },
       { path: "settings", element: <Settings /> },
       { path: "dev/components", element: <ComponentsShowcase /> },
       { path: "*", element: <NotFound /> },

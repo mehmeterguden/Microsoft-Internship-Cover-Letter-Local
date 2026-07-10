@@ -28,14 +28,14 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Home", hint: "Overview", icon: Home, group: "home" },
 
-  { to: "/onboarding", label: "Import CV", hint: "Add your CV", icon: FileUp, group: "setup" },
+  { to: "/onboarding", label: "CV", hint: "Your CV", icon: FileUp, group: "setup" },
   { to: "/profile", label: "Profile & Skills", hint: "Your details", icon: UserRound, group: "setup" },
   { to: "/github", label: "GitHub", hint: "Import projects", icon: Github, group: "setup" },
   { to: "/voice", label: "Writing Voice", hint: "Learn your style", icon: AudioLines, group: "setup" },
 
   { to: "/research", label: "Company Research", hint: "Research a role", icon: Building2, group: "create" },
-  { to: "/write", label: "Write Cover Letter", hint: "Generate & design", icon: PenLine, group: "create" },
-  { to: "/applications", label: "Applications", hint: "Track & revisit", icon: LayoutGrid, group: "create" },
+  { to: "/write", label: "Write Cover Letter", hint: "Generate & edit", icon: PenLine, group: "create" },
+  { to: "/cover-letters", label: "Cover Letters", hint: "Drafts & completed", icon: LayoutGrid, group: "create" },
 ];
 
 export const GROUP_LABELS: Record<NavGroup, string> = {

@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -359,6 +360,35 @@ export function Profile() {
     { label: "projects", n: projects.items.length, tone: "bg-violet-soft text-violet" },
   ];
 
+  // Nine sections, grouped into three for the left-rail nav. Counts are live so
+  // the badges track edits without a reload. Identity has no list, so no count.
+  const NAV_GROUPS = [
+    {
+      title: "Identity & contact",
+      items: [
+        { value: "identity", label: "Identity", icon: User },
+        { value: "languages", label: "Languages", icon: LangIcon, count: languages.items.length },
+        { value: "links", label: "Links", icon: Link2, count: links.items.length },
+      ],
+    },
+    {
+      title: "Experience & education",
+      items: [
+        { value: "experience", label: "Experience", icon: Briefcase, count: experiences.items.length },
+        { value: "projects", label: "Projects", icon: FolderGit2, count: projects.items.length },
+        { value: "education", label: "Education", icon: GraduationCap, count: education.items.length },
+      ],
+    },
+    {
+      title: "Skills & credentials",
+      items: [
+        { value: "skills", label: "Skills", icon: Wrench, count: skills.items.length },
+        { value: "certificates", label: "Certificates", icon: Award, count: certificates.items.length },
+        { value: "trainings", label: "Trainings", icon: BookOpen, count: trainings.items.length },
+      ],
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -405,43 +435,69 @@ export function Profile() {
       )}
 
       <AsyncBoundary loading={loaded.loading} error={loaded.error} onRetry={loaded.reload}>
-        <Tabs defaultValue="identity">
-          <div className="max-w-full overflow-x-auto pb-1">
-            <TabsList className="flex-nowrap">
-              <TabsTrigger value="identity"><User size={14} /> Identity</TabsTrigger>
-              <TabsTrigger value="skills"><Wrench size={14} /> Skills</TabsTrigger>
-              <TabsTrigger value="experience"><Briefcase size={14} /> Experience</TabsTrigger>
-              <TabsTrigger value="education"><GraduationCap size={14} /> Education</TabsTrigger>
-              <TabsTrigger value="projects"><FolderGit2 size={14} /> Projects</TabsTrigger>
-              <TabsTrigger value="certificates"><Award size={14} /> Certificates</TabsTrigger>
-              <TabsTrigger value="trainings"><BookOpen size={14} /> Trainings</TabsTrigger>
-              <TabsTrigger value="languages"><LangIcon size={14} /> Languages</TabsTrigger>
-              <TabsTrigger value="links"><Link2 size={14} /> Links</TabsTrigger>
-            </TabsList>
+        {/* Grouped left-rail navigation: nine sections collapse into three
+            labelled groups, each item showing a live count. Calmer than a row of
+            nine tabs and it scales cleanly. */}
+        <Tabs defaultValue="identity" orientation="vertical" className="flex flex-col gap-5 lg:flex-row lg:gap-6">
+          <TabsPrimitive.List
+            aria-label="Profile sections"
+            className="flex shrink-0 flex-col gap-5 self-start rounded-[16px] border border-border bg-surface p-3 shadow-soft lg:sticky lg:top-4 lg:w-60"
+          >
+            {NAV_GROUPS.map((group) => (
+              <div key={group.title}>
+                <p className="px-2 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.09em] text-text-3">
+                  {group.title}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <TabsPrimitive.Trigger
+                        key={item.value}
+                        value={item.value}
+                        className="group flex items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left text-[13.5px] font-medium text-text-2 transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent data-[state=active]:bg-accent-soft data-[state=active]:font-semibold data-[state=active]:text-accent-ink"
+                      >
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-surface-2 text-text-2 transition-colors group-hover:bg-surface group-data-[state=active]:bg-accent group-data-[state=active]:text-on-accent">
+                          <Icon size={14} />
+                        </span>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        {item.count !== undefined && (
+                          <span className="ml-auto rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold text-text-3 group-data-[state=active]:bg-accent/15 group-data-[state=active]:text-accent-ink">
+                            {item.count}
+                          </span>
+                        )}
+                      </TabsPrimitive.Trigger>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </TabsPrimitive.List>
+
+          <div className="min-w-0 flex-1">
+            <TabsContent value="identity" className="mt-0">
+              <Card>
+                <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
+                  <IdentityField id="fn" label="First name" value={profile.name ?? ""} onChange={(v) => field("name", v)} source={srcOf("name")} />
+                  <IdentityField id="ln" label="Last name" value={profile.surname ?? ""} onChange={(v) => field("surname", v)} source={srcOf("surname")} />
+                  <IdentityField id="em" label="Email" type="email" value={profile.email ?? ""} onChange={(v) => field("email", v)} source={srcOf("email")} />
+                  <IdentityField id="ph" label="Phone" value={profile.phone ?? ""} onChange={(v) => field("phone", v)} source={srcOf("phone")} />
+                  <IdentityField id="li" label="LinkedIn" value={profile.linkedin ?? ""} onChange={(v) => field("linkedin", v)} source={srcOf("linkedin")} />
+                  <IdentityField id="gh" label="GitHub" value={profile.github ?? ""} onChange={(v) => field("github", v)} source={srcOf("github")} />
+                  <IdentityField id="sm" label="Summary" textarea className="sm:col-span-2" value={profile.summary ?? ""} onChange={(v) => field("summary", v)} source={srcOf("summary")} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="skills" className="mt-0"><CrudSection config={skillsConfig} section={skills} /></TabsContent>
+            <TabsContent value="experience" className="mt-0"><CrudSection config={experiencesConfig} section={experiences} /></TabsContent>
+            <TabsContent value="education" className="mt-0"><CrudSection config={educationConfig} section={education} /></TabsContent>
+            <TabsContent value="projects" className="mt-0"><CrudSection config={projectsConfig} section={projects} /></TabsContent>
+            <TabsContent value="certificates" className="mt-0"><CrudSection config={certificatesConfig} section={certificates} /></TabsContent>
+            <TabsContent value="trainings" className="mt-0"><CrudSection config={trainingsConfig} section={trainings} /></TabsContent>
+            <TabsContent value="languages" className="mt-0"><CrudSection config={languagesConfig} section={languages} /></TabsContent>
+            <TabsContent value="links" className="mt-0"><CrudSection config={linksConfig} section={links} /></TabsContent>
           </div>
-
-          <TabsContent value="identity">
-            <Card>
-              <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
-                <IdentityField id="fn" label="First name" value={profile.name ?? ""} onChange={(v) => field("name", v)} source={srcOf("name")} />
-                <IdentityField id="ln" label="Last name" value={profile.surname ?? ""} onChange={(v) => field("surname", v)} source={srcOf("surname")} />
-                <IdentityField id="em" label="Email" type="email" value={profile.email ?? ""} onChange={(v) => field("email", v)} source={srcOf("email")} />
-                <IdentityField id="ph" label="Phone" value={profile.phone ?? ""} onChange={(v) => field("phone", v)} source={srcOf("phone")} />
-                <IdentityField id="li" label="LinkedIn" value={profile.linkedin ?? ""} onChange={(v) => field("linkedin", v)} source={srcOf("linkedin")} />
-                <IdentityField id="gh" label="GitHub" value={profile.github ?? ""} onChange={(v) => field("github", v)} source={srcOf("github")} />
-                <IdentityField id="sm" label="Summary" textarea className="sm:col-span-2" value={profile.summary ?? ""} onChange={(v) => field("summary", v)} source={srcOf("summary")} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="skills"><CrudSection config={skillsConfig} section={skills} /></TabsContent>
-          <TabsContent value="experience"><CrudSection config={experiencesConfig} section={experiences} /></TabsContent>
-          <TabsContent value="education"><CrudSection config={educationConfig} section={education} /></TabsContent>
-          <TabsContent value="projects"><CrudSection config={projectsConfig} section={projects} /></TabsContent>
-          <TabsContent value="certificates"><CrudSection config={certificatesConfig} section={certificates} /></TabsContent>
-          <TabsContent value="trainings"><CrudSection config={trainingsConfig} section={trainings} /></TabsContent>
-          <TabsContent value="languages"><CrudSection config={languagesConfig} section={languages} /></TabsContent>
-          <TabsContent value="links"><CrudSection config={linksConfig} section={links} /></TabsContent>
         </Tabs>
       </AsyncBoundary>
     </>

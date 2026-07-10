@@ -99,7 +99,7 @@ const FEATURES = [
   { icon: AudioLines, label: "Writing Voice", to: "/voice" },
   { icon: Building2, label: "Company Research", to: "/research" },
   { icon: PenLine, label: "Cover Letter", to: "/write" },
-  { icon: LayoutGrid, label: "Applications", to: "/applications" },
+  { icon: LayoutGrid, label: "Cover Letters", to: "/cover-letters" },
   { icon: SettingsIcon, label: "Settings", to: "/settings" },
 ];
 

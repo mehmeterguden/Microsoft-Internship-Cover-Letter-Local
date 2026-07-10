@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioLines, Ban, Database, FileText, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AudioLines, Ban, Database, Expand, FileText, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { ModelUnavailableDialog } from "@/components/settings/ModelUnavailableDialog";
 import { FileDropzone } from "@/components/common/FileDropzone";
 import { DevInspector } from "@/components/common/DevInspector";
 import { RatingInput } from "@/components/common/RatingInput";
@@ -25,6 +27,7 @@ import {
 import { parseDocument } from "@/api/cv";
 import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
+import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
 
 function ChipRow({ label, items, tone }: { label: string; items: string[]; tone: "accent" | "gold" | "danger" | "violet" }) {
@@ -120,6 +123,92 @@ function VoiceFingerprint({ v, letters, embeddings }: { v: VoiceProfile; letters
   );
 }
 
+/** One saved letter: a preview card; "Read full letter" opens it in a centered dialog. */
+function PastLetterCard({
+  index,
+  letter,
+  onRate,
+  onRemove,
+}: {
+  index: number;
+  letter: PastCoverLetter;
+  onRate: (value: number) => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const content = letter.content ?? "";
+  const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+  // Only offer the full-view when there's meaningfully more than the preview shows.
+  const isLong = content.length > 320 || content.split("\n").length > 6;
+
+  return (
+    <>
+      <Card hoverable>
+        <CardContent className="grid gap-3 pt-5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] bg-accent-soft text-[12px] font-bold text-accent-ink">
+                {index}
+              </span>
+              <span className="text-[13px] font-semibold text-text">Cover letter</span>
+              <span className="text-[12px] text-text-3">· {words} words</span>
+            </div>
+            {letter.ai_rating != null && <Badge tone="neutral">AI {letter.ai_rating}/5</Badge>}
+          </div>
+
+          <p className={cn("whitespace-pre-wrap text-[13.5px] leading-relaxed text-text-2", isLong && "line-clamp-6")}>
+            {content}
+          </p>
+
+          <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
+            {isLong ? (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent-ink transition-colors hover:text-accent"
+              >
+                <Expand size={14} /> Read full letter
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-2 text-[12px] text-text-3">
+                Your rating <RatingInput value={letter.user_rating ?? 0} onChange={onRate} />
+              </span>
+              <button
+                type="button"
+                aria-label="Delete letter"
+                onClick={onRemove}
+                className="rounded-[7px] p-1.5 text-text-3 transition-colors hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Centered modal with the full letter, scrollable for long ones. */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="w-[min(94vw,760px)]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Quote size={18} className="text-accent-ink" /> Cover letter {index}
+            </DialogTitle>
+            <p className="text-[12.5px] text-text-3">
+              {words} words{letter.ai_rating != null ? ` · AI rated ${letter.ai_rating}/5` : ""}
+            </p>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-auto rounded-[12px] border border-line bg-surface-2 p-5">
+            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-text">{content}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function Voice() {
   const loaded = useAsync(
     async () => {
@@ -136,6 +225,7 @@ export function Voice() {
   const [parsing, setParsing] = useState(false);
   const [learning, setLearning] = useState(false);
   const [voice, setVoice] = useState<VoiceProfile | null>(null);
+  const [modelDialog, setModelDialog] = useState<{ open: boolean; model: string }>({ open: false, model: "" });
   const embeddingsOn = loaded.data?.style.embeddings_available ?? false;
 
   useEffect(() => {
@@ -206,8 +296,22 @@ export function Voice() {
     setLearning(true);
     try {
       const result = await learnVoice();
-      setVoice(result.style_profile);
-      toast.success("Voice learned", `Analyzed ${result.samples} letters.`);
+      if (result.style_profile) setVoice(result.style_profile);
+      if (result.analysis_failed) {
+        if (result.suggest_model_switch) {
+          // The model itself is unavailable — offer to switch models and retry.
+          setModelDialog({ open: true, model: result.model ?? "" });
+        } else {
+          toast.warning(
+            "Couldn't analyze your voice",
+            result.llm_analyzed
+              ? "The model didn't respond, so we kept your previous profile. Please try again."
+              : "The model didn't respond fully — only basic metrics were saved. Please try again.",
+          );
+        }
+      } else {
+        toast.success("Voice learned", `Analyzed ${result.samples} letters.`);
+      }
     } catch (err) {
       toast.danger("Learning failed", errorMessage(err));
     } finally {
@@ -282,25 +386,14 @@ export function Voice() {
           {letters.length === 0 ? (
             <EmptyState icon={Quote} title="No letters yet" description="Paste or upload at least one to learn your voice." />
           ) : (
-            letters.map((l) => (
-              <Card key={l.id} hoverable>
-                <CardContent className="pt-5">
-                  <p className="line-clamp-3 whitespace-pre-wrap text-[13.5px] leading-relaxed text-text-2">{l.content}</p>
-                  <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
-                    <span className="flex items-center gap-2 text-[12px] text-text-3">
-                      Your rating <RatingInput value={l.user_rating ?? 0} onChange={(v) => rate(l, v)} />
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Delete letter"
-                      onClick={() => l.id != null && remove(l.id)}
-                      className="rounded-[7px] p-1.5 text-text-3 transition-colors hover:bg-danger-soft hover:text-danger"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+            letters.map((l, i) => (
+              <PastLetterCard
+                key={l.id}
+                index={i + 1}
+                letter={l}
+                onRate={(v) => rate(l, v)}
+                onRemove={() => l.id != null && remove(l.id)}
+              />
             ))
           )}
         </div>
@@ -341,6 +434,13 @@ export function Voice() {
         </div>
       </div>
       </AsyncBoundary>
+
+      <ModelUnavailableDialog
+        open={modelDialog.open}
+        onOpenChange={(o) => setModelDialog((prev) => ({ ...prev, open: o }))}
+        currentModel={modelDialog.model}
+        onSwitched={() => void learn()}
+      />
     </>
   );
 }
