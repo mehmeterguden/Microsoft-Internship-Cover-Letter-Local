@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building2, Check, CheckCircle2, Code2, Compass, Globe, Heart, Link2, Loader2, MessageSquare,
-  Newspaper, PenLine, Target, TrendingUp, Users, Wand2, XCircle, Zap,
+  Newspaper, PenLine, Target, TrendingUp, TriangleAlert, Users, Wand2, XCircle, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -303,6 +303,24 @@ export function Research() {
             ))}
           </Stagger>
         </section>
+      )}
+
+      {/* Partial run: some agents failed/timed out — the report is still shown, just
+          missing those sections. Derived from the agent_error events already tracked. */}
+      {report && order.some((a) => states[a] === "error" && a !== "fit" && a !== "ammo") && (
+        <div role="status" className="mb-4 flex items-start gap-3 rounded-[12px] border border-gold/25 bg-gold-soft px-4 py-3">
+          <TriangleAlert size={18} className="mt-0.5 shrink-0 text-gold" />
+          <div className="text-[13.5px] leading-snug text-text">
+            <p className="font-semibold">Some sections couldn't be researched</p>
+            <p className="mt-0.5 text-text-2">
+              {order
+                .filter((a) => states[a] === "error" && a !== "fit" && a !== "ammo")
+                .map((a) => agentMeta(a).label)
+                .join(", ")}{" "}
+              came back empty this run — the rest of the report is complete. Re-run to try again.
+            </p>
+          </div>
+        </div>
       )}
 
       {report && <Report report={report} onWrite={writeLetter} />}
