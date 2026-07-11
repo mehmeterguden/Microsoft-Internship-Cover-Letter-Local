@@ -155,7 +155,10 @@ class ReportMeta(BaseModel):
     gathered_at: str | None = None   # ISO timestamp, stamped by the caller
     duration_s: float | None = None
     from_cache: bool = False
-    agents: list[str] = Field(default_factory=list)
+    agents: list[str] = Field(default_factory=list)         # agents that succeeded
+    failed: list[str] = Field(default_factory=list)         # agents that errored/timed out (section unavailable)
+    partial: bool = False            # True when ≥1 agent failed — the report is complete-but-partial, not fatal
+    tool_calls: int = 0              # external tool/search calls made this run (against the per-run budget)
 
 
 class CompanyIntelReport(BaseModel):

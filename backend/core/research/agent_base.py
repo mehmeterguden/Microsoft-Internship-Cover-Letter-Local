@@ -13,6 +13,13 @@ models like phi-4-mini) than a free-form ReAct tool-calling loop, and it streams
 naturally: the base emits `agent_started` → `source` → `agent_done`/`agent_error`
 events as it goes, which the orchestrator forwards to the browser as SSE.
 
+On provider function/tool-calling: we deliberately do NOT use it. Tools are chosen
+deterministically per agent (in `gather`), so there is no model-driven/prompt-parsed
+tool selection to replace — and the shared LLM interface (`core.llm`, used read-only)
+exposes only `complete`/`stream`, not a tool-calling API. Deterministic gather +
+structured reasoning is both more robust across our pluggable providers and cheaper
+to bound (timeouts, retries, a tool budget), so it stays the approach.
+
 Privacy: agents only ever send public data outward — the tools go through
 `outbound_guard`, and prompts contain the company name, the employer's job text,
 and gathered public web content, never the CV/profile.
@@ -46,6 +53,14 @@ _PROGRESS_EVERY = 24  # emit a live-progress event roughly every N new chars
 
 _MAX_CONTEXT_CHARS = 4_000   # per gathered source, keeps small-model context sane
 _RETRIES = 4                 # transient provider errors (Gemini "503 overloaded") are retried
+
+# Per-agent timeouts — a hung tool or a stalled model must never freeze the whole
+# run. These cap the *active* work (not the wait for an LLM slot), so a slow agent
+# is marked failed and the rest of the fleet finishes. Module-level so tests can
+# shrink them; the caller may also override per run.
+GATHER_TIMEOUT = 45.0        # seconds for an agent's tool calls (each tool also has its own HTTP timeout)
+REASON_TIMEOUT = 90.0        # seconds for the LLM reasoning pass (incl. its retries)
+
 # Cap concurrent LLM calls: gathering fans out fully, but hammering a free-tier
 # cloud model with every agent at once triggers 503s. Reasoning is throttled.
 _llm_gate = asyncio.Semaphore(2)
@@ -106,7 +121,15 @@ class Agent(ABC):
         """
         await emit({"type": "agent_started", "agent": self.name, "section": self.section})
 
-        gathered = await asyncio.to_thread(self._gather_safe, ctx)
+        # Gathering is capped: a hung/slow source can't stall the agent. On timeout
+        # we proceed with whatever (possibly nothing) came back — reasoning can still
+        # produce a thin section, and the tools already fail soft on their own.
+        try:
+            gathered = await asyncio.wait_for(
+                asyncio.to_thread(self._gather_safe, ctx), timeout=GATHER_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            gathered = []
         for result in gathered:
             await emit(
                 {"type": "source", "agent": self.name, "source": result.source, "ok": result.ok}
@@ -123,12 +146,21 @@ class Agent(ABC):
                 emit_sync, {"type": "agent_progress", "agent": self.name, "text": text}
             )
 
+        # Reasoning is capped too. The timeout starts only *after* we hold an LLM
+        # slot, so an agent queued behind the concurrency gate isn't penalised for
+        # waiting — only for actually running too long.
         try:
             async with _llm_gate:
-                validated = await asyncio.to_thread(self._reason, ctx, gathered, on_token)
+                validated = await asyncio.wait_for(
+                    asyncio.to_thread(self._reason, ctx, gathered, on_token), timeout=REASON_TIMEOUT
+                )
             section = self.section_from(validated)
+        except asyncio.TimeoutError:
+            error = f"Timed out after {REASON_TIMEOUT:.0f}s"
+            await emit({"type": "agent_error", "agent": self.name, "error": error, "reason": "timeout"})
+            return AgentResult(self.name, self.section, None, sources, ok=False, error=error)
         except Exception as exc:  # noqa: BLE001 — one bad agent must not sink the run
-            await emit({"type": "agent_error", "agent": self.name, "error": str(exc)})
+            await emit({"type": "agent_error", "agent": self.name, "error": str(exc), "reason": "error"})
             return AgentResult(self.name, self.section, None, sources, ok=False, error=str(exc))
 
         await emit(
