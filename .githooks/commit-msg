@@ -1,0 +1,7 @@
+#!/bin/sh
+# Repo policy (see README / github-push skill): Claude / any AI must NEVER be
+# credited. Strip AI co-author trailers and "Generated with Claude" lines.
+f="$1"
+[ -f "$f" ] || exit 0
+grep -viE 'co-authored-by:[[:space:]]*.*(claude|anthropic)|generated with[[:space:]].*claude' "$f" > "$f.nai" && mv "$f.nai" "$f"
+exit 0

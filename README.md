@@ -14,3 +14,14 @@ Python · FastAPI · ChromaDB · local LLM (Microsoft Foundry Local) · React ·
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Commit & PR policy
+
+- Work on a feature branch → open a PR → **squash-merge**. Never commit directly to `main`.
+- [Conventional Commits](https://www.conventionalcommits.org/), in English: `type(scope): subject`.
+- **No AI is credited** as an author or co-author — commit messages must never contain a
+  `Co-Authored-By: Claude` (or any AI) trailer. A `commit-msg` hook strips it automatically.
+
+Enable the hook once after cloning:
+
+    git config core.hooksPath .githooks
