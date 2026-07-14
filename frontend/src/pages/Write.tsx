@@ -1,17 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Check, CircleDot, Copy, Download, PenLine, RefreshCw, Save, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/common/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input, Textarea, Select } from "@/components/ui/input";
-import { Field } from "@/components/ui/label";
+import { useState } from "react";
+import { Check, CircleDot, Info, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import type { Job, Tone } from "@/api/types";
-import { streamCoverLetter } from "@/api/coverLetter";
-import { createJob, getJob, updateJob } from "@/api/jobs";
-import { errorMessage } from "@/api/client";
-import { toast } from "@/store/toast";
+import { Field, Input, Label, Textarea } from "@/components/ui/field";
+import { Segmented, Slider, Toggle } from "@/components/ui/controls";
+import { ScoreRing, SourceChip } from "@/components/ui/data";
+
+/* ── Tone options (from the design's tone cards) ─────────────────── */
+type Tone = "professional" | "warm" | "confident" | "concise";
 
 const TONES: { value: Tone; label: string }[] = [
   { value: "professional", label: "Professional" },
@@ -20,227 +16,183 @@ const TONES: { value: Tone; label: string }[] = [
   { value: "concise", label: "Concise" },
 ];
 
+/* Map the length slider (0–100) onto an approximate target word count. */
+function wordsFor(pct: number): number {
+  return Math.round(180 + (pct / 100) * 280);
+}
+
 export function Write() {
-  const [params, setParams] = useSearchParams();
-  const jobIdParam = params.get("job");
-
-  // Prefill from the Company Research hand-off (?company=&role=&jd=&auto=1).
-  const [company, setCompany] = useState(params.get("company") ?? "");
-  const [role, setRole] = useState(params.get("role") ?? "");
-  const [jd, setJd] = useState(params.get("jd") ?? "");
+  // Backend wiring is deferred — everything here is local UI state.
+  const [company, setCompany] = useState("Anthropic");
+  const [role, setRole] = useState("ML Engineer");
+  const [jobPosting, setJobPosting] = useState("");
   const [tone, setTone] = useState<Tone>("warm");
-  const [text, setText] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [jobId, setJobId] = useState<number | null>(jobIdParam ? Number(jobIdParam) : null);
+  const [lengthPct, setLengthPct] = useState(50);
+  const [grounded, setGrounded] = useState(true);
 
-  const generated = text.trim().length > 0;
-  const abortRef = useRef<AbortController | null>(null);
-  const autoRan = useRef(false);
-  useEffect(() => () => abortRef.current?.abort(), []);
-
-  // Load an existing saved letter when reopened from Cover Letters.
-  useEffect(() => {
-    if (!jobIdParam) return;
-    getJob(Number(jobIdParam))
-      .then((job) => {
-        setCompany(job.company);
-        setRole(job.role);
-        setText(job.letter?.text ?? "");
-        setCompleted(Boolean(job.letter?.completed));
-      })
-      .catch((err) => toast.danger("Couldn't load letter", errorMessage(err)));
-  }, [jobIdParam]);
-
-  async function generate() {
-    const name = company.trim();
-    if (!name) {
-      toast.warning("Add a company", "Enter the company name first.");
-      return;
-    }
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setStreaming(true);
-    setText("");
-    let acc = "";
-    try {
-      await streamCoverLetter(
-        { company_name: name, role_title: role || null, job_description: jd || null, tone },
-        (event) => {
-          if (event.type === "token") {
-            acc += event.text;
-            setText(acc);
-          } else if (event.type === "done") {
-            setStreaming(false);
-          } else if (event.type === "fatal") {
-            toast.danger("Generation failed", event.error);
-            setStreaming(false);
-          }
-        },
-        controller.signal,
-      );
-    } catch (err) {
-      if (!controller.signal.aborted) toast.danger("Generation failed", errorMessage(err));
-      setStreaming(false);
-    }
-  }
-
-  // Auto-start generation once when arriving from research (?auto=1). Scheduled
-  // through a timer so React 18 StrictMode's mount/unmount/mount in dev cancels
-  // the throwaway pass and only the surviving mount actually generates.
-  useEffect(() => {
-    if (autoRan.current || jobIdParam) return;
-    if (params.get("auto") !== "1" || !company.trim()) return;
-    const t = window.setTimeout(() => {
-      autoRan.current = true;
-      void generate();
-    }, 0);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function persist(nextCompleted: boolean): Promise<number | null> {
-    const payload: Job = {
-      company: company.trim() || "Untitled",
-      role: role.trim() || "Role",
-      status: "draft",
-      letter: { text, completed: nextCompleted },
-    };
-    if (jobId != null) {
-      await updateJob(jobId, { ...payload, id: jobId });
-      return jobId;
-    }
-    const created = await createJob(payload);
-    if (created.id != null) {
-      setJobId(created.id);
-      setParams({ job: String(created.id) }, { replace: true });
-    }
-    return created.id ?? null;
-  }
-
-  async function save() {
-    if (!generated) {
-      toast.warning("Nothing to save", "Generate or write the letter first.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await persist(completed);
-      toast.success("Saved", "Find it under Cover Letters.");
-    } catch (err) {
-      toast.danger("Couldn't save", errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function toggleCompleted() {
-    const next = !completed;
-    setCompleted(next);
-    setSaving(true);
-    try {
-      await persist(next);
-      toast.success(next ? "Marked as completed" : "Moved back to draft");
-    } catch (err) {
-      setCompleted(!next); // revert on failure
-      toast.danger("Couldn't update", errorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function copy() {
-    navigator.clipboard?.writeText(text);
-    toast.success("Copied to clipboard");
-  }
-  function downloadTxt() {
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(company || "cover-letter").toLowerCase().replace(/\s+/g, "-")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  const words = wordsFor(lengthPct);
+  const lengthLabel = lengthPct < 34 ? "Brief" : lengthPct > 66 ? "Detailed" : "Standard";
 
   return (
-    <>
-      <PageHeader
-        eyebrow="Write & apply"
-        title="Cover letter"
-        icon={PenLine}
-        description="Generate a letter grounded in your profile and company research, then edit the text. Save it to Cover Letters."
-        actions={
-          <Button onClick={save} loading={saving} disabled={!generated}>
-            <Save size={16} /> Save
-          </Button>
-        }
-      />
-
-      <div className="grid gap-5 lg:grid-cols-[350px_1fr]">
-        {/* Inputs + generation */}
-        <Card className="lg:sticky lg:top-4 lg:self-start">
-          <CardContent className="grid gap-4 pt-5">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Company" htmlFor="w-co">
-                <Input id="w-co" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Microsoft" />
-              </Field>
-              <Field label="Role" htmlFor="w-ro">
-                <Input id="w-ro" value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. SWE Intern" />
-              </Field>
-            </div>
-            <Field label="Tone" htmlFor="w-tone">
-              <Select id="w-tone" value={tone} onChange={(e) => setTone(e.target.value as Tone)}>
-                {TONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </Select>
-            </Field>
-            <Field label="Job description" htmlFor="w-jd" hint="Optional — grounds the letter">
-              <Textarea id="w-jd" value={jd} onChange={(e) => setJd(e.target.value)} className="min-h-28" placeholder="Paste the posting…" />
-            </Field>
-            <Button onClick={generate} loading={streaming} className="w-full">
-              {generated ? <RefreshCw size={16} /> : <Sparkles size={16} />}
-              {generated ? "Regenerate" : "Generate letter"}
-            </Button>
-            <p className="rounded-[11px] bg-surface-2 p-3 text-[12.5px] leading-relaxed text-text-2">
-              The letter is grounded in your profile and, if you researched this company, its cached report.
+    <Page
+      eyebrow="GENERATE / WRITE LETTER"
+      title="Write letter"
+      subtitle="A grounded first draft in your voice — every claim traced back to a source."
+      actions={
+        <>
+          <Button variant="outline" size="md">Save draft</Button>
+          <Button variant="primary" size="md">Regenerate</Button>
+        </>
+      }
+      bodyClassName="px-7 py-5"
+    >
+      <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
+        {/* ── Left column: inputs ──────────────────────────────── */}
+        <div className="cll-fade flex min-w-0 flex-col gap-4">
+          <section className="rounded-[14px] border border-border bg-surface p-5">
+            <div className="text-[15px] font-semibold text-fg">What are you applying to?</div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-fg-mid">
+              Fill in the details and I&apos;ll ground the draft in your profile.
             </p>
-          </CardContent>
-        </Card>
 
-        {/* The letter — plain, editable text */}
-        <Card>
-          <CardContent className="grid gap-3 pt-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold text-text">Your letter</span>
-                {generated && (
-                  <Badge tone={completed ? "success" : "neutral"}>{completed ? "Completed" : "Draft"}</Badge>
-                )}
-                {streaming && (
-                  <span className="flex items-center gap-1.5 text-[12px] font-medium text-text-2">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-accent" /> Writing…
-                  </span>
-                )}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Field label="Company">
+                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company name" />
+              </Field>
+              <Field label="Role">
+                <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="ML Engineer" />
+              </Field>
+            </div>
+
+            <div className="mt-3">
+              <Field
+                label={
+                  <>
+                    Job posting <span className="text-fg-low">· optional</span>
+                  </>
+                }
+              >
+                <Textarea
+                  value={jobPosting}
+                  onChange={(e) => setJobPosting(e.target.value)}
+                  placeholder="Paste the full description for a sharper draft…"
+                  className="min-h-[92px]"
+                />
+              </Field>
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-4 rounded-[14px] border border-border bg-surface p-5">
+            <Field label="Tone">
+              <Segmented options={TONES} value={tone} onChange={setTone} />
+            </Field>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label>Length</Label>
+                <span className="font-mono text-[10px] tracking-[0.3px] text-accent-text">
+                  {lengthLabel} · ~{words} words
+                </span>
               </div>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={copy} disabled={!generated}><Copy size={14} /> Copy</Button>
-                <Button size="sm" variant="ghost" onClick={downloadTxt} disabled={!generated}><Download size={14} /> .txt</Button>
-                <Button size="sm" variant={completed ? "secondary" : "primary"} onClick={toggleCompleted} disabled={!generated} loading={saving}>
-                  {completed ? <><CircleDot size={14} /> Mark draft</> : <><Check size={14} /> Mark completed</>}
-                </Button>
+              <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
+              <div className="flex justify-between font-mono text-[9.5px] uppercase tracking-[0.6px] text-fg-low">
+                <span>Brief</span>
+                <span>Detailed</span>
               </div>
             </div>
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Generate a letter on the left, or write your own here…"
-              className="min-h-[60vh] font-serif text-[15px] leading-relaxed"
-            />
-          </CardContent>
-        </Card>
+
+            <div className="flex items-center justify-between gap-3 rounded-[11px] border border-border bg-surface-2 px-3.5 py-3">
+              <div className="min-w-0">
+                <div className="text-[13px] font-semibold text-fg">Ground every claim in my profile</div>
+                <p className="mt-0.5 text-[11.5px] leading-snug text-fg-mid">
+                  Only write claims traceable to your CV, GitHub or research.
+                </p>
+              </div>
+              <Toggle checked={grounded} onChange={setGrounded} aria-label="Ground every claim in my profile" />
+            </div>
+          </section>
+        </div>
+
+        {/* ── Right column: streaming letter + groundedness ───── */}
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Streaming reading pane */}
+          <section className="cll-fade relative flex min-h-[560px] flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
+            <div className="relative flex-1 overflow-auto p-7 sm:px-8">
+              {/* STREAMING pill */}
+              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.8px] text-accent-text">
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent"
+                  style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }}
+                />
+                Streaming
+              </div>
+
+              <div className="max-w-[600px] text-[15px] leading-[1.85] text-reading-ink">
+                <p className="mb-3.5">Dear {company || "Anthropic"} Hiring Team,</p>
+                <p className="mb-3.5">
+                  When I read that this role owns the evaluation pipelines behind your alignment work, it mapped
+                  almost exactly onto the two years I spent building reproducible eval harnesses for on-device
+                  models — work I still maintain in the open.
+                </p>
+                <p className="mb-0">
+                  That instinct for making evaluation legible and repeatable is exactly what I&apos;d bring to
+                  <span className="cll-caret" aria-hidden />
+                </p>
+              </div>
+
+              <div className="mt-[18px] flex items-center gap-1.5 border-t border-border pt-3.5 text-[10.5px] text-fg-low">
+                <Info size={12} strokeWidth={1.6} />
+                AI-generated — review before sending
+              </div>
+            </div>
+          </section>
+
+          {/* Groundedness check */}
+          <section className="cll-fade h-fit rounded-[14px] border border-border bg-surface p-[18px]">
+            <div className="mb-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+                <ShieldCheck size={16} strokeWidth={1.6} className="text-success" />
+                Groundedness
+              </div>
+              <ScoreRing value={78} size={44} thickness={5} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {/* Supported claim */}
+              <div className="flex items-center gap-2.5 text-[12px]">
+                <Check size={14} strokeWidth={2.4} className="shrink-0 text-success" />
+                <span className="flex-1 text-fg">Reproducible eval harnesses</span>
+                <SourceChip label="CV · L12" tone="accent" />
+              </div>
+
+              {/* Partially supported claim */}
+              <div className="flex items-center gap-2.5 text-[12px]">
+                <CircleDot size={14} strokeWidth={2} className="shrink-0 text-warning" />
+                <span className="flex-1 text-fg">Regression to minutes</span>
+                <SourceChip label="GH" tone="accent" />
+              </div>
+
+              {/* Unsupported claim — needs a source */}
+              <div
+                className="-mx-2 flex items-center gap-2.5 rounded-[9px] px-2.5 py-[7px] text-[12px]"
+                style={{ background: "rgba(251,113,133,0.08)", boxShadow: "inset 2px 0 0 var(--danger)" }}
+              >
+                <X size={14} strokeWidth={2.4} className="shrink-0 text-danger" />
+                <span className="flex-1 text-fg-mid">Led a team of five</span>
+                <SourceChip label="none" tone="warning" />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-[9px] border border-accent bg-accent-weak px-3 py-2.5 text-[12px] font-semibold text-accent-text transition-[filter] hover:brightness-110"
+            >
+              <Sparkles size={13} strokeWidth={1.6} />
+              Fix unsupported with AI
+            </button>
+          </section>
+        </div>
       </div>
-    </>
+    </Page>
   );
 }
