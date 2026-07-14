@@ -5,30 +5,38 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[12px] font-semibold transition-all disabled:pointer-events-none disabled:opacity-55 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+  "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] font-semibold outline-none transition-[filter,transform,box-shadow,background,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-accent-weak focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-45 active:translate-y-px",
   {
     variants: {
       variant: {
-        primary:
-          "bg-accent text-on-accent shadow-soft hover:brightness-[1.06] active:brightness-95",
-        secondary:
-          "border border-border bg-surface text-text hover:border-border-strong hover:bg-surface-2",
-        ghost: "text-text-2 hover:bg-surface-2 hover:text-text",
+        // colorful gradient hero CTA (white text)
+        primary: "overflow-hidden text-white hover:brightness-[1.07]",
+        // the everyday action button — solid accent with dark ink
+        solid: "bg-accent text-on-accent hover:brightness-[1.07]",
+        // quiet bordered button
+        outline: "border border-border-strong bg-surface text-fg hover:bg-surface-2",
+        // borderless
+        ghost: "text-fg-mid hover:bg-surface-2 hover:text-fg",
+        // filled but muted
+        subtle: "bg-surface-2 text-fg hover:brightness-110",
+        danger: "bg-danger text-white hover:brightness-[1.07]",
+        warning:
+          "border border-[color:var(--warning)]/30 bg-warning-weak text-warning hover:brightness-110",
+        // transitional aliases (legacy pages) — removed after migration
+        secondary: "border border-border-strong bg-surface text-fg hover:bg-surface-2",
         dashed:
-          "border-[1.5px] border-dashed border-border-strong bg-transparent text-text-2 hover:border-accent hover:text-accent-ink",
-        danger:
-          "bg-danger text-white shadow-soft hover:brightness-105 active:brightness-95",
-        outline:
-          "border border-border-strong bg-transparent text-text hover:bg-surface-2",
+          "border-[1.5px] border-dashed border-border-strong bg-transparent text-fg-mid hover:border-accent hover:text-accent-text",
       },
       size: {
-        sm: "h-9 px-3.5 text-[13px]",
-        md: "h-11 px-5 text-[14px]",
-        lg: "h-[52px] px-7 text-[15.5px]",
-        icon: "h-11 w-11",
+        xs: "h-8 px-3 text-[12px]",
+        sm: "h-9 px-3.5 text-[12.5px]",
+        md: "h-10 px-4 text-[13px]",
+        lg: "h-11 px-5 text-[14px]",
+        icon: "h-9 w-9",
+        "icon-sm": "h-8 w-8",
       },
     },
-    defaultVariants: { variant: "primary", size: "md" },
+    defaultVariants: { variant: "solid", size: "md" },
   },
 );
 
@@ -36,15 +44,20 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
     loading?: boolean;
+    /** primary variant only: animated sheen sweep */
+    sheen?: boolean;
   };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
-    // When asChild, Radix Slot requires exactly one child element — so we must
-    // not inject a sibling spinner. asChild links/anchors don't use `loading`.
+  ({ className, variant, size, asChild = false, loading = false, sheen = true, children, disabled, style, ...props }, ref) => {
+    const isPrimary = variant === "primary";
+    const primaryStyle = isPrimary
+      ? { background: "var(--accent-grad)", boxShadow: "0 8px 22px -10px var(--accent-shadow)", ...style }
+      : style;
+
     if (asChild) {
       return (
-        <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props}>
+        <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} style={primaryStyle} {...props}>
           {children}
         </Slot>
       );
@@ -53,11 +66,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(buttonVariants({ variant, size }), className)}
+        style={primaryStyle}
         disabled={disabled || loading}
         {...props}
       >
-        {loading && <Loader2 size={16} className="animate-spin" />}
-        {children}
+        {isPrimary && sheen ? <span className="cll-sheen-el" aria-hidden /> : null}
+        {loading ? <Loader2 size={15} className="relative animate-spin" /> : null}
+        <span className="relative inline-flex items-center gap-2">{children}</span>
       </button>
     );
   },
