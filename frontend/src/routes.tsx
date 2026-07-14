@@ -15,19 +15,19 @@ import { ComponentsShowcase } from "@/pages/ComponentsShowcase";
 import { NotFound } from "@/pages/NotFound";
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Home />, errorElement: <RouteError /> },
   {
     element: <AppShell />,
     errorElement: <RouteError />,
     children: [
-      { path: "onboarding", element: <Onboarding /> },
+      { index: true, element: <Home /> },
+      { path: "write", element: <Write /> },
+      { path: "research", element: <Research /> },
+      { path: "cover-letters", element: <CoverLetters /> },
       { path: "profile", element: <Profile /> },
       { path: "profile/complete", element: <ProfileComplete /> },
-      { path: "github", element: <Github /> },
+      { path: "onboarding", element: <Onboarding /> },
       { path: "voice", element: <Voice /> },
-      { path: "research", element: <Research /> },
-      { path: "write", element: <Write /> },
-      { path: "cover-letters", element: <CoverLetters /> },
+      { path: "github", element: <Github /> },
       { path: "settings", element: <Settings /> },
       { path: "dev/components", element: <ComponentsShowcase /> },
       { path: "*", element: <NotFound /> },

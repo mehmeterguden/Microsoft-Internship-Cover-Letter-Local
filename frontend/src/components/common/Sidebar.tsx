@@ -1,151 +1,275 @@
-import { NavLink, useLocation } from "react-router-dom";
-import { motion } from "motion/react";
-import { Cpu, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
-import { GROUP_LABELS, NAV_ITEMS, type NavItem } from "@/lib/nav";
-import { getSettings } from "@/api/settings";
-import { useAsync } from "@/lib/useAsync";
+import { NavLink } from "react-router-dom";
+import { useTheme } from "@/lib/theme";
+import { MAIN_NAV, SETUP_NAV, type NavIcon, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-import { Logo } from "./Logo";
-import { ThemeToggle } from "./ThemeToggle";
 
-const PROVIDER_LABEL: Record<string, string> = {
-  foundry_local: "Foundry Local",
-  ollama: "Ollama",
-  openai: "OpenAI",
-  anthropic: "Claude",
-  gemini: "Gemini",
+const REPO_URL = "https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local";
+
+// TODO(backend wiring): replace with live data from getSettings() / jobs count.
+const CURRENT_MODEL = "Llama 3.1 · 8B";
+const LETTERS_COUNT = 3;
+
+const svgBase = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
 };
-const LOCAL = new Set(["foundry_local", "ollama"]);
+
+function NavGlyph({ name }: { name: NavIcon }) {
+  switch (name) {
+    case "home":
+      return (
+        <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
+          <path d="M3 9l7-5.5L17 9v8H12v-5H8v5H3z" />
+        </svg>
+      );
+    case "profile":
+      return (
+        <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
+          <circle cx="10" cy="7" r="3" />
+          <path d="M4 17c0-3.2 3-5 6-5s6 1.8 6 5" />
+        </svg>
+      );
+    case "letters":
+      return (
+        <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
+          <rect x="3" y="5" width="14" height="10" rx="1.8" />
+          <path d="M3.5 6l6.5 4.5L16.5 6" />
+        </svg>
+      );
+    case "addcv":
+      return (
+        <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
+          <path d="M5 3h6l4 4v10H5z" />
+          <path d="M11 3v4h4" />
+          <path d="M8.5 12.5h3M10 11v3" />
+        </svg>
+      );
+    case "voice":
+      return (
+        <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
+          <path d="M4 10h1.5M8 6v8M12 4v12M16 8v4" />
+        </svg>
+      );
+    case "github":
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+        </svg>
+      );
+  }
+}
 
 function NavRow({ item }: { item: NavItem }) {
-  const { to, label, hint, icon: Icon } = item;
   return (
-    <li>
-      <NavLink to={to} end={to === "/"} className="block focus-visible:outline-none">
-        {({ isActive }) => (
-          <span
-            className={cn(
-              "group relative flex items-center gap-3 rounded-[11px] px-3 py-2.5 transition-colors",
-              isActive ? "text-text" : "text-text-2 hover:text-text",
-            )}
-          >
-            {isActive && (
-              <motion.span
-                layoutId="nav-active"
-                className="absolute inset-0 rounded-[11px] bg-accent-soft ring-1 ring-inset ring-accent/30"
-                transition={{ type: "spring", stiffness: 520, damping: 42 }}
-              />
-            )}
+    <NavLink to={item.to} end={item.to === "/"} className="block outline-none">
+      {({ isActive }) => (
+        <span
+          className={cn(
+            "relative flex items-center gap-3 rounded-[9px] px-2.5 py-2 text-[13px] transition-colors",
+            isActive ? "bg-accent-weak font-medium text-fg" : "text-fg-mid hover:bg-surface-2 hover:text-fg",
+          )}
+        >
+          {isActive && (
             <span
-              className={cn(
-                "relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-[9px] transition-colors",
-                isActive ? "bg-accent text-on-accent shadow-soft" : "bg-surface-2 text-text-2 group-hover:text-text",
-              )}
-            >
-              <Icon size={16} />
-            </span>
-            <span className="relative z-10 min-w-0">
-              <span className="block text-[13.5px] font-semibold leading-tight">{label}</span>
-              <span className={cn("block text-[11px] leading-tight", isActive ? "text-accent-ink" : "text-text-3")}>{hint}</span>
-            </span>
+              className="absolute bottom-2 left-0 top-2 w-[3px] rounded-full"
+              style={{ background: "var(--accent-grad)" }}
+            />
+          )}
+          <span className={cn("grid shrink-0 place-items-center", isActive && "text-accent-text")}>
+            <NavGlyph name={item.icon} />
           </span>
-        )}
-      </NavLink>
-    </li>
+          <span className="flex-1 truncate">{item.label}</span>
+          {item.count === "letters" && LETTERS_COUNT > 0 ? (
+            <span className="rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-fg-low">
+              {LETTERS_COUNT}
+            </span>
+          ) : null}
+        </span>
+      )}
+    </NavLink>
   );
 }
 
 export function Sidebar() {
-  const { pathname } = useLocation();
-  const home = NAV_ITEMS.filter((i) => i.group === "home");
-  const setup = NAV_ITEMS.filter((i) => i.group === "setup");
-  const create = NAV_ITEMS.filter((i) => i.group === "create");
-
-  // Re-read on navigation so the footer reflects a just-changed model.
-  const settings = useAsync(getSettings, [pathname]);
-  const provider = settings.data?.llm_provider ?? "";
-  const model = settings.data?.llm_model ?? "";
-  const providerLabel = PROVIDER_LABEL[provider] ?? provider;
+  const { theme, toggle } = useTheme();
 
   return (
-    <aside className="sticky top-0 z-20 flex h-dvh w-[272px] shrink-0 flex-col border-r border-border bg-surface text-text">
-      <div className="px-5 pt-6 pb-4">
-        <Logo />
+    <aside
+      className="relative z-10 flex w-[258px] shrink-0 flex-col border-r border-border px-3.5 pb-4 pt-[18px]"
+      style={{ background: "linear-gradient(180deg, rgba(150,190,230,.045), transparent 34%), var(--sidebar)" }}
+    >
+      {/* top glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[120px]"
+        style={{ background: "var(--glow-1)", opacity: 0.16, filter: "blur(46px)" }}
+      />
+
+      {/* logo */}
+      <div className="relative flex items-center gap-[11px] px-1.5">
+        <div
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px]"
+          style={{ background: "var(--accent-grad)", boxShadow: "0 6px 16px -8px var(--accent-shadow)" }}
+        >
+          <div className="absolute inset-0" style={{ background: "linear-gradient(140deg, rgba(255,255,255,.32), transparent 52%)" }} />
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="relative">
+            <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+            <path d="M3.5 7l8.5 6 8.5-6" />
+          </svg>
+        </div>
+        <div className="min-w-0 leading-tight">
+          <div className="text-[14px] font-bold tracking-[-0.2px] text-fg">Cover Letter Local</div>
+          <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 py-[3px] pl-[7px] pr-[9px]">
+            <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="var(--accent-text)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="9" width="10" height="7" rx="1.5" />
+              <path d="M7 9V6.5a3 3 0 0 1 6 0V9" />
+            </svg>
+            <span className="text-[9.5px] font-semibold tracking-[0.4px] text-accent-text">Private · on-device</span>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Primary">
-        <ul className="space-y-1">
-          {home.map((i) => <NavRow key={i.to} item={i} />)}
-        </ul>
+      {/* primary CTA */}
+      <NavLink
+        to="/write"
+        className="relative mt-4 flex items-center gap-2.5 overflow-hidden rounded-[12px] px-3 py-2.5 text-[13px] font-semibold text-on-accent outline-none"
+        style={{ background: "var(--accent-grad)", boxShadow: "0 8px 22px -8px var(--accent-shadow)" }}
+      >
+        <span className="cll-sheen-el" />
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="relative shrink-0">
+          <path d="M4 16l1-4 8.5-8.5 3 3L8 15l-4 1z" />
+          <path d="M12 5l3 3" />
+        </svg>
+        <span className="relative flex-1 text-left">New Cover Letter</span>
+      </NavLink>
 
-        {/* Stage 1 — Setup */}
-        <div className="mt-5 rounded-[14px] bg-surface-2 p-2 ring-1 ring-border">
-          <p className="px-2 pb-1.5 pt-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-accent-ink">
-            {GROUP_LABELS.setup}
-          </p>
-          <ul className="space-y-0.5">
-            {setup.map((i) => <NavRow key={i.to} item={i} />)}
-          </ul>
+      <div className="mx-1.5 mt-4 h-px bg-border" />
+
+      {/* navigation */}
+      <nav className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label="Primary">
+        <div className="flex flex-col gap-0.5">
+          {MAIN_NAV.map((item) => (
+            <NavRow key={item.to} item={item} />
+          ))}
         </div>
-
-        {/* Stage 2 — Write & apply */}
-        <div className="mt-4 rounded-[14px] bg-surface-2 p-2 ring-1 ring-border">
-          <p className="px-2 pb-1.5 pt-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-accent-ink">
-            {GROUP_LABELS.create}
-          </p>
-          <ul className="space-y-0.5">
-            {create.map((i) => <NavRow key={i.to} item={i} />)}
-          </ul>
+        <div className="mx-1 my-3.5 h-px bg-border" />
+        <div className="mb-2 px-[11px] text-[10px] font-semibold uppercase tracking-[0.09em] text-fg-low">Setup</div>
+        <div className="flex flex-col gap-0.5">
+          {SETUP_NAV.map((item) => (
+            <NavRow key={item.to} item={item} />
+          ))}
         </div>
       </nav>
 
-      {/* Footer: privacy · current model · settings + theme */}
-      <div className="space-y-2.5 border-t border-border p-3">
-        <div className="flex items-start gap-2 rounded-[11px] bg-surface-2 px-3 py-2">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-accent-ink" />
-          <p className="text-[11px] leading-snug text-text-3">Runs on your machine — your data never leaves the device.</p>
-        </div>
+      {/* footer */}
+      <div className="relative mt-3 flex flex-col gap-2.5">
+        {/* star on github */}
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative flex items-center gap-[11px] overflow-hidden rounded-[13px] border border-border-strong px-3 py-[11px] no-underline transition hover:-translate-y-px hover:border-accent"
+          style={{ background: "linear-gradient(135deg, var(--surface-2), var(--surface))" }}
+        >
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-border-strong bg-input text-fg">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="flex items-center gap-1.5">
+              <span className="text-[12.5px] font-semibold text-fg">Star on GitHub</span>
+              <svg width="11" height="11" viewBox="0 0 20 20" fill="var(--warning)" stroke="var(--warning)" strokeWidth="1.4" strokeLinejoin="round">
+                <path d="M10 3l2 4.5 5 .5-3.8 3.3 1.2 4.9L10 13.7 5.6 16.2l1.2-4.9L3 8l5-.5z" />
+              </svg>
+            </span>
+            <span className="mt-0.5 flex items-center gap-1.5">
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+                <rect x="0" y="0" width="4.4" height="4.4" fill="#F25022" />
+                <rect x="5.6" y="0" width="4.4" height="4.4" fill="#7FBA00" />
+                <rect x="0" y="5.6" width="4.4" height="4.4" fill="#00A4EF" />
+                <rect x="5.6" y="5.6" width="4.4" height="4.4" fill="#FFB900" />
+              </svg>
+              <span className="text-[10px] text-fg-low">Microsoft internship · open source</span>
+            </span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="relative shrink-0 text-fg-low transition group-hover:text-accent-text">
+            <path d="M7 5h8v8M15 5l-9 9" />
+          </svg>
+        </a>
 
-        {/* Current model — click to change in Settings */}
+        {/* current model → settings */}
         <NavLink
           to="/settings"
           title="Change model in Settings"
-          className="flex items-center gap-2.5 rounded-[12px] border border-border bg-surface-2 px-3 py-2.5 transition-colors hover:border-border-strong focus-visible:outline-none"
+          className="group relative flex items-center gap-[11px] overflow-hidden rounded-[13px] border border-border bg-surface px-3 py-[11px] outline-none transition hover:border-border-strong"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-ink">
-            <Cpu size={17} />
+          <span
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-border-strong bg-accent-weak text-accent-text"
+            style={{ boxShadow: "0 0 14px -6px var(--accent-shadow)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 2.5l6 2.5v4c0 3.6-2.5 6.4-6 7.5-3.5-1.1-6-3.9-6-7.5V5z" />
+              <path d="M7.5 10l1.8 1.8L13 8" />
+            </svg>
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-text-3">Current model</span>
-            <span className="block truncate text-[13px] font-semibold text-text">
-              {model || (settings.loading ? "…" : "Not set")}
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate text-[12.5px] font-semibold text-fg">{CURRENT_MODEL}</span>
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ background: "var(--success)", boxShadow: "0 0 8px var(--success)", animation: "cll-pulse 2.4s ease-in-out infinite" }}
+              />
             </span>
-            {provider && (
-              <span className="block text-[11px] text-text-3">
-                {providerLabel} · {LOCAL.has(provider) ? "local" : "cloud"}
-              </span>
-            )}
+            <span className="mt-0.5 block text-[10px] text-fg-low">Local model · nothing leaves your device</span>
           </span>
-          <span className={cn("h-2 w-2 shrink-0 rounded-full", provider ? "bg-accent" : "bg-text-3/50")} />
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-fg-low">
+            <path d="M8 5l4 5-4 5" />
+          </svg>
         </NavLink>
 
-        {/* Settings + theme toggle */}
+        {/* settings row + theme toggle */}
         <div className="flex gap-2">
-          <NavLink to="/settings" className="flex-1 focus-visible:outline-none">
+          <NavLink to="/settings" className="flex-1 outline-none">
             {({ isActive }) => (
               <span
                 className={cn(
-                  "flex items-center justify-center gap-2 rounded-[11px] px-3 py-2.5 text-[13px] font-semibold transition-colors",
+                  "flex items-center justify-center gap-2 rounded-[9px] px-3 py-2.5 text-[13px] font-medium transition-colors",
                   isActive
-                    ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-accent/30"
-                    : "border border-border text-text-2 hover:border-border-strong hover:text-text",
+                    ? "bg-accent-weak text-accent-text"
+                    : "border border-border text-fg-mid hover:border-border-strong hover:text-fg",
                 )}
               >
-                <SettingsIcon size={15} /> Settings
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M4 7h9M4 13h5" />
+                  <circle cx="15" cy="7" r="2" />
+                  <circle cx="11" cy="13" r="2" />
+                </svg>
+                Settings
               </span>
             )}
           </NavLink>
-          <ThemeToggle compact />
+          <button
+            type="button"
+            onClick={toggle}
+            title="Toggle theme"
+            aria-label="Toggle theme"
+            className="flex w-[42px] shrink-0 items-center justify-center rounded-[9px] border border-border text-fg-low transition-colors hover:border-border-strong hover:text-fg"
+          >
+            {theme === "dark" ? (
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 11a5 5 0 1 1-6-6 4 4 0 0 0 6 6z" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10" cy="10" r="3.5" />
+                <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
     </aside>
