@@ -57,7 +57,7 @@ export function SourceChip({
 }) {
   const color = tone === "warning" ? "var(--warning)" : tone === "neutral" ? "var(--text-low)" : "var(--accent-text)";
   const cls = cn(
-    "inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-[3px] font-mono text-[9.5px] leading-none",
+    "inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-[3px] font-mono text-[12px] leading-none",
     className,
   );
   const inner = (
@@ -92,7 +92,7 @@ export function Stepper({ steps, current, className }: { steps: Step[]; current:
             <div className="flex items-center gap-2.5">
               <span
                 className={cn(
-                  "grid h-7 w-7 shrink-0 place-items-center rounded-full border font-mono text-[11px] font-semibold transition-colors",
+                  "grid h-7 w-7 shrink-0 place-items-center rounded-full border font-mono text-[13px] font-semibold transition-colors",
                   done && "border-transparent text-on-accent",
                   active && "border-accent text-accent-text",
                   !done && !active && "border-border bg-surface-2 text-fg-low",
@@ -102,8 +102,8 @@ export function Stepper({ steps, current, className }: { steps: Step[]; current:
                 {done ? <Check size={14} strokeWidth={2.6} /> : i + 1}
               </span>
               <div className="leading-tight">
-                <div className={cn("text-[12.5px] font-medium", active || done ? "text-fg" : "text-fg-low")}>{step.label}</div>
-                {step.hint ? <div className="text-[10.5px] text-fg-low">{step.hint}</div> : null}
+                <div className={cn("text-[13px] font-medium", active || done ? "text-fg" : "text-fg-low")}>{step.label}</div>
+                {step.hint ? <div className="text-[12px] text-fg-low">{step.hint}</div> : null}
               </div>
             </div>
             {i < steps.length - 1 ? (

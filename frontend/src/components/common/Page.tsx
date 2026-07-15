@@ -14,7 +14,7 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
   return (
     <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-7 py-5">
       <div className="min-w-0">
-        <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-mid">
+        <div className="text-[13px] font-semibold tracking-[0.01em] text-fg-mid">
           {eyebrow.split("/").map((part, i) => (
             <span key={i}>
               {i > 0 ? <span className="px-1.5 text-fg-low">/</span> : null}
@@ -22,10 +22,10 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
             </span>
           ))}
         </div>
-        <h1 className="mt-1.5 truncate text-[22px] font-bold leading-tight tracking-[-0.02em] text-fg">
+        <h1 className="mt-1.5 truncate text-[26px] font-bold leading-tight tracking-[-0.02em] text-fg">
           {title}
         </h1>
-        {subtitle ? <p className="mt-1 truncate text-[13px] text-fg-mid">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-1 truncate text-[14px] text-fg-mid">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2.5">{actions}</div> : null}
     </header>

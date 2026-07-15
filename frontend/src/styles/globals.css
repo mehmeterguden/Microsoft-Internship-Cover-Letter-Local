@@ -163,8 +163,8 @@
     background-color: var(--bg);
     color: var(--text-hi);
     font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: 16px;
+    line-height: 1.6;
     letter-spacing: -0.1px;
   }
 

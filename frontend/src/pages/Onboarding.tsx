@@ -183,7 +183,7 @@ export function Onboarding() {
       actions={
         <Link
           to="/"
-          className="rounded-[9px] border border-border-strong bg-transparent px-4 py-[9px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          className="rounded-[9px] border border-border-strong bg-transparent px-4 py-[9px] text-[14px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
         >
           Skip for now
         </Link>
@@ -330,10 +330,10 @@ function UploadState({ onChoose, ocrEnabled }: { onChoose: (file: File) => void;
             <path d="M12 11v6M9 14l3-3 3 3" />
           </svg>
         </div>
-        <div className="text-[18px] font-bold tracking-[-0.3px] text-fg">
+        <div className="text-[20px] font-bold tracking-[-0.3px] text-fg">
           {dragging ? "Drop it here" : "Drop your CV to get started"}
         </div>
-        <div className="mt-2 text-[13px] leading-[1.55] text-fg-mid">
+        <div className="mt-2 text-[14px] leading-[1.55] text-fg-mid">
           or click to browse — it's read right here on your device,
           <br />
           then turned into a profile you can edit.
@@ -342,7 +342,7 @@ function UploadState({ onChoose, ocrEnabled }: { onChoose: (file: File) => void;
           {formats.map((f) => (
             <span
               key={f.label}
-              className={`whitespace-nowrap rounded-[8px] border px-[11px] py-[5px] font-mono text-[10px] ${
+              className={`whitespace-nowrap rounded-[8px] border px-[11px] py-[5px] font-mono text-[12px] ${
                 f.ocr && ocrOff
                   ? "border-warning-weak bg-warning-weak text-warning"
                   : "border-border bg-surface-2 text-fg-mid"
@@ -353,7 +353,7 @@ function UploadState({ onChoose, ocrEnabled }: { onChoose: (file: File) => void;
           ))}
         </div>
         {ocrOff ? (
-          <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] text-fg-mid">
+          <div className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] text-fg-mid">
             <AlertTriangle size={13} className="text-warning" aria-hidden="true" />
             <span>
               Scanned images need OCR —{" "}
@@ -403,7 +403,7 @@ function UploadState({ onChoose, ocrEnabled }: { onChoose: (file: File) => void;
 
 function TrustItem({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-[7px] text-[11.5px] text-fg-mid">
+    <span className="inline-flex items-center gap-[7px] text-[13px] text-fg-mid">
       <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--accent-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {children}
       </svg>
@@ -447,8 +447,8 @@ function ParseState({
         <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-[12px] bg-danger-weak">
           <AlertTriangle size={20} className="text-danger" aria-hidden="true" />
         </div>
-        <div className="text-[15px] font-semibold text-fg">We couldn't read that file</div>
-        <div className="mx-auto mt-2 max-w-[460px] text-[12.5px] leading-[1.55] text-fg-mid">{error}</div>
+        <div className="text-[16px] font-semibold text-fg">We couldn't read that file</div>
+        <div className="mx-auto mt-2 max-w-[460px] text-[13px] leading-[1.55] text-fg-mid">{error}</div>
         <Button variant="primary" className="mt-[18px]" onClick={onReset}>
           Try another file
         </Button>
@@ -477,11 +477,11 @@ function ParseState({
                 <path d="M10 13V4M6.5 7.5L10 4l3.5 3.5M4 15h12" />
               </svg>
             </div>
-            <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-fg">
+            <div className="flex items-center justify-center gap-2 text-[14px] font-semibold text-fg">
               <span className="truncate">{meta?.filename ?? file?.name ?? "Your CV"}</span>
               {done ? <SuccessCheck /> : <Loader2 size={14} className="shrink-0 animate-spin text-accent-text" aria-hidden="true" />}
             </div>
-            <div className="mt-[5px] font-mono text-[10px] text-fg-low">
+            <div className="mt-[5px] font-mono text-[12px] text-fg-low">
               {file ? formatBytes(file.size) : ""}
               {meta
                 ? ` · ${meta.source_type.toUpperCase()} · ${meta.num_pages} pp · ${meta.char_count.toLocaleString()} chars`
@@ -500,12 +500,12 @@ function ParseState({
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">Extracted so far</div>
+            <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-mid">Extracted so far</div>
             <div className="flex flex-wrap gap-2">
               {counters.map((ct) => (
                 <span
                   key={ct.label}
-                  className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1.5 text-[11.5px] text-fg"
+                  className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-fg"
                 >
                   <b className="text-accent-text">{ct.n ?? "—"}</b> {ct.label}
                 </span>
@@ -516,7 +516,7 @@ function ParseState({
 
         {/* Streaming JSON */}
         <div className="relative overflow-hidden rounded-[12px] border border-border bg-reading px-5 py-[18px]">
-          <div className="absolute right-4 top-3.5 flex items-center gap-1.5 font-mono text-[9.5px] text-accent-text">
+          <div className="absolute right-4 top-3.5 flex items-center gap-1.5 font-mono text-[12px] text-accent-text">
             <span
               className="h-1.5 w-1.5 rounded-full"
               style={{
@@ -526,7 +526,7 @@ function ParseState({
             />
             {done ? "Parsed" : "Parsing"} · {timeLabel}s
           </div>
-          <pre className="mt-5 max-h-[300px] overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.75] text-reading-ink">
+          <pre className="mt-5 max-h-[300px] overflow-auto whitespace-pre-wrap break-words font-mono text-[13px] leading-[1.75] text-reading-ink">
             {streamText || (parsing ? "Waiting for the model to respond…" : "")}
             {parsing ? <span className="cll-caret" /> : null}
           </pre>
@@ -537,7 +537,7 @@ function ParseState({
         <button
           type="button"
           onClick={onReset}
-          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[14px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
         >
           Cancel
         </button>
@@ -630,13 +630,13 @@ function ReviewState({
 
   return (
     <div className="cll-fade">
-      <div className="mb-3.5 text-[13px] text-fg-mid">
+      <div className="mb-3.5 text-[14px] text-fg-mid">
         Here's what we pulled from your CV. Fix any contact details below, then save — you can refine every section from your profile afterwards.
       </div>
 
       {/* Editable basics — the fields most worth correcting before import */}
       <div className="mb-4 rounded-[12px] border border-border bg-surface p-4">
-        <div className="mb-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your details</div>
+        <div className="mb-3 text-[12px] font-semibold tracking-[0.01em] text-fg-low">Your details</div>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3">
           {BASICS_FIELDS.map((f) => (
             <Field key={f.key} label={f.label} htmlFor={`basics-${f.key}`}>
@@ -656,19 +656,19 @@ function ReviewState({
         {cards.map((c) => (
           <div key={c.title} className="rounded-[12px] border border-border bg-surface p-4 transition-colors duration-200 hover:border-border-strong">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-fg">{c.title}</span>
+              <span className="text-[14px] font-semibold text-fg">{c.title}</span>
               {c.status === "ok" ? <SuccessCheck /> : <WarnMark />}
             </div>
             {c.chips && c.chips.length ? (
               <div className="mt-[9px] flex flex-wrap gap-[5px]">
                 {c.chips.map((chip) => (
-                  <span key={chip} className="rounded-[6px] bg-surface-2 px-2 py-[3px] text-[10.5px] text-fg-mid">
+                  <span key={chip} className="rounded-[6px] bg-surface-2 px-2 py-[3px] text-[12px] text-fg-mid">
                     {chip}
                   </span>
                 ))}
               </div>
             ) : (
-              <div className="mt-2 text-[12px] leading-[1.5] text-fg-mid">{c.text}</div>
+              <div className="mt-2 text-[13px] leading-[1.5] text-fg-mid">{c.text}</div>
             )}
           </div>
         ))}
@@ -677,8 +677,8 @@ function ReviewState({
       {/* Save mode */}
       <div className="mt-[18px] flex flex-col gap-3 rounded-[12px] border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Saving mode</div>
-          <div className="mt-1 text-[12px] leading-[1.5] text-fg-mid">
+          <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Saving mode</div>
+          <div className="mt-1 text-[13px] leading-[1.5] text-fg-mid">
             {mode === "replace"
               ? "Replace everything in your profile with this CV."
               : "Merge into your existing profile, keeping current entries."}
@@ -700,7 +700,7 @@ function ReviewState({
           type="button"
           onClick={onReset}
           disabled={saving}
-          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg disabled:opacity-50"
+          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[14px] text-fg-mid transition-colors hover:border-accent hover:text-fg disabled:opacity-50"
         >
           Try another file
         </button>
@@ -744,8 +744,8 @@ function ReadyState({ extraction, mode }: { extraction: CVExtraction; mode: Save
           <path d="M4 10l4 4 8-9" />
         </svg>
       </div>
-      <div className="mt-[18px] text-[21px] font-bold tracking-[-0.4px] text-fg">Your profile is ready</div>
-      <div className="mt-2.5 max-w-[460px] text-[13.5px] leading-[1.65] text-fg-mid">
+      <div className="mt-[18px] text-[24px] font-bold tracking-[-0.4px] text-fg">Your profile is ready</div>
+      <div className="mt-2.5 max-w-[460px] text-[15px] leading-[1.65] text-fg-mid">
         {summary} You can refine anything from your profile, or jump straight into writing.
       </div>
       <div className="mt-[22px] flex gap-2.5">

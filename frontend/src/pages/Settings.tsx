@@ -377,8 +377,8 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
             <div key="model" className="cll-fade flex flex-col gap-[22px]">
               {/* Provider grid */}
               <section>
-                <h2 className="text-[14px] font-semibold text-fg">Inference provider</h2>
-                <p className="mb-3.5 mt-1 text-[12px] text-fg-mid">
+                <h2 className="text-[15px] font-semibold text-fg">Inference provider</h2>
+                <p className="mb-3.5 mt-1 text-[13px] text-fg-mid">
                   Choose where generation runs. Local providers keep everything on-device.
                 </p>
                 <div className="grid grid-cols-3 gap-2.5">
@@ -404,7 +404,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                   }
                 >
                   {discovery.loading ? (
-                    <div className="flex h-11 items-center gap-2 rounded-[10px] border border-border-strong bg-input px-3.5 text-[13px] text-fg-mid">
+                    <div className="flex h-11 items-center gap-2 rounded-[10px] border border-border-strong bg-input px-3.5 text-[14px] text-fg-mid">
                       <Spinner size={14} /> Discovering models…
                     </div>
                   ) : discoveredModels.length > 0 ? (
@@ -416,7 +416,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                         onChange={(e) => setField("llm_model", e.target.value)}
                         placeholder="e.g. llama3.1:8b"
                         spellCheck={false}
-                        className="h-11 font-mono text-[13px]"
+                        className="h-11 font-mono text-[14px]"
                       />
                       {provider.curatedModels.length ? (
                         <div className="flex flex-wrap gap-1.5">
@@ -425,7 +425,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                               key={m}
                               type="button"
                               onClick={() => setField("llm_model", m)}
-                              className="rounded-full border border-border bg-surface px-2.5 py-1 font-mono text-[10.5px] text-fg-mid transition-colors hover:border-accent hover:text-accent-text"
+                              className="rounded-full border border-border bg-surface px-2.5 py-1 font-mono text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-accent-text"
                             >
                               {m}
                             </button>
@@ -441,7 +441,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     onChange={(e) => setField("llm_base_url", e.target.value)}
                     onBlur={() => setDiscoBaseUrl(draft.llm_base_url)}
                     spellCheck={false}
-                    className="h-11 font-mono text-[13px]"
+                    className="h-11 font-mono text-[14px]"
                   />
                 </Field>
               </div>
@@ -454,15 +454,15 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                   </Button>
                   <ConnectionStatus loading={discovery.loading} error={discoveryError} count={discoveredModels.length} />
                   {!provider.cloud ? (
-                    <span className="text-[11px] text-fg-low">
+                    <span className="text-[13px] text-fg-low">
                       {discovery.loading ? "…" : `${discoveredModels.length} local models discovered`}
                     </span>
                   ) : (
-                    <span className="text-[11px] text-fg-low">Using your API key</span>
+                    <span className="text-[13px] text-fg-low">Using your API key</span>
                   )}
                 </div>
                 {discoveryError && !discovery.loading ? (
-                  <p className="text-[12px] leading-relaxed text-danger">{discoveryError}</p>
+                  <p className="text-[13px] leading-relaxed text-danger">{discoveryError}</p>
                 ) : null}
               </div>
 
@@ -471,7 +471,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 provider.id === "gemini" ? (
                   <section>
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="text-[14px] font-semibold text-fg">Gemini keys</span>
+                      <span className="text-[15px] font-semibold text-fg">Gemini keys</span>
                       <div className="flex items-center gap-2.5">
                         <RevealButton revealed={reveal} onClick={() => setReveal((r) => !r)} />
                         <PillToggle
@@ -484,15 +484,15 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                         />
                       </div>
                     </div>
-                    <p className="mb-3 text-[12px] text-fg-mid">
+                    <p className="mb-3 text-[13px] text-fg-mid">
                       Add several keys — auto mode rotates to the next on rate limits.
                     </p>
                     {poolLoading ? (
-                      <div className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3.5 py-3 text-[12px] text-fg-mid">
+                      <div className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3.5 py-3 text-[13px] text-fg-mid">
                         <Spinner size={14} /> Loading keys…
                       </div>
                     ) : poolError ? (
-                      <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[color:var(--danger)]/30 bg-danger-weak px-3.5 py-3 text-[12px] text-danger">
+                      <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[color:var(--danger)]/30 bg-danger-weak px-3.5 py-3 text-[13px] text-danger">
                         <span>{poolError}</span>
                         <Button variant="outline" size="xs" onClick={() => void loadPool()}>
                           <RotateCw size={12} /> Retry
@@ -512,7 +512,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                             />
                           ))
                         ) : (
-                          <p className="rounded-[10px] border border-dashed border-border-strong px-3.5 py-3 text-[12px] text-fg-low">
+                          <p className="rounded-[10px] border border-dashed border-border-strong px-3.5 py-3 text-[13px] text-fg-low">
                             No keys yet. Add one below to enable Gemini.
                           </p>
                         )}
@@ -523,10 +523,10 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 ) : (
                   <section>
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="text-[14px] font-semibold text-fg">{provider.name} API key</span>
+                      <span className="text-[15px] font-semibold text-fg">{provider.name} API key</span>
                       <RevealButton revealed={reveal} onClick={() => setReveal((r) => !r)} />
                     </div>
-                    <p className="mb-3 text-[12px] text-fg-mid">
+                    <p className="mb-3 text-[13px] text-fg-mid">
                       Stored locally in your settings. Used only while {provider.name} is the active provider.
                     </p>
                     <Input
@@ -538,7 +538,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                       placeholder={provider.id === "openai" ? "sk-…" : "sk-ant-…"}
                       autoComplete="off"
                       spellCheck={false}
-                      className="font-mono text-[12px]"
+                      className="font-mono text-[13px]"
                     />
                   </section>
                 )
@@ -549,8 +549,8 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 <div className="flex items-start gap-3 rounded-[12px] border border-[color:var(--warning)]/30 bg-warning-weak p-4">
                   <AlertTriangle size={20} strokeWidth={1.6} className="shrink-0 text-warning" />
                   <div>
-                    <div className="text-[13px] font-semibold text-warning">Prompts leave this device</div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-fg-mid">
+                    <div className="text-[14px] font-semibold text-warning">Prompts leave this device</div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">
                       With {provider.name} selected, your prompt and CV context are sent to {provider.name}. Everything else
                       stays local — only a company name is ever sent for research.
                     </p>
@@ -560,8 +560,8 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 <div className="flex items-start gap-3 rounded-[12px] border border-border bg-accent-weak p-4">
                   <ShieldCheck size={20} strokeWidth={1.6} className="shrink-0 text-accent" />
                   <div>
-                    <div className="text-[13px] font-semibold text-fg">Everything runs on-device</div>
-                    <p className="mt-1 text-[12px] leading-relaxed text-fg-mid">
+                    <div className="text-[14px] font-semibold text-fg">Everything runs on-device</div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">
                       With a local provider selected, your CV, profile, and generated letters never leave this machine. Only a
                       company name is sent for research.
                     </p>
@@ -574,12 +574,12 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
           {tab === "integrations" ? (
             <div key="integrations" className="cll-fade">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="text-[14px] font-semibold text-fg">Integrations</h2>
+                <h2 className="text-[15px] font-semibold text-fg">Integrations</h2>
                 <RevealButton revealed={reveal} onClick={() => setReveal((r) => !r)} />
               </div>
               <div className="flex flex-col gap-2.5">
                 <Row>
-                  <span className="text-[13px] text-fg">Embedding model</span>
+                  <span className="text-[14px] text-fg">Embedding model</span>
                   <EmbeddingSelect
                     value={draft.embedding_model}
                     options={embedOptions}
@@ -588,7 +588,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 </Row>
 
                 <Row>
-                  <span className="text-[13px] text-fg">Autocomplete source</span>
+                  <span className="text-[14px] text-fg">Autocomplete source</span>
                   <PillToggle
                     value={companyProvider}
                     onChange={(v) => setField("company_search_provider", v)}
@@ -600,10 +600,10 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 </Row>
 
                 <Row>
-                  <span className="text-[13px] text-fg">
+                  <span className="text-[14px] text-fg">
                     Brandfetch client id{" "}
                     {companyProvider !== "brandfetch" ? (
-                      <span className="text-[11px] text-fg-low">· inactive</span>
+                      <span className="text-[13px] text-fg-low">· inactive</span>
                     ) : null}
                   </span>
                   <Input
@@ -613,13 +613,13 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     placeholder="id_…"
                     autoComplete="off"
                     spellCheck={false}
-                    className="h-9 w-[240px] font-mono text-[11px]"
+                    className="h-9 w-[240px] font-mono text-[13px]"
                   />
                 </Row>
 
                 <Row>
-                  <span className="text-[13px] text-fg">
-                    Tavily key <span className="text-[11px] text-fg-low">· research</span>
+                  <span className="text-[14px] text-fg">
+                    Tavily key <span className="text-[13px] text-fg-low">· research</span>
                   </span>
                   <Input
                     type={reveal ? "text" : "password"}
@@ -628,12 +628,12 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     placeholder="tvly-…"
                     autoComplete="off"
                     spellCheck={false}
-                    className="h-9 w-[240px] font-mono text-[11px]"
+                    className="h-9 w-[240px] font-mono text-[13px]"
                   />
                 </Row>
 
                 <Row>
-                  <span className="text-[13px] text-fg">GitHub token</span>
+                  <span className="text-[14px] text-fg">GitHub token</span>
                   <span className="flex items-center gap-2.5">
                     {draft.github_token ? (
                       <Pill tone="success" dot>
@@ -647,13 +647,13 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                       placeholder="ghp_…"
                       autoComplete="off"
                       spellCheck={false}
-                      className="h-9 w-[240px] font-mono text-[11px]"
+                      className="h-9 w-[240px] font-mono text-[13px]"
                     />
                   </span>
                 </Row>
 
                 <Row>
-                  <span className="text-[13px] text-fg">OCR for scanned CVs</span>
+                  <span className="text-[14px] text-fg">OCR for scanned CVs</span>
                   <Toggle
                     checked={draft.ocr_enabled ?? false}
                     onChange={(v) => setField("ocr_enabled", v)}
@@ -662,9 +662,9 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                 </Row>
 
                 <Row>
-                  <span className="min-w-0 pr-3 text-[13px] text-fg">
+                  <span className="min-w-0 pr-3 text-[14px] text-fg">
                     Rerank retrieved writing samples
-                    <span className="mt-0.5 block text-[11.5px] leading-snug text-fg-low">
+                    <span className="mt-0.5 block text-[13px] leading-snug text-fg-low">
                       Higher-precision voice matching with a cross-encoder. Downloads a small model on first use.
                     </span>
                   </span>
@@ -709,10 +709,10 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
           {tab === "data" ? (
             <div key="data" className="cll-fade flex flex-col gap-4">
               <div className="rounded-[12px] border border-border bg-surface p-[18px]">
-                <div className="mb-2.5 flex items-center gap-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+                <div className="mb-2.5 flex items-center gap-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">
                   <Database size={13} /> Stored on this device
                 </div>
-                <p className="text-[12.5px] leading-relaxed text-fg-mid">
+                <p className="text-[13px] leading-relaxed text-fg-mid">
                   Your profile, skills, cover letters, embeddings, and cached company research all live in a local database
                   and vector store on this machine. Nothing here is uploaded.
                 </p>
@@ -724,15 +724,15 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="text-[13px] font-semibold text-danger">Reset all data</div>
-                    <div className="mt-[3px] text-[12px] text-fg-mid">
+                    <div className="text-[14px] font-semibold text-danger">Reset all data</div>
+                    <div className="mt-[3px] text-[13px] text-fg-mid">
                       Deletes your profile, letters, and cache. Settings are kept. This can't be undone.
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setResetOpen(true)}
-                    className="flex shrink-0 items-center gap-2 rounded-[9px] border bg-transparent px-4 py-2 text-[12.5px] font-semibold text-danger transition-colors hover:bg-danger-weak"
+                    className="flex shrink-0 items-center gap-2 rounded-[9px] border bg-transparent px-4 py-2 text-[13px] font-semibold text-danger transition-colors hover:bg-danger-weak"
                     style={{ borderColor: "var(--danger)" }}
                   >
                     <Trash2 size={14} /> Reset…
@@ -787,7 +787,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
             spellCheck={false}
           />
         </Field>
-        <p className={cn("mt-2 text-[11px]", resetText.trim().toUpperCase() === "DELETE" ? "text-success" : "text-fg-low")}>
+        <p className={cn("mt-2 text-[13px]", resetText.trim().toUpperCase() === "DELETE" ? "text-success" : "text-fg-low")}>
           {resetText.trim().toUpperCase() === "DELETE"
             ? "Confirmed — this will erase everything."
             : "Type DELETE exactly to enable the button."}
@@ -804,7 +804,7 @@ function NavTab({ active, onClick, children }: { active: boolean; onClick: () =>
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-[9px] px-3 py-2.5 text-left text-[13px] transition-colors",
+        "rounded-[9px] px-3 py-2.5 text-left text-[14px] transition-colors",
         active ? "bg-accent-weak font-semibold text-accent-text" : "text-fg-mid hover:bg-surface-2 hover:text-fg",
       )}
     >
@@ -825,7 +825,7 @@ function ProviderCard({ provider, active, onClick }: { provider: ProviderMeta; a
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13.5px] font-semibold text-fg">{provider.name}</span>
+        <span className="text-[15px] font-semibold text-fg">{provider.name}</span>
         {active ? (
           <span
             className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full"
@@ -835,8 +835,8 @@ function ProviderCard({ provider, active, onClick }: { provider: ProviderMeta; a
           </span>
         ) : null}
       </div>
-      <p className="mt-1.5 text-[11px] leading-[1.45] text-fg-mid">{provider.desc}</p>
-      <span className="mt-[9px] inline-block self-start rounded-full bg-accent-weak px-2 py-0.5 font-mono text-[8.5px] text-accent-text">
+      <p className="mt-1.5 text-[13px] leading-[1.45] text-fg-mid">{provider.desc}</p>
+      <span className="mt-[9px] inline-block self-start rounded-full bg-accent-weak px-2 py-0.5 font-mono text-[12px] text-accent-text">
         {provider.badge}
       </span>
     </button>
@@ -857,7 +857,7 @@ function ModelSelect({ value, options, onChange }: { value: string; options: str
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-11 w-full items-center justify-between rounded-[10px] border border-border-strong bg-input px-3.5 text-[13px] text-fg transition-colors hover:border-accent"
+        className="flex h-11 w-full items-center justify-between rounded-[10px] border border-border-strong bg-input px-3.5 text-[14px] text-fg transition-colors hover:border-accent"
       >
         {value || <span className="text-fg-low">Select a model…</span>}
         <ChevronDown size={16} className="text-fg-mid" />
@@ -874,7 +874,7 @@ function ModelSelect({ value, options, onChange }: { value: string; options: str
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search models…"
-              className="mb-1.5 w-full rounded-[8px] border border-border bg-input px-2.5 py-2 text-[12px] text-fg placeholder:text-fg-low outline-none focus:border-accent"
+              className="mb-1.5 w-full rounded-[8px] border border-border bg-input px-2.5 py-2 text-[13px] text-fg placeholder:text-fg-low outline-none focus:border-accent"
             />
             <div className="max-h-[176px] overflow-auto">
               {matches.length ? (
@@ -887,7 +887,7 @@ function ModelSelect({ value, options, onChange }: { value: string; options: str
                       close();
                     }}
                     className={cn(
-                      "block w-full rounded-[8px] px-2.5 py-2 text-left text-[13px] transition-colors hover:bg-accent-weak",
+                      "block w-full rounded-[8px] px-2.5 py-2 text-left text-[14px] transition-colors hover:bg-accent-weak",
                       m === value ? "text-accent-text" : "text-fg",
                     )}
                   >
@@ -895,7 +895,7 @@ function ModelSelect({ value, options, onChange }: { value: string; options: str
                   </button>
                 ))
               ) : (
-                <div className="px-2.5 py-2 text-[12px] text-fg-low">{`No models match "${query}".`}</div>
+                <div className="px-2.5 py-2 text-[13px] text-fg-low">{`No models match "${query}".`}</div>
               )}
             </div>
           </div>
@@ -913,7 +913,7 @@ function EmbeddingSelect({ value, options, onChange }: { value: string; options:
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 font-mono text-[11px] text-fg-mid transition-colors hover:text-fg"
+        className="flex items-center gap-1.5 font-mono text-[13px] text-fg-mid transition-colors hover:text-fg"
       >
         {value || "select…"}
         <ChevronDown size={13} />
@@ -934,7 +934,7 @@ function EmbeddingSelect({ value, options, onChange }: { value: string; options:
                   setOpen(false);
                 }}
                 className={cn(
-                  "block w-full rounded-[8px] px-2.5 py-2 text-left font-mono text-[12px] transition-colors hover:bg-accent-weak",
+                  "block w-full rounded-[8px] px-2.5 py-2 text-left font-mono text-[13px] transition-colors hover:bg-accent-weak",
                   m === value ? "text-accent-text" : "text-fg-mid",
                 )}
               >
@@ -968,7 +968,7 @@ function PillToggle<T extends string>({
             type="button"
             onClick={() => onChange(o.value)}
             className={cn(
-              "rounded-[7px] px-2.5 py-1 text-[11px] font-medium transition-colors",
+              "rounded-[7px] px-2.5 py-1 text-[13px] font-medium transition-colors",
               active ? "text-white" : "text-fg-mid hover:text-fg",
             )}
             style={active ? { background: "var(--accent-grad)" } : undefined}
@@ -1014,10 +1014,10 @@ function GeminiKeyRow({
         {active ? <span className="h-[7px] w-[7px] rounded-full bg-accent" /> : null}
       </button>
       <div className="min-w-0 flex-1">
-        <div className={cn("truncate font-mono text-[12px]", active ? "text-fg" : "text-fg-mid")}>{value}</div>
-        {entry.label ? <div className="truncate text-[11px] text-fg-low">{entry.label}</div> : null}
+        <div className={cn("truncate font-mono text-[13px]", active ? "text-fg" : "text-fg-mid")}>{value}</div>
+        {entry.label ? <div className="truncate text-[13px] text-fg-low">{entry.label}</div> : null}
       </div>
-      <span className={cn("font-mono text-[10px]", active ? "text-success" : "text-fg-low")}>
+      <span className={cn("font-mono text-[12px]", active ? "text-success" : "text-fg-low")}>
         {active ? "Active" : "Standby"}
       </span>
       <button
@@ -1060,7 +1060,7 @@ function AddGeminiKey({ onAdd }: { onAdd: (key: string, label: string) => Promis
         placeholder="AIza… (new key)"
         autoComplete="off"
         spellCheck={false}
-        className="h-9 flex-1 font-mono text-[12px]"
+        className="h-9 flex-1 font-mono text-[13px]"
       />
       <Input
         value={label}
@@ -1071,7 +1071,7 @@ function AddGeminiKey({ onAdd }: { onAdd: (key: string, label: string) => Promis
         placeholder="label (optional)"
         autoComplete="off"
         spellCheck={false}
-        className="h-9 w-[130px] text-[12px]"
+        className="h-9 w-[130px] text-[13px]"
       />
       <Button variant="outline" size="sm" onClick={() => void submit()} loading={busy} disabled={!key.trim()}>
         <Plus size={14} strokeWidth={1.8} /> Add
@@ -1086,7 +1086,7 @@ function RevealButton({ revealed, onClick }: { revealed: boolean; onClick: () =>
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-[8px] border border-border-strong bg-surface px-2.5 py-1.5 text-[11px] text-fg-mid transition-colors hover:text-fg"
+      className="flex items-center gap-1.5 rounded-[8px] border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-fg-mid transition-colors hover:text-fg"
       aria-label={revealed ? "Hide secrets" : "Show secrets"}
     >
       {revealed ? <EyeOff size={13} /> : <Eye size={13} />}

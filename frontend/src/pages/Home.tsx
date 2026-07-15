@@ -40,7 +40,7 @@ function Rail({ steps }: { steps: RailStep[] }) {
           s.status === "done" ? "text-fg" : s.status === "active" ? "text-accent-text" : s.status === "warn" ? "text-warning" : "text-fg-low";
         return (
           <div key={s.label} className="flex min-w-0 flex-1 flex-col gap-2">
-            <div className={cn("flex items-center gap-1.5 truncate text-[11.5px] font-medium", color)}>
+            <div className={cn("flex items-center gap-1.5 truncate text-[13px] font-medium", color)}>
               {s.status === "done" ? (
                 <Check size={13} strokeWidth={2.6} className="text-success" />
               ) : s.status === "todo" ? (
@@ -86,8 +86,8 @@ function Hero({
           <Pill tone={badgeTone} dot mono className="border border-border-strong tracking-[0.02em]">
             {badge}
           </Pill>
-          <h2 className="mt-3 text-[18px] font-bold tracking-[-0.4px] text-fg">{title}</h2>
-          <p className="mt-1.5 max-w-[460px] text-[12.5px] leading-relaxed text-fg-mid">{desc}</p>
+          <h2 className="mt-3 text-[20px] font-bold tracking-[-0.4px] text-fg">{title}</h2>
+          <p className="mt-1.5 max-w-[460px] text-[13px] leading-relaxed text-fg-mid">{desc}</p>
         </div>
         <div className="flex shrink-0 gap-2.5">{actions}</div>
       </div>
@@ -103,10 +103,10 @@ function StatStrip({ stats }: { stats: Stat[] }) {
     <div className="cll-fade flex overflow-hidden rounded-[14px] border border-border bg-surface">
       {stats.map((s, i) => (
         <div key={s.label} className={cn("flex-1 px-4 py-2.5", i > 0 && "border-l border-border")}>
-          <div className="truncate text-[10px] tracking-[0.2px] text-fg-mid">{s.label}</div>
+          <div className="truncate text-[12px] tracking-[0.2px] text-fg-mid">{s.label}</div>
           <div
             className={cn(
-              "mt-0.5 text-[16px] font-bold tracking-[-0.4px]",
+              "mt-0.5 text-[18px] font-bold tracking-[-0.4px]",
               s.tone === "success" && "text-success",
               s.tone === "accent" && "text-accent-text",
               s.tone === "warning" && "text-warning",
@@ -114,7 +114,7 @@ function StatStrip({ stats }: { stats: Stat[] }) {
           >
             {s.value}
           </div>
-          <div className="mt-0.5 truncate text-[10px] text-fg-low">{s.sub}</div>
+          <div className="mt-0.5 truncate text-[12px] text-fg-low">{s.sub}</div>
         </div>
       ))}
     </div>
@@ -126,7 +126,7 @@ type SetupItem = { n: number; title: string; desc: string; status: "done" | "act
 function SetupChecklist({ header, count, pct, items }: { header: string; count: string; pct: number; items: SetupItem[] }) {
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
-      <div className="mb-3 flex items-center justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+      <div className="mb-3 flex items-center justify-between text-[12px] font-semibold tracking-[0.01em] text-fg-low">
         <span>{header}</span>
         <span>{count}</span>
       </div>
@@ -144,7 +144,7 @@ function SetupChecklist({ header, count, pct, items }: { header: string; count: 
           >
             <span
               className={cn(
-                "grid h-7 w-7 shrink-0 place-items-center rounded-[8px] text-[12.5px] font-bold",
+                "grid h-7 w-7 shrink-0 place-items-center rounded-[8px] text-[13px] font-bold",
                 it.status === "done" && "border border-accent bg-accent-weak text-accent-text",
                 it.status === "active" && "text-white",
                 it.status === "todo" && "border border-border bg-surface-2 text-fg-low",
@@ -154,8 +154,8 @@ function SetupChecklist({ header, count, pct, items }: { header: string; count: 
               {it.status === "done" ? <Check size={13} strokeWidth={2.6} /> : it.n}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-fg">{it.title}</div>
-              <div className="mt-0.5 text-[11.5px] text-fg-mid">{it.desc}</div>
+              <div className="text-[14px] font-semibold text-fg">{it.title}</div>
+              <div className="mt-0.5 text-[13px] text-fg-mid">{it.desc}</div>
             </div>
             <div className="shrink-0">{it.action}</div>
           </div>
@@ -165,10 +165,10 @@ function SetupChecklist({ header, count, pct, items }: { header: string; count: 
   );
 }
 
-const smallAction = "shrink-0 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold";
+const smallAction = "shrink-0 rounded-[8px] px-3 py-1.5 text-[13px] font-semibold";
 
 const DoneTag = (
-  <span className="flex items-center gap-1.5 text-[11.5px] text-success">
+  <span className="flex items-center gap-1.5 text-[13px] text-success">
     <Check size={13} strokeWidth={2.6} />
     Done
   </span>
@@ -180,8 +180,8 @@ function RecentList({ header, rows }: { header: string; rows: LetterRow[] }) {
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-[18px] pb-3 pt-1.5">
       <div className="flex items-center justify-between py-3 pb-1.5">
-        <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{header}</span>
-        <Link to="/cover-letters" className="text-[12px] text-accent-text">View all →</Link>
+        <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">{header}</span>
+        <Link to="/cover-letters" className="text-[13px] text-accent-text">View all →</Link>
       </div>
       {rows.map((r, i) => (
         <Link
@@ -189,13 +189,13 @@ function RecentList({ header, rows }: { header: string; rows: LetterRow[] }) {
           to={r.to}
           className={cn("flex items-center gap-3 rounded-[9px] px-2 py-2.5 transition-colors hover:bg-surface-2", i < rows.length - 1 && "border-b border-border")}
         >
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-border bg-surface-2 text-[12.5px] font-bold text-accent-text">{r.letter}</span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-border bg-surface-2 text-[13px] font-bold text-accent-text">{r.letter}</span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12.5px] font-semibold text-fg">{r.title}</div>
-            <div className="text-[11px] text-fg-low">{r.company}</div>
+            <div className="truncate text-[13px] font-semibold text-fg">{r.title}</div>
+            <div className="text-[13px] text-fg-low">{r.company}</div>
           </div>
-          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold", r.status === "Completed" ? "bg-success-weak text-success" : "bg-surface-2 text-fg-mid")}>{r.status}</span>
-          <span className="shrink-0 font-mono text-[10px] text-accent-text">{r.match != null ? `Match ${r.match}` : "No match"}</span>
+          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[12px] font-semibold", r.status === "Completed" ? "bg-success-weak text-success" : "bg-surface-2 text-fg-mid")}>{r.status}</span>
+          <span className="shrink-0 font-mono text-[12px] text-accent-text">{r.match != null ? `Match ${r.match}` : "No match"}</span>
         </Link>
       ))}
     </div>
@@ -257,8 +257,8 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
           ].map((f) => (
             <div key={f.title} className="cll-fade rounded-[14px] border border-border bg-surface p-4">
               <div className="mb-3 flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-border-strong bg-accent-weak text-accent-text">{f.icon}</div>
-              <div className="text-[13px] font-bold text-fg">{f.title}</div>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-fg-mid">{f.desc}</p>
+              <div className="text-[14px] font-bold text-fg">{f.title}</div>
+              <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -328,10 +328,10 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Start your first letter</span>
-            <Link to="/write" className="text-[12px] text-accent-text">Open composer →</Link>
+            <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Start your first letter</span>
+            <Link to="/write" className="text-[13px] text-accent-text">Open composer →</Link>
           </div>
-          <p className="max-w-[560px] text-[12.5px] leading-relaxed text-fg-mid">
+          <p className="max-w-[560px] text-[13px] leading-relaxed text-fg-mid">
             Everything is connected. Enter a company and role and the local model drafts a tailored letter grounded in your CV — with a match score per posting.
           </p>
           <div className="mt-4">
@@ -380,13 +380,13 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
           <RecentList header="Recent letters" rows={d.recent} />
           <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
-            <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Recent activity</div>
+            <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Recent activity</div>
             <div className="mt-3 flex flex-col gap-3">
               {d.activity.map((a) => (
-                <div key={a.t} className="flex items-center gap-2.5 text-[12px] text-fg">
+                <div key={a.t} className="flex items-center gap-2.5 text-[13px] text-fg">
                   <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: a.c }} />
                   <span className="flex-1">{a.t}</span>
-                  <span className="font-mono text-[10px] text-fg-low">{a.tag}</span>
+                  <span className="font-mono text-[12px] text-fg-low">{a.tag}</span>
                 </div>
               ))}
             </div>
@@ -429,19 +429,19 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
         <RecentList header="Recently sent" rows={d.recent} />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
-          <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Do more</div>
+          <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Do more</div>
           <div className="mt-3 flex flex-col gap-2.5">
-            <Link to="/voice" className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[12.5px] text-fg transition-colors hover:brightness-110">
+            <Link to="/voice" className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[13px] text-fg transition-colors hover:brightness-110">
               <span className="text-accent-text"><AudioLines size={17} /></span> Refine your writing voice
             </Link>
-            <Link to="/github" className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[12.5px] text-fg transition-colors hover:brightness-110">
+            <Link to="/github" className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[13px] text-fg transition-colors hover:brightness-110">
               <span className="text-accent-text"><Github size={16} /></span> Re-sync GitHub projects
             </Link>
             <a
               href="https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[12.5px] text-fg no-underline transition-colors hover:brightness-110"
+              className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[13px] text-fg no-underline transition-colors hover:brightness-110"
             >
               <span className="text-warning"><Star size={15} fill="currentColor" /></span> Star the project on GitHub
             </a>
@@ -459,7 +459,7 @@ function HomeSkeleton() {
     <div className="flex flex-col gap-3.5">
       <div className="flex items-center gap-2 text-fg-low">
         <Spinner size={14} />
-        <span className="text-[10.5px] font-semibold tracking-[0.01em]">Loading workspace</span>
+        <span className="text-[12px] font-semibold tracking-[0.01em]">Loading workspace</span>
       </div>
       <Skeleton className="h-[168px] w-full rounded-[15px]" />
       <Skeleton className="h-[74px] w-full rounded-[14px]" />
@@ -482,8 +482,8 @@ function StateSwitcher({ derived, override, onPick }: { derived: HomeState; over
       >
         <StatDot tone="accent" glow size={7} />
         <span className="text-left leading-tight">
-          <span className="block text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Preview state</span>
-          <span className="mt-px block text-[12.5px] font-semibold text-fg">{overrideOption ? overrideOption.label : `Auto · ${derivedOption.label}`}</span>
+          <span className="block text-[12px] font-semibold tracking-[0.01em] text-fg-low">Preview state</span>
+          <span className="mt-px block text-[13px] font-semibold text-fg">{overrideOption ? overrideOption.label : `Auto · ${derivedOption.label}`}</span>
         </span>
         <ChevronDown size={15} className="text-fg-mid" />
       </button>
@@ -500,8 +500,8 @@ function StateSwitcher({ derived, override, onPick }: { derived: HomeState; over
               className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
             >
               <div className="min-w-0 flex-1">
-                <div className="text-[12.5px] font-semibold text-fg">Auto (live data)</div>
-                <div className="mt-px text-[11px] text-fg-mid">Follow your real setup — {derivedOption.label}</div>
+                <div className="text-[13px] font-semibold text-fg">Auto (live data)</div>
+                <div className="mt-px text-[13px] text-fg-mid">Follow your real setup — {derivedOption.label}</div>
               </div>
               {override === null ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
             </button>
@@ -514,8 +514,8 @@ function StateSwitcher({ derived, override, onPick }: { derived: HomeState; over
                 className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-semibold text-fg">{o.label}</div>
-                  <div className="mt-px text-[11px] text-fg-mid">{o.desc}</div>
+                  <div className="text-[13px] font-semibold text-fg">{o.label}</div>
+                  <div className="mt-px text-[13px] text-fg-mid">{o.desc}</div>
                 </div>
                 {o.value === override ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
               </button>
@@ -658,7 +658,7 @@ export function Home() {
       ) : setupStatuses[3] === "active" ? (
         <Button asChild size="sm" className={smallAction}><Link to="/write">Write</Link></Button>
       ) : (
-        <span className="text-[10.5px] text-fg-low">Soon</span>
+        <span className="text-[12px] text-fg-low">Soon</span>
       ),
     },
   ];

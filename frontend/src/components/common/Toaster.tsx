@@ -29,8 +29,8 @@ function ToastCard({ id, tone, title, description }: { id: number; tone: ToastTo
     >
       <Icon size={18} className={cn("mt-0.5 shrink-0", color)} />
       <div className="min-w-0 flex-1">
-        <p className="text-[13.5px] font-semibold text-fg">{title}</p>
-        {description && <p className="mt-0.5 text-[12.5px] text-fg-mid">{description}</p>}
+        <p className="text-[15px] font-semibold text-fg">{title}</p>
+        {description && <p className="mt-0.5 text-[13px] text-fg-mid">{description}</p>}
       </div>
       <button
         type="button"

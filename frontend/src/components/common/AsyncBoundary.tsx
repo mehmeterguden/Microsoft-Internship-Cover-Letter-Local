@@ -27,8 +27,8 @@ export function AsyncBoundary<T>({ state, children, isEmpty, emptyView, skeleton
           <AlertTriangle size={22} />
         </div>
         <div>
-          <div className="text-[15px] font-bold text-fg">Something went wrong</div>
-          <div className="mt-1 max-w-md text-[13px] text-fg-mid">{state.error}</div>
+          <div className="text-[16px] font-bold text-fg">Something went wrong</div>
+          <div className="mt-1 max-w-md text-[14px] text-fg-mid">{state.error}</div>
         </div>
         {state.reload ? (
           <Button variant="outline" size="sm" onClick={state.reload}>

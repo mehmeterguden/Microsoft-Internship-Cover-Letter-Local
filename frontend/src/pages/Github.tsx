@@ -101,17 +101,17 @@ function AccountChip({ connected, profile }: { connected: boolean; profile: Gith
     const chip = (
       <>
         <span
-          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
+          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[13px] font-bold text-white"
           style={{ background: "var(--accent-grad)" }}
         >
           {initials(profile)}
         </span>
         <span className="leading-tight">
-          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-fg">
+          <span className="flex items-center gap-1.5 text-[14px] font-semibold text-fg">
             @{profile.login}
             {profile.html_url ? <ExternalLink size={12} className="text-fg-low" /> : null}
           </span>
-          <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-success">
+          <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[12px] text-success">
             <StatDot tone="success" glow size={5} />
             {typeof profile.public_repos === "number" ? `${profile.public_repos} repos` : "Loaded"}
           </span>
@@ -139,8 +139,8 @@ function AccountChip({ connected, profile }: { connected: boolean; profile: Gith
         <GithubMark size={15} />
       </span>
       <span className="leading-tight">
-        <span className="block text-[13px] font-semibold text-fg-mid">{connected ? "Account linked" : "No account"}</span>
-        <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px]" style={{ color: connected ? "var(--success)" : "var(--text-low)" }}>
+        <span className="block text-[14px] font-semibold text-fg-mid">{connected ? "Account linked" : "No account"}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[12px]" style={{ color: connected ? "var(--success)" : "var(--text-low)" }}>
           <span className="h-[5px] w-[5px] rounded-full" style={{ background: connected ? "var(--success)" : "var(--text-low)" }} />
           {connected ? "Token set" : "Not connected"}
         </span>
@@ -166,20 +166,20 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-[7px] text-[14px] font-[650]">
+        <span className="flex min-w-0 items-center gap-[7px] text-[15px] font-[650]">
           <GithubMark size={14} className="shrink-0 text-fg-low" />
           <span className="truncate text-fg">{repo.repo_name}</span>
         </span>
-        <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] text-fg-mid">
+        <span className="flex shrink-0 items-center gap-1 font-mono text-[12px] text-fg-mid">
           <StarIcon size={11} />
           {formatStars(repo.stars)}
         </span>
       </div>
 
-      <p className="mt-2 line-clamp-2 text-[11.5px] leading-[1.55] text-fg-mid">{desc}</p>
+      <p className="mt-2 line-clamp-2 text-[13px] leading-[1.55] text-fg-mid">{desc}</p>
 
       <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[10.5px] text-fg-mid">
+        <span className="flex items-center gap-1.5 text-[12px] text-fg-mid">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: langColor(lang) }} />
           {lang ?? "—"}
         </span>
@@ -187,7 +187,7 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
         {inProfile ? (
           <div className="flex shrink-0 items-center gap-[7px]">
             <span
-              className="flex items-center gap-1.5 rounded-full px-[9px] py-[3px] font-mono text-[9px] text-success"
+              className="flex items-center gap-1.5 rounded-full px-[9px] py-[3px] font-mono text-[12px] text-success"
               style={{ background: "rgba(52,211,153,.14)" }}
             >
               <Check size={10} strokeWidth={2.8} />
@@ -208,7 +208,7 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
             ) : null}
           </div>
         ) : analyzing ? (
-          <span className="flex shrink-0 items-center gap-1.5 rounded-[8px] bg-accent-weak px-[11px] py-[5px] text-[11px] font-semibold text-accent-text">
+          <span className="flex shrink-0 items-center gap-1.5 rounded-[8px] bg-accent-weak px-[11px] py-[5px] text-[13px] font-semibold text-accent-text">
             <Loader2 size={12} className="animate-spin" />
             Analyzing…
           </span>
@@ -245,7 +245,7 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
 function SectionHead({ label, count, tone, right }: { label: string; count: number; tone: "success" | "low"; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <span className={cn("text-[10.5px] font-semibold tracking-[0.01em]", tone === "success" ? "text-success" : "text-fg-low")}>
+      <span className={cn("text-[12px] font-semibold tracking-[0.01em]", tone === "success" ? "text-success" : "text-fg-low")}>
         {label} · {count}
       </span>
       {right}
@@ -263,14 +263,14 @@ function SkillsCard({ skills, repoCount }: { skills: ScoredSkill[]; repoCount: n
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
       <div className="mb-3.5 flex items-center justify-between">
-        <span className="flex items-center gap-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+        <span className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">
           <Sparkles size={12} className="text-accent-text" />
           Detected skills · {sorted.length}
         </span>
-        <span className="font-mono text-[10px] text-fg-low">from {plural(repoCount, "analyzed repo")}</span>
+        <span className="font-mono text-[12px] text-fg-low">from {plural(repoCount, "analyzed repo")}</span>
       </div>
       {sorted.length === 0 ? (
-        <p className="text-[12px] text-fg-mid">No skills detected yet — analyze a repository to pull its skills into your profile.</p>
+        <p className="text-[13px] text-fg-mid">No skills detected yet — analyze a repository to pull its skills into your profile.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {sorted.map((s) => {
@@ -278,10 +278,10 @@ function SkillsCard({ skills, repoCount }: { skills: ScoredSkill[]; repoCount: n
             return (
               <span
                 key={s.name}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-[12px] text-fg"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-[13px] text-fg"
               >
                 {s.name}
-                {score ? <span className="font-mono text-[9.5px] text-accent-text">{score}</span> : null}
+                {score ? <span className="font-mono text-[12px] text-accent-text">{score}</span> : null}
               </span>
             );
           })}
@@ -315,11 +315,11 @@ function RepoDetail({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(92vw,560px)] max-h-[85vh] overflow-y-auto p-6">
         <div className="pr-8">
-          <DialogTitle className="flex items-center gap-2 text-[16px] tracking-[-0.3px]">
+          <DialogTitle className="flex items-center gap-2 text-[18px] tracking-[-0.3px]">
             <GithubMark size={16} className="text-fg-low" />
             <span className="truncate">{repo.repo_name}</span>
           </DialogTitle>
-          <div className="mt-1.5 flex items-center gap-3 text-[11px] text-fg-mid">
+          <div className="mt-1.5 flex items-center gap-3 text-[13px] text-fg-mid">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full" style={{ background: langColor(lang) }} />
               {lang ?? "—"}
@@ -334,22 +334,22 @@ function RepoDetail({
           </div>
         </div>
 
-        {repo.description ? <p className="mt-4 text-[12.5px] leading-relaxed text-fg-mid">{repo.description}</p> : null}
+        {repo.description ? <p className="mt-4 text-[13px] leading-relaxed text-fg-mid">{repo.description}</p> : null}
 
         <div className="mt-4 rounded-[11px] border border-border bg-surface-2 p-3.5">
-          <div className="mb-2 flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">
+          <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.01em] text-accent-text">
             <Sparkles size={12} />
             AI summary
           </div>
-          <p className="text-[12.5px] leading-relaxed text-fg">{summary}</p>
+          <p className="text-[13px] leading-relaxed text-fg">{summary}</p>
         </div>
 
         {bullets.length > 0 ? (
           <div className="mt-4">
-            <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your involvement</div>
+            <div className="mb-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">Your involvement</div>
             <ul className="flex flex-col gap-2">
               {bullets.map((line) => (
-                <li key={line} className="flex gap-2.5 text-[12.5px] leading-relaxed text-fg">
+                <li key={line} className="flex gap-2.5 text-[13px] leading-relaxed text-fg">
                   <Check size={14} strokeWidth={2.4} className="mt-0.5 shrink-0 text-success" />
                   <span>{line}</span>
                 </li>
@@ -360,10 +360,10 @@ function RepoDetail({
 
         {repo.technologies && repo.technologies.length > 0 ? (
           <div className="mt-4">
-            <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Tech</div>
+            <div className="mb-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">Tech</div>
             <div className="flex flex-wrap gap-2">
               {repo.technologies.map((t) => (
-                <span key={t} className="rounded-full border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10px] text-fg-mid">
+                <span key={t} className="rounded-full border border-border bg-surface-2 px-2.5 py-1 font-mono text-[12px] text-fg-mid">
                   {t}
                 </span>
               ))}
@@ -374,7 +374,7 @@ function RepoDetail({
         <div className="mt-5 flex items-center gap-2.5 border-t border-border pt-4">
           {inProfile ? (
             <>
-              <span className="flex items-center gap-1.5 text-[12px] font-semibold text-success">
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-success">
                 <Check size={14} strokeWidth={2.6} />
                 In your profile
               </span>
@@ -398,7 +398,7 @@ function RepoDetail({
               href={repo.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface px-3 py-2 text-[12px] font-medium text-fg no-underline transition-colors hover:bg-surface-2"
+              className="inline-flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface px-3 py-2 text-[13px] font-medium text-fg no-underline transition-colors hover:bg-surface-2"
             >
               View on GitHub
               <ExternalLink size={12} />
@@ -428,7 +428,7 @@ function ConnectRow({
 }) {
   return (
     <div className="cll-fade mx-auto mb-6 w-full max-w-[640px]">
-      <p className="mb-3 text-center text-[13px] text-fg-mid">
+      <p className="mb-3 text-center text-[14px] text-fg-mid">
         Enter a GitHub account and we&apos;ll fetch its public repos, then turn them into skills and projects.
       </p>
       <form
@@ -447,14 +447,14 @@ function ConnectRow({
             value={username}
             onChange={(e) => onUsername(e.target.value)}
             placeholder="github username or profile URL"
-            className="h-11 w-full rounded-[11px] border border-border-strong bg-input pl-[38px] pr-3.5 font-mono text-[13px] text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-low focus:border-accent focus:ring-[3px] focus:ring-accent-weak"
+            className="h-11 w-full rounded-[11px] border border-border-strong bg-input pl-[38px] pr-3.5 font-mono text-[14px] text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-low focus:border-accent focus:ring-[3px] focus:ring-accent-weak"
           />
         </div>
         <Button type="submit" variant="primary" size="md" loading={busy} className="h-11 rounded-[11px] px-5">
           Fetch repos
         </Button>
       </form>
-      <div className="mt-2.5 flex items-center justify-center gap-2 text-center font-mono text-[10px] text-fg-low">
+      <div className="mt-2.5 flex items-center justify-center gap-2 text-center font-mono text-[12px] text-fg-low">
         {connected ? (
           <button type="button" onClick={onUseAccount} disabled={busy} className="text-accent-text underline-offset-2 hover:underline disabled:opacity-50">
             Use my connected account
@@ -477,7 +477,7 @@ function ConnectRow({
 function SavedError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[13px] border border-border bg-danger-weak px-4 py-3">
-      <span className="flex items-center gap-2 text-[12px] text-danger">
+      <span className="flex items-center gap-2 text-[13px] text-danger">
         <AlertTriangle size={14} />
         {message}
       </span>
@@ -631,7 +631,7 @@ export function Github() {
         label="In your profile"
         count={savedRepos.length}
         tone="success"
-        right={<span className="font-mono text-[10px] text-fg-low">click a repo to view its analysis</span>}
+        right={<span className="font-mono text-[12px] text-fg-low">click a repo to view its analysis</span>}
       />
       {saved.error ? (
         <SavedError message={saved.error} onRetry={saved.reload} />
@@ -640,7 +640,7 @@ export function Github() {
           <Spinner size={18} />
         </div>
       ) : savedRepos.length === 0 ? (
-        <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
+        <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[13px] text-fg-mid">
           No repos in your profile yet — fetch an account and add one below.
         </p>
       ) : (
@@ -711,16 +711,16 @@ export function Github() {
                   <Loader2 size={18} className="shrink-0 animate-spin text-accent-text" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="truncate text-[13px] font-semibold text-fg">
+                      <div className="truncate text-[14px] font-semibold text-fg">
                         {progressLabel || "Analyzing repositories…"}
                       </div>
-                      <span className="shrink-0 font-mono text-[11px] text-accent-text">{Math.round(progress)}%</span>
+                      <span className="shrink-0 font-mono text-[13px] text-accent-text">{Math.round(progress)}%</span>
                     </div>
                     <div className="mt-2">
                       <ProgressBar value={progress} />
                     </div>
                   </div>
-                  <span className="shrink-0 font-mono text-[11px] text-fg-mid">{plural(fetchedRepos.length, "repo")}</span>
+                  <span className="shrink-0 font-mono text-[13px] text-fg-mid">{plural(fetchedRepos.length, "repo")}</span>
                 </div>
 
                 <SectionHead label="Reading from GitHub" count={fetchedRepos.length} tone="low" />
@@ -751,7 +751,7 @@ export function Github() {
                     }
                   />
                   {availableRepos.length === 0 ? (
-                    <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
+                    <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[13px] text-fg-mid">
                       Every analyzed repository has been added to your profile.
                     </p>
                   ) : (

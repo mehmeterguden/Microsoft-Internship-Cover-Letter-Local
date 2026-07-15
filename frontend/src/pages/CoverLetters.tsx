@@ -40,7 +40,7 @@ function avgMatch(rows: JobWithId[]): number | null {
 /* ── Match label (kept subtle — this is not "how compatible you are") ── */
 function MatchPill({ score }: { score: number }) {
   return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-surface-2 px-2 py-0.5 font-mono text-[10px] tabular-nums text-fg-low">
+    <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-surface-2 px-2 py-0.5 font-mono text-[12px] tabular-nums text-fg-low">
       {Math.round(score)} match
     </span>
   );
@@ -55,7 +55,7 @@ function FilterSelect({ value, onChange, options }: { value: string; onChange: (
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer appearance-none rounded-[10px] border border-border-strong bg-input py-[9px] pl-[13px] pr-9 text-[13px] text-fg-mid outline-none transition-colors hover:border-accent focus-visible:border-accent"
+        className="cursor-pointer appearance-none rounded-[10px] border border-border-strong bg-input py-[9px] pl-[13px] pr-9 text-[14px] text-fg-mid outline-none transition-colors hover:border-accent focus-visible:border-accent"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value} className="bg-surface-2 text-fg">
@@ -95,12 +95,12 @@ function SegmentFilter({
             type="button"
             onClick={() => onChange(it.value)}
             className={cn(
-              "flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[13px] font-medium transition-colors",
               active ? "bg-accent-weak text-accent-text" : "text-fg-mid hover:text-fg",
             )}
           >
             {it.label}
-            <span className={cn("text-[10px] font-semibold tabular-nums", active ? "text-accent-text" : "text-fg-low")}>
+            <span className={cn("text-[12px] font-semibold tabular-nums", active ? "text-accent-text" : "text-fg-low")}>
               {counts[it.value]}
             </span>
           </button>
@@ -166,21 +166,21 @@ function LetterRow({
       )}
     >
       <Link to={`/write?job=${job.id}`} className="flex min-w-0 flex-1 items-center gap-3.5">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border bg-surface-2 text-[15px] font-bold text-accent-text">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border bg-surface-2 text-[16px] font-bold text-accent-text">
           {initialOf(job)}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-[13.5px] font-semibold text-fg">{job.role}</span>
+            <span className="truncate text-[15px] font-semibold text-fg">{job.role}</span>
             <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low" />
-            <span className="shrink-0 whitespace-nowrap text-[12px] text-fg-mid">{job.company}</span>
+            <span className="shrink-0 whitespace-nowrap text-[13px] text-fg-mid">{job.company}</span>
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-[12px] text-fg-low">
+          <div className="mt-1 flex items-center gap-1.5 text-[13px] text-fg-low">
             <span className="truncate">{snippet || "Not written yet"}</span>
             {when ? (
               <>
                 <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low/60" />
-                <span className="shrink-0 whitespace-nowrap font-mono text-[10.5px]">{when}</span>
+                <span className="shrink-0 whitespace-nowrap font-mono text-[12px]">{when}</span>
               </>
             ) : null}
           </div>
@@ -225,11 +225,11 @@ function LetterGroup({
     <div>
       <div className="mb-[11px] flex items-center gap-2.5 px-[3px]">
         <StatDot tone={tone} glow size={8} />
-        <span className="text-[13px] font-semibold tracking-[-0.2px] text-fg">{title}</span>
-        <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-fg-low">
+        <span className="text-[14px] font-semibold tracking-[-0.2px] text-fg">{title}</span>
+        <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[12px] font-semibold tabular-nums text-fg-low">
           {rows.length}
         </span>
-        <span className="ml-auto font-mono text-[9px] tracking-[0.02em] text-fg-low">{meta}</span>
+        <span className="ml-auto font-mono text-[12px] tracking-[0.02em] text-fg-low">{meta}</span>
       </div>
       <div className="cll-fade overflow-hidden rounded-[14px] border border-border bg-surface">
         {rows.map((job, i) => (
@@ -336,7 +336,7 @@ function LettersWorkspace({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by company or role…"
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-low"
+            className="min-w-0 flex-1 bg-transparent text-[14px] text-fg outline-none placeholder:text-fg-low"
           />
           {query ? (
             <button
@@ -385,8 +385,8 @@ function LettersWorkspace({
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[16px] border border-border bg-surface">
             <Search size={24} strokeWidth={1.5} className="text-fg-low" />
           </div>
-          <div className="text-[16px] font-semibold text-fg">No letters found</div>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-fg-mid">
+          <div className="text-[18px] font-semibold text-fg">No letters found</div>
+          <p className="mt-2 text-[13px] leading-relaxed text-fg-mid">
             {query.trim() ? (
               <>
                 Nothing matches “<span className="text-fg">{query.trim()}</span>”. Try a different search or filter.
@@ -399,7 +399,7 @@ function LettersWorkspace({
             type="button"
             onClick={clearAll}
             disabled={!hasFilters}
-            className="mt-[18px] rounded-[10px] border border-border-strong bg-surface px-4 py-[9px] text-[12.5px] text-fg transition-colors hover:bg-surface-2 disabled:opacity-45"
+            className="mt-[18px] rounded-[10px] border border-border-strong bg-surface px-4 py-[9px] text-[13px] text-fg transition-colors hover:bg-surface-2 disabled:opacity-45"
           >
             Clear search &amp; filters
           </button>
@@ -429,8 +429,8 @@ function LettersEmpty() {
             <path d="M3.5 7l8.5 6 8.5-6" />
           </svg>
         </div>
-        <div className="text-[20px] font-bold tracking-[-0.3px] text-fg">No cover letters yet</div>
-        <p className="mt-2.5 text-[13.5px] leading-[1.7] text-fg-mid">
+        <div className="text-[22px] font-bold tracking-[-0.3px] text-fg">No cover letters yet</div>
+        <p className="mt-2.5 text-[15px] leading-[1.7] text-fg-mid">
           Generate a tailored, on-device cover letter for any role — grounded in your profile and written in your own
           voice. Your drafts and completed letters will live here.
         </p>

@@ -240,8 +240,8 @@ export function Write() {
         {/* ── Left: inputs ─────────────────────────────── */}
         <div className="cll-fade flex min-w-0 flex-col gap-4">
           <section className="rounded-[14px] border border-border bg-surface p-5">
-            <div className="text-[15px] font-semibold text-fg">What are you applying to?</div>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-fg-mid">
+            <div className="text-[16px] font-semibold text-fg">What are you applying to?</div>
+            <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">
               Fill in the details and I&apos;ll ground the draft in your profile.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -266,17 +266,17 @@ export function Write() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label>Length</Label>
-                <span className="font-mono text-[10px] tracking-[0.02em] text-accent-text">{lenLabel} · ~{words} words</span>
+                <span className="font-mono text-[12px] tracking-[0.02em] text-accent-text">{lenLabel} · ~{words} words</span>
               </div>
               <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
-              <div className="flex justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+              <div className="flex justify-between text-[12px] font-semibold tracking-[0.01em] text-fg-low">
                 <span>Brief</span><span>Detailed</span>
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-[11px] border border-border bg-surface-2 px-3.5 py-3">
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-fg">Check claims before sending</div>
-                <p className="mt-0.5 text-[11.5px] leading-snug text-fg-mid">Flag anything the draft states that your profile doesn&apos;t back up.</p>
+                <div className="text-[14px] font-semibold text-fg">Check claims before sending</div>
+                <p className="mt-0.5 text-[13px] leading-snug text-fg-mid">Flag anything the draft states that your profile doesn&apos;t back up.</p>
               </div>
               <Toggle checked={grounded} onChange={setGrounded} aria-label="Check claims before sending" />
             </div>
@@ -288,7 +288,7 @@ export function Write() {
           {/* Letter pane */}
           <section className="cll-fade relative flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
             {streaming ? (
-              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">
+              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 text-[12px] font-semibold tracking-[0.01em] text-accent-text">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }} />
                 Streaming
               </div>
@@ -299,12 +299,12 @@ export function Write() {
                 <div className="mb-3 grid h-12 w-12 place-items-center rounded-[14px] border border-border-strong bg-surface-2 text-accent-text">
                   <Sparkles size={22} />
                 </div>
-                <div className="text-[15px] font-semibold text-fg">Your letter appears here</div>
-                <p className="mt-1 max-w-xs text-[13px] text-fg-mid">Fill in the company and hit <b className="text-fg">Generate</b> — it streams in, grounded in your profile.</p>
+                <div className="text-[16px] font-semibold text-fg">Your letter appears here</div>
+                <p className="mt-1 max-w-xs text-[14px] text-fg-mid">Fill in the company and hit <b className="text-fg">Generate</b> — it streams in, grounded in your profile.</p>
               </div>
             ) : streaming ? (
               <div className="flex-1 overflow-auto p-7 sm:px-8">
-                <div className="max-w-[600px] whitespace-pre-wrap text-[15px] leading-[1.85] text-reading-ink">
+                <div className="max-w-[600px] whitespace-pre-wrap text-[16px] leading-[1.85] text-reading-ink">
                   {letter}
                   <span className="cll-caret" aria-hidden />
                 </div>
@@ -315,11 +315,11 @@ export function Write() {
                   value={letter}
                   onChange={(e) => setLetter(e.target.value)}
                   spellCheck
-                  className="min-h-[360px] flex-1 resize-none border-0 bg-transparent p-7 text-[15px] leading-[1.85] text-reading-ink outline-none sm:px-8"
+                  className="min-h-[360px] flex-1 resize-none border-0 bg-transparent p-7 text-[16px] leading-[1.85] text-reading-ink outline-none sm:px-8"
                   aria-label="Cover letter (editable)"
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3">
-                  <span className="flex items-center gap-1.5 text-[10.5px] text-fg-low">
+                  <span className="flex items-center gap-1.5 text-[12px] text-fg-low">
                     <Info size={12} strokeWidth={1.6} /> AI-generated — edit freely, review before sending
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -341,39 +341,39 @@ export function Write() {
           {grounded && done ? (
             <section className="cll-fade rounded-[14px] border border-border bg-surface p-[18px]">
               <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+                <div className="flex items-center gap-2 text-[14px] font-semibold text-fg">
                   <ShieldCheck size={16} strokeWidth={1.6} className="text-success" /> Claim check
                 </div>
                 {reviewing ? (
-                  <span className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid"><Spinner size={12} /> checking…</span>
+                  <span className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.01em] text-fg-mid"><Spinner size={12} /> checking…</span>
                 ) : (
-                  <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text hover:brightness-110">
+                  <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.01em] text-accent-text hover:brightness-110">
                     <RotateCw size={11} /> re-check
                   </button>
                 )}
               </div>
 
               {reviewing ? (
-                <p className="text-[12.5px] text-fg-mid">Looking for anything your profile doesn&apos;t back up…</p>
+                <p className="text-[13px] text-fg-mid">Looking for anything your profile doesn&apos;t back up…</p>
               ) : claims && claims.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  <p className="text-[12px] text-fg-mid">These make a specific claim your profile doesn&apos;t clearly support — double-check or edit before sending:</p>
+                  <p className="text-[13px] text-fg-mid">These make a specific claim your profile doesn&apos;t clearly support — double-check or edit before sending:</p>
                   {claims.map((c, i) => (
                     <div key={i} className="rounded-[10px] border border-[color:var(--warning)]/25 bg-warning-weak px-3 py-2.5">
-                      <div className="flex items-start gap-2 text-[12.5px] text-fg">
+                      <div className="flex items-start gap-2 text-[13px] text-fg">
                         <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0 text-warning" />
                         <span className="italic">“{c.text}”</span>
                       </div>
-                      {c.reason ? <div className="mt-1 pl-[21px] text-[11.5px] text-fg-mid">{c.reason}</div> : null}
+                      {c.reason ? <div className="mt-1 pl-[21px] text-[13px] text-fg-mid">{c.reason}</div> : null}
                     </div>
                   ))}
                 </div>
               ) : claims === null ? (
-                <p className="text-[12.5px] text-fg-mid">
+                <p className="text-[13px] text-fg-mid">
                   Not checked yet — hit <b className="text-fg">re-check</b> to scan this letter against your profile.
                 </p>
               ) : (
-                <div className="flex items-center gap-2.5 rounded-[10px] border border-[color:var(--success)]/25 bg-success-weak px-3 py-3 text-[13px] text-fg">
+                <div className="flex items-center gap-2.5 rounded-[10px] border border-[color:var(--success)]/25 bg-success-weak px-3 py-3 text-[14px] text-fg">
                   <Check size={16} strokeWidth={2.4} className="shrink-0 text-success" />
                   Every claim is backed by your profile. Nothing to double-check.
                 </div>
@@ -384,10 +384,10 @@ export function Write() {
           {/* PII shield — warns about personal/sensitive data (honors the Settings mode) */}
           {done && pii.length > 0 ? (
             <section className="cll-fade rounded-[14px] border border-[color:var(--warning)]/30 bg-warning-weak p-[18px]">
-              <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
+              <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-fg">
                 <ShieldAlert size={16} strokeWidth={1.7} className="text-warning" /> Personal data detected
               </div>
-              <p className="mb-3 text-[12px] leading-relaxed text-fg-mid">
+              <p className="mb-3 text-[13px] leading-relaxed text-fg-mid">
                 This letter contains what looks like personal or sensitive information. Remove anything you didn&apos;t mean to send — detected locally, nothing left your device.
               </p>
               <div className="flex flex-col gap-2">
@@ -397,13 +397,13 @@ export function Write() {
                     <div key={f.type} className="flex items-start gap-2.5 rounded-[10px] border border-border bg-surface px-3 py-2.5">
                       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-[12.5px] text-fg">
+                        <div className="flex items-center gap-2 text-[13px] text-fg">
                           <span className="font-semibold">{f.label}</span>
-                          {f.count > 1 ? <span className="font-mono text-[10px] text-fg-low">×{f.count}</span> : null}
+                          {f.count > 1 ? <span className="font-mono text-[12px] text-fg-low">×{f.count}</span> : null}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {f.samples.map((s, i) => (
-                            <span key={i} className="rounded-[6px] bg-input px-2 py-[2px] font-mono text-[10px] text-fg-mid">{s}</span>
+                            <span key={i} className="rounded-[6px] bg-input px-2 py-[2px] font-mono text-[12px] text-fg-mid">{s}</span>
                           ))}
                         </div>
                       </div>

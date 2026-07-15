@@ -97,7 +97,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
             onChange(n);
           }}
           className={cn(
-            "text-[13px] leading-none outline-none transition-colors focus-visible:text-accent",
+            "text-[14px] leading-none outline-none transition-colors focus-visible:text-accent",
             n <= value ? "text-accent" : "text-fg-low hover:text-fg-mid",
           )}
         >
@@ -132,8 +132,8 @@ function LetterCard({
         className="flex w-full items-center gap-2 text-left outline-none focus-visible:text-accent-text"
       >
         <DocIcon />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg">{label}</span>
-        <span className="shrink-0 font-mono text-[9px] text-fg-low">{words}w</span>
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-fg">{label}</span>
+        <span className="shrink-0 font-mono text-[12px] text-fg-low">{words}w</span>
       </button>
       <div className="mt-2 flex items-center justify-between">
         <StarRating value={letter.user_rating ?? 0} onChange={(v) => onRate(letter, v)} />
@@ -154,7 +154,7 @@ function LetterCard({
 function FpGroup({ title, danger = false, children }: { title: string; danger?: boolean; children: ReactNode }) {
   return (
     <div>
-      <div className={cn("mb-[9px] text-[12px]", danger ? "text-danger" : "text-fg")} style={{ fontWeight: 650 }}>
+      <div className={cn("mb-[9px] text-[13px]", danger ? "text-danger" : "text-fg")} style={{ fontWeight: 650 }}>
         {title}
       </div>
       {children}
@@ -189,26 +189,26 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
       />
 
       <div className="relative flex items-center justify-between gap-3">
-        <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Voice fingerprint</span>
-        <Pill tone={deep ? "accent" : "neutral"} className="gap-1 whitespace-nowrap px-[9px] py-[3px] text-[10.5px] font-semibold">
+        <span className="text-[12px] font-semibold tracking-[0.01em] text-accent-text">Voice fingerprint</span>
+        <Pill tone={deep ? "accent" : "neutral"} className="gap-1 whitespace-nowrap px-[9px] py-[3px] text-[12px] font-semibold">
           <IconSparkle /> {deep ? `Deep analysis · ${letterCount} letter${letterCount === 1 ? "" : "s"}` : "Local metrics"}
         </Pill>
       </div>
 
       {profile.enough_signal === false ? (
-        <div className="relative mt-3 rounded-[10px] border border-warning-weak bg-warning-weak px-3.5 py-2.5 text-[12px] leading-[1.55] text-warning">
+        <div className="relative mt-3 rounded-[10px] border border-warning-weak bg-warning-weak px-3.5 py-2.5 text-[13px] leading-[1.55] text-warning">
           Not enough signal yet — add another letter or two so the analysis has more of your writing to learn from.
         </div>
       ) : null}
 
-      <div className="relative mt-3 max-w-[560px] text-[20px] leading-[1.35] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>
+      <div className="relative mt-3 max-w-[560px] text-[22px] leading-[1.35] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>
         {heading}
       </div>
       {profile.summary ? (
-        <p className="relative mt-2 max-w-[560px] text-[13px] leading-[1.65] text-fg-mid">{profile.summary}</p>
+        <p className="relative mt-2 max-w-[560px] text-[14px] leading-[1.65] text-fg-mid">{profile.summary}</p>
       ) : null}
       {profile.self_presentation ? (
-        <p className="relative mt-2 max-w-[560px] text-[12.5px] leading-[1.6] text-fg-low">{profile.self_presentation}</p>
+        <p className="relative mt-2 max-w-[560px] text-[13px] leading-[1.6] text-fg-low">{profile.self_presentation}</p>
       ) : null}
 
       {/* tone / structure / sentences */}
@@ -219,8 +219,8 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
         >
           {stats.map((s) => (
             <div key={s.k} className="rounded-[10px] bg-surface-2 p-3">
-              <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{s.k}</div>
-              <div className="mt-[5px] text-[13px] font-semibold text-fg first-letter:uppercase">{s.v}</div>
+              <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">{s.k}</div>
+              <div className="mt-[5px] text-[14px] font-semibold text-fg first-letter:uppercase">{s.v}</div>
             </div>
           ))}
         </div>
@@ -229,7 +229,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
       {/* formality meter */}
       {profile.formality ? (
         <div className="relative mt-4">
-          <div className="mb-1.5 flex justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+          <div className="mb-1.5 flex justify-between text-[12px] font-semibold tracking-[0.01em] text-fg-low">
             <span>Formality · {profile.formality}</span>
             <span>Casual ↔ Formal</span>
           </div>
@@ -252,7 +252,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
           <FpGroup title="Strengths">
             <div className="flex flex-wrap gap-1.5">
               {profile.strengths.map((t) => (
-                <span key={t} className="rounded-[7px] bg-accent-weak px-2.5 py-[5px] text-[11px] text-accent-text">{t}</span>
+                <span key={t} className="rounded-[7px] bg-accent-weak px-2.5 py-[5px] text-[13px] text-accent-text">{t}</span>
               ))}
             </div>
           </FpGroup>
@@ -262,7 +262,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
           <FpGroup title="Recurring themes">
             <div className="flex flex-wrap gap-1.5">
               {profile.themes.map((t) => (
-                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[11px] text-fg-mid">{t}</span>
+                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[13px] text-fg-mid">{t}</span>
               ))}
             </div>
           </FpGroup>
@@ -270,7 +270,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
 
         {profile.signature_phrases?.length ? (
           <FpGroup title="Signature phrases">
-            <div className="flex flex-col gap-[5px] text-[12px] italic leading-[1.5] text-fg-mid">
+            <div className="flex flex-col gap-[5px] text-[13px] italic leading-[1.5] text-fg-mid">
               {profile.signature_phrases.map((p) => (
                 <span key={p}>&ldquo;{p}&rdquo;</span>
               ))}
@@ -282,7 +282,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
           <FpGroup title="Vocabulary">
             <div className="flex flex-wrap gap-1.5">
               {profile.vocabulary.map((t) => (
-                <span key={t} className="rounded-[6px] bg-surface-2 px-[9px] py-1 font-mono text-[10px] text-fg-mid">{t}</span>
+                <span key={t} className="rounded-[6px] bg-surface-2 px-[9px] py-1 font-mono text-[12px] text-fg-mid">{t}</span>
               ))}
             </div>
           </FpGroup>
@@ -290,13 +290,13 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
 
         {profile.rhetorical_moves ? (
           <FpGroup title="Rhetorical moves">
-            <p className="text-[12px] leading-[1.55] text-fg-mid">{profile.rhetorical_moves}</p>
+            <p className="text-[13px] leading-[1.55] text-fg-mid">{profile.rhetorical_moves}</p>
           </FpGroup>
         ) : null}
 
         {profile.opening_habits || profile.closing_habits ? (
           <FpGroup title="Opening & closing">
-            <div className="flex flex-col gap-[5px] text-[12px] leading-[1.5] text-fg-mid">
+            <div className="flex flex-col gap-[5px] text-[13px] leading-[1.5] text-fg-mid">
               {profile.opening_habits ? (
                 <span>
                   <b className="font-semibold text-fg">Open:</b> {profile.opening_habits}
@@ -315,7 +315,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
           <FpGroup title="Emphasizes">
             <div className="flex flex-wrap gap-1.5">
               {profile.emphasis.map((t) => (
-                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[11px] text-fg-mid">{t}</span>
+                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[13px] text-fg-mid">{t}</span>
               ))}
             </div>
           </FpGroup>
@@ -325,10 +325,10 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
       {/* example sentences */}
       {profile.example_sentences?.length ? (
         <div className="relative mt-5">
-          <div className="mb-[9px] text-[12px] text-fg" style={{ fontWeight: 650 }}>Example sentences</div>
+          <div className="mb-[9px] text-[13px] text-fg" style={{ fontWeight: 650 }}>Example sentences</div>
           <div className="flex flex-col gap-2">
             {profile.example_sentences.map((s) => (
-              <div key={s} className="rounded-[10px] border border-border bg-reading px-[13px] py-[11px] text-[12.5px] italic leading-[1.6] text-reading-ink">
+              <div key={s} className="rounded-[10px] border border-border bg-reading px-[13px] py-[11px] text-[13px] italic leading-[1.6] text-reading-ink">
                 &ldquo;{s}&rdquo;
               </div>
             ))}
@@ -343,7 +343,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
             <FpGroup title="Avoids" danger>
               <div className="flex flex-wrap gap-1.5">
                 {profile.avoid.map((t) => (
-                  <span key={t} className="rounded-[6px] bg-danger-weak px-[9px] py-1 text-[11px] text-danger">{t}</span>
+                  <span key={t} className="rounded-[6px] bg-danger-weak px-[9px] py-1 text-[13px] text-danger">{t}</span>
                 ))}
               </div>
             </FpGroup>
@@ -351,7 +351,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
 
           {metrics.length ? (
             <FpGroup title="Local metrics">
-              <div className="flex flex-col gap-1.5 text-[11.5px] text-fg-mid">
+              <div className="flex flex-col gap-1.5 text-[13px] text-fg-mid">
                 {metrics.map((m) => (
                   <div key={m.k} className="flex justify-between gap-3">
                     <span>{m.k}</span>
@@ -376,9 +376,9 @@ function NotLearnedPanel({ count, analyzing, onLearn }: { count: number; analyzi
         className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
         style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.28 }}
       />
-      <span className="relative text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Voice fingerprint</span>
-      <div className="relative mt-3 text-[19px] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>Not learned yet</div>
-      <p className="relative mt-2 max-w-[440px] text-[13px] leading-[1.65] text-fg-mid">
+      <span className="relative text-[12px] font-semibold tracking-[0.01em] text-accent-text">Voice fingerprint</span>
+      <div className="relative mt-3 text-[20px] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>Not learned yet</div>
+      <p className="relative mt-2 max-w-[440px] text-[14px] leading-[1.65] text-fg-mid">
         You&rsquo;ve added {count} letter{count === 1 ? "" : "s"}. Analyze them to build your voice fingerprint — the model
         studies your tone, structure, and phrasing.
       </p>
@@ -416,9 +416,9 @@ function DoneBody({
       {/* Left — the past letters */}
       <section className="cll-fade flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your letters · {letters.length}</span>
+          <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Your letters · {letters.length}</span>
           {profile?.llm_analyzed ? (
-            <Pill tone="accent" className="gap-1 px-[9px] py-[3px] text-[10.5px] font-semibold">
+            <Pill tone="accent" className="gap-1 px-[9px] py-[3px] text-[12px] font-semibold">
               <IconSparkle /> Deep
             </Pill>
           ) : null}
@@ -431,7 +431,7 @@ function DoneBody({
         <button
           type="button"
           onClick={onAdd}
-          className="rounded-[11px] border border-dashed border-border-strong bg-transparent px-3 py-3 text-[12.5px] text-accent-text outline-none transition-colors hover:border-accent focus-visible:border-accent"
+          className="rounded-[11px] border border-dashed border-border-strong bg-transparent px-3 py-3 text-[13px] text-accent-text outline-none transition-colors hover:border-accent focus-visible:border-accent"
         >
           + Add a past letter
         </button>
@@ -459,8 +459,8 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
             <path d="M4 10h1.5M8 5v10M12 3v14M16 8v4" />
           </svg>
         </div>
-        <div className="text-[21px] font-bold tracking-[-0.4px] text-fg">Teach the AI how you write</div>
-        <p className="mt-[11px] text-[13.5px] leading-[1.7] text-fg-mid">
+        <div className="text-[24px] font-bold tracking-[-0.4px] text-fg">Teach the AI how you write</div>
+        <p className="mt-[11px] text-[15px] leading-[1.7] text-fg-mid">
           Add a few cover letters you&rsquo;ve written before. The model studies your real tone, structure, and phrasing —
           then drafts new letters that sound like <span className="text-accent-text">you</span>, not like generic AI.
         </p>
@@ -475,8 +475,8 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
               <path d="M10 13V4M6.5 7.5L10 4l3.5 3.5M4 15h12" />
             </svg>
           </span>
-          <span className="block text-[14px] font-semibold text-fg">Paste a past cover letter</span>
-          <span className="mt-[5px] block text-[12px] text-fg-low">It stays on your machine — nothing is uploaded</span>
+          <span className="block text-[15px] font-semibold text-fg">Paste a past cover letter</span>
+          <span className="mt-[5px] block text-[13px] text-fg-low">It stays on your machine — nothing is uploaded</span>
         </button>
 
         <div className="mt-4 flex justify-center">
@@ -485,7 +485,7 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
           </Button>
         </div>
 
-        <div className="mt-[18px] inline-flex items-center gap-1.5 text-[11px] text-fg-low">
+        <div className="mt-[18px] inline-flex items-center gap-1.5 text-[13px] text-fg-low">
           <StatDot tone="success" glow size={6} />
           Parsed on-device · nothing is uploaded
         </div>
@@ -500,15 +500,15 @@ function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]
   return (
     <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
       <section className="cll-fade flex flex-col gap-2.5">
-        <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Samples · {letters.length}</div>
+        <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Samples · {letters.length}</div>
         {letters.map((l, i) => (
           <div key={l.id ?? i} className="flex items-center gap-2.5 rounded-[11px] border border-border bg-surface px-3.5 py-3">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-accent-weak">
               <IconCheck size={11} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-semibold text-fg">{previewLabel(l.content) || `Letter ${i + 1}`}</div>
-              <div className="font-mono text-[9px] text-fg-low">{wordCount(l.content)} words</div>
+              <div className="truncate text-[13px] font-semibold text-fg">{previewLabel(l.content) || `Letter ${i + 1}`}</div>
+              <div className="font-mono text-[12px] text-fg-low">{wordCount(l.content)} words</div>
             </div>
           </div>
         ))}
@@ -522,11 +522,11 @@ function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]
             style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.35 }}
           />
           <div className="relative flex items-center gap-2">
-            <div className="text-[15px] text-fg" style={{ fontWeight: 650 }}>Analyzing your voice</div>
+            <div className="text-[16px] text-fg" style={{ fontWeight: 650 }}>Analyzing your voice</div>
             <StatDot tone="accent" pulse size={7} />
-            <span className="ml-auto font-mono text-[11px] text-accent-text">{Math.round(progress)}%</span>
+            <span className="ml-auto font-mono text-[13px] text-accent-text">{Math.round(progress)}%</span>
           </div>
-          <div className="relative mt-1.5 text-[12px] text-fg-mid">{label || "Working…"}</div>
+          <div className="relative mt-1.5 text-[13px] text-fg-mid">{label || "Working…"}</div>
           <div className="relative mt-2">
             <ProgressBar value={progress} />
           </div>
@@ -537,13 +537,13 @@ function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]
                 <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-accent-weak">
                   <IconSpin size={13} />
                 </span>
-                <span className="flex-1 text-[12.5px] text-fg">{label}</span>
-                <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Working</span>
+                <span className="flex-1 text-[13px] text-fg">{label}</span>
+                <span className="text-[12px] font-semibold tracking-[0.01em] text-accent-text">Working</span>
               </div>
             ))}
           </div>
 
-          <div className="relative mt-[18px] border-t border-border pt-3.5 text-[12.5px] leading-[1.7] text-fg-mid">
+          <div className="relative mt-[18px] border-t border-border pt-3.5 text-[13px] leading-[1.7] text-fg-mid">
             Reading your letters and reverse-engineering how you open, build an argument, and close — so new drafts sound like you
             <span
               className="ml-px inline-block h-3.5 w-[7px] translate-y-0.5 bg-accent"
@@ -567,16 +567,16 @@ function LetterModal({ letter, onClose }: { letter: PastCoverLetter; onClose: ()
         className="flex max-h-[84vh] w-[min(92vw,560px)] flex-col overflow-hidden p-0"
       >
         <div className="border-b border-border px-[22px] py-[18px] pr-12">
-          <DialogTitle className="text-[15px]">{previewLabel(letter.content) || "Past letter"}</DialogTitle>
-          <div className="mt-[3px] font-mono text-[10px] text-fg-mid">{meta}</div>
+          <DialogTitle className="text-[16px]">{previewLabel(letter.content) || "Past letter"}</DialogTitle>
+          <div className="mt-[3px] font-mono text-[12px] text-fg-mid">{meta}</div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto bg-reading px-[26px] py-6">
-          <div className="whitespace-pre-wrap text-[14px] leading-[1.85] text-reading-ink">{letter.content}</div>
+          <div className="whitespace-pre-wrap text-[15px] leading-[1.85] text-reading-ink">{letter.content}</div>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border bg-surface-2 px-[22px] py-3.5">
-          <span className="text-[11px] text-fg-low">Used as a style reference — never copied verbatim.</span>
+          <span className="text-[13px] text-fg-low">Used as a style reference — never copied verbatim.</span>
           <Button variant="primary" size="sm" type="button" onClick={onClose}>Done</Button>
         </div>
       </DialogContent>

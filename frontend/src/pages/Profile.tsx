@@ -179,7 +179,7 @@ function SourceRow({ source, at, detail }: { source?: Source; at?: string | null
   const label = SOURCE_META[source ?? "manual"].label;
   const extra = [detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
   return (
-    <div className="mt-3.5 flex items-center gap-1.5 border-t border-border pt-3 text-[11px]">
+    <div className="mt-3.5 flex items-center gap-1.5 border-t border-border pt-3 text-[13px]">
       <span className="font-semibold tracking-[0.01em] text-fg-low">Source</span>
       <span className="text-fg-low">·</span>
       <span className="font-medium text-fg-mid">{label}</span>
@@ -249,15 +249,15 @@ function skillWeight(rating?: number | null): SkillWeight {
 }
 const SKILL_CHIP: Record<SkillWeight, { className: string; style?: React.CSSProperties }> = {
   primary: {
-    className: "rounded-[9px] px-[13px] py-2 text-[14px] font-semibold text-white",
+    className: "rounded-[9px] px-[13px] py-2 text-[15px] font-semibold text-white",
     style: { background: "var(--accent-grad)", boxShadow: "0 6px 16px -8px var(--accent-shadow)" },
   },
   strong: {
-    className: "rounded-[9px] border border-border-strong bg-accent-weak px-3 py-[7px] text-[13px] font-semibold text-accent-text",
+    className: "rounded-[9px] border border-border-strong bg-accent-weak px-3 py-[7px] text-[14px] font-semibold text-accent-text",
   },
-  normal: { className: "rounded-[8px] border border-border bg-surface-2 px-[11px] py-1.5 text-[12px] text-fg" },
+  normal: { className: "rounded-[8px] border border-border bg-surface-2 px-[11px] py-1.5 text-[13px] text-fg" },
   learning: {
-    className: "rounded-[8px] border border-dashed border-border-strong bg-transparent px-2.5 py-[5px] text-[11.5px] text-fg-mid",
+    className: "rounded-[8px] border border-dashed border-border-strong bg-transparent px-2.5 py-[5px] text-[13px] text-fg-mid",
   },
 };
 const LEVEL_LABEL: Record<number, string> = { 5: "Expert", 4: "Advanced", 3: "Intermediate", 2: "Basic", 1: "Beginner" };
@@ -516,7 +516,7 @@ export function Profile() {
       actions={
         <>
           {status.text ? (
-            <span className="hidden items-center gap-1.5 text-[11.5px] text-fg-mid sm:flex">
+            <span className="hidden items-center gap-1.5 text-[13px] text-fg-mid sm:flex">
               <StatDot tone={status.tone} glow size={6} />
               {status.text}
             </span>
@@ -722,9 +722,9 @@ function SectionCard({
   return (
     <div className={cn("cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]", className)}>
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-fg">{title}</span>
+        <span className="text-[15px] font-semibold text-fg">{title}</span>
         <div className="flex items-center gap-2.5">
-          {meta ? <span className="font-mono text-[10px] text-fg-low">{meta}</span> : null}
+          {meta ? <span className="font-mono text-[12px] text-fg-low">{meta}</span> : null}
           {headerExtra}
           {onAdd ? <AddButton title={addLabel} onClick={onAdd} /> : null}
         </div>
@@ -761,7 +761,7 @@ function EmptyPrompt({ children, onClick, minimal = false }: { children: ReactNo
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full rounded-[10px] border border-dashed border-border-strong bg-input text-center text-[12.5px] text-fg-mid transition-colors hover:border-accent",
+        "w-full rounded-[10px] border border-dashed border-border-strong bg-input text-center text-[13px] text-fg-mid transition-colors hover:border-accent",
         minimal ? "p-[18px]" : "p-5",
       )}
     >
@@ -788,9 +788,9 @@ function IdentityCard({
   return (
     <div className="cll-fade flex items-start justify-between gap-5 rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div className="min-w-0 flex-1">
-        <div className="text-[19px] font-bold text-fg">{displayName(profile)}</div>
-        <div className="mt-1 text-[13px] text-fg-mid">{sublineOf(experiences)}</div>
-        <div className="mt-[13px] flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12px]">
+        <div className="text-[20px] font-bold text-fg">{displayName(profile)}</div>
+        <div className="mt-1 text-[14px] text-fg-mid">{sublineOf(experiences)}</div>
+        <div className="mt-[13px] flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[13px]">
           {email ? (
             <a href={`mailto:${email}`} className={cn(contactClass, "min-w-0")}>
               <Mail size={13} strokeWidth={1.6} className="shrink-0" />
@@ -821,7 +821,7 @@ function IdentityCard({
       <button
         type="button"
         onClick={onEdit}
-        className="flex shrink-0 items-center gap-1.5 rounded-[9px] border border-border-strong bg-transparent px-3 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        className="flex shrink-0 items-center gap-1.5 rounded-[9px] border border-border-strong bg-transparent px-3 py-2 text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
       >
         <PencilIcon size={13} /> Edit
       </button>
@@ -881,7 +881,7 @@ function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Sk
               <div className="flex flex-col gap-3.5">
                 {groups.map((g) => (
                   <div key={g.label}>
-                    <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-fg-low">{g.label}</div>
+                    <div className="mb-2 font-mono text-[12px] uppercase tracking-[0.06em] text-fg-low">{g.label}</div>
                     <div className="flex flex-wrap items-center gap-[7px]">
                       {g.items.map((sk) => (
                         <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
@@ -898,7 +898,7 @@ function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Sk
               </div>
             )}
           </div>
-          <div className="mt-3.5 flex items-center justify-end gap-4 border-t border-border pt-3 text-[11px] text-fg-mid">
+          <div className="mt-3.5 flex items-center justify-end gap-4 border-t border-border pt-3 text-[13px] text-fg-mid">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--accent)" }} />
               Strong
@@ -963,23 +963,23 @@ function ExperienceCard({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2.5">
-                    <span className="text-[13.5px] font-semibold leading-tight text-fg">{x.title}</span>
-                    <span className="shrink-0 text-[10.5px] tabular-nums text-fg-low">
+                    <span className="text-[15px] font-semibold leading-tight text-fg">{x.title}</span>
+                    <span className="shrink-0 text-[12px] tabular-nums text-fg-low">
                       {fmtPeriod(x.start_date, x.end_date, x.is_current)}
                     </span>
                   </div>
-                  <div className="mt-1 text-[12px] text-accent-text">{x.company}</div>
+                  <div className="mt-1 text-[13px] text-accent-text">{x.company}</div>
                   {tags.length ? (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {tags.map((t) => (
-                        <span key={t} className="rounded-[6px] border border-border bg-input px-2 py-0.5 text-[10px] text-fg-mid">
+                        <span key={t} className="rounded-[6px] border border-border bg-input px-2 py-0.5 text-[12px] text-fg-mid">
                           {t}
                         </span>
                       ))}
                     </div>
                   ) : null}
                   {x.description ? (
-                    <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{x.description}</div>
+                    <div className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-fg-mid">{x.description}</div>
                   ) : null}
                 </div>
               </button>
@@ -1008,31 +1008,31 @@ function SummaryCard({
   return (
     <div className="cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-fg">Summary</span>
+        <span className="text-[15px] font-semibold text-fg">Summary</span>
         {summary ? (
           <button
             type="button"
             onClick={onEdit}
-            className="flex items-center gap-1.5 rounded-[8px] border border-border-strong bg-transparent px-2.5 py-1.5 text-[11.5px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+            className="flex items-center gap-1.5 rounded-[8px] border border-border-strong bg-transparent px-2.5 py-1.5 text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
           >
             <PencilIcon size={12} /> Edit
           </button>
         ) : (
-          <span className="rounded-full border border-dashed border-border-strong px-2 py-0.5 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+          <span className="rounded-full border border-dashed border-border-strong px-2 py-0.5 text-[12px] font-semibold tracking-[0.01em] text-fg-low">
             Empty
           </span>
         )}
       </div>
       {summary ? (
         <>
-          <div className="mt-3 max-w-[68ch] text-[13.5px] leading-[1.85] text-fg-mid">{summary}</div>
+          <div className="mt-3 max-w-[68ch] text-[15px] leading-[1.85] text-fg-mid">{summary}</div>
           <div className="mt-3 flex items-center gap-1.5">
-            <span className="rounded-[6px] bg-input px-2 py-0.5 font-mono text-[9px] text-fg-low">{words} words</span>
+            <span className="rounded-[6px] bg-input px-2 py-0.5 font-mono text-[12px] text-fg-low">{words} words</span>
           </div>
         </>
       ) : (
         <div className="mt-2.5 flex items-center justify-between gap-4 rounded-[10px] border border-dashed border-border-strong bg-input p-4">
-          <div className="text-[13px] text-fg-mid">
+          <div className="text-[14px] text-fg-mid">
             <span className="font-semibold text-accent-text">AI can draft this from your CV.</span> A short professional
             summary grounded in your experience.
           </div>
@@ -1043,7 +1043,7 @@ function SummaryCard({
             <button
               type="button"
               onClick={onEdit}
-              className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+              className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
             >
               Write myself
             </button>
@@ -1089,15 +1089,15 @@ function EducationCard({
                 <CapIcon size={17} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold text-fg">
+                <div className="truncate text-[14px] font-semibold text-fg">
                   {[ed.degree, ed.field].filter(Boolean).join(" · ") || "Studies"}
                 </div>
-                <div className="mt-0.5 truncate text-[12px] text-fg-mid">{ed.institution}</div>
-                {eduMeta(ed) ? <div className="mt-1 font-mono text-[11px] text-fg-low">{eduMeta(ed)}</div> : null}
+                <div className="mt-0.5 truncate text-[13px] text-fg-mid">{ed.institution}</div>
+                {eduMeta(ed) ? <div className="mt-1 font-mono text-[13px] text-fg-low">{eduMeta(ed)}</div> : null}
                 {ed.courses && ed.courses.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {ed.courses.map((c) => (
-                      <span key={c} className="rounded-[6px] bg-input px-2 py-[3px] font-mono text-[9px] text-fg-mid">
+                      <span key={c} className="rounded-[6px] bg-input px-2 py-[3px] font-mono text-[12px] text-fg-mid">
                         {c}
                       </span>
                     ))}
@@ -1139,8 +1139,8 @@ function LanguagesCard({
               onClick={() => onOpen(lg)}
               className="-mx-2 flex items-center justify-between gap-3 rounded-[9px] px-2 py-2.5 text-left transition-colors hover:bg-surface-2"
             >
-              <span className="min-w-0 truncate text-[13px] text-fg">{lg.name}</span>
-              <span className="shrink-0 text-[12px] font-medium text-accent-text">{langLabel(lg.proficiency)}</span>
+              <span className="min-w-0 truncate text-[14px] text-fg">{lg.name}</span>
+              <span className="shrink-0 text-[13px] font-medium text-accent-text">{langLabel(lg.proficiency)}</span>
             </button>
           ))}
         </div>
@@ -1173,7 +1173,7 @@ function ProjectsCard({
         <button
           type="button"
           onClick={onGithub}
-          className="flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 px-3 py-1.5 text-[12px] text-fg transition-colors hover:border-accent"
+          className="flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 px-3 py-1.5 text-[13px] text-fg transition-colors hover:border-accent"
         >
           <BranchIcon size={13} strokeWidth={1.4} /> Add from GitHub
         </button>
@@ -1194,31 +1194,31 @@ function ProjectsCard({
                 <span className="shrink-0 text-accent-text">
                   <BranchIcon size={14} strokeWidth={1.5} />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg">{p.name}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-fg">{p.name}</span>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {typeof p.stars === "number" ? (
-                    <span className="flex items-center gap-0.5 font-mono text-[10px] text-warning" title={`${p.stars} stars`}>
+                    <span className="flex items-center gap-0.5 font-mono text-[12px] text-warning" title={`${p.stars} stars`}>
                       <StarIcon size={11} strokeWidth={1.6} />
                       {p.stars}
                     </span>
                   ) : null}
                   {p.role ? (
-                    <span className="max-w-[120px] truncate rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">
+                    <span className="max-w-[120px] truncate rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[12px] text-accent-text">
                       {p.role}
                     </span>
                   ) : null}
                 </div>
               </div>
-              {period ? <div className="mt-1 font-mono text-[10px] text-fg-low">{period}</div> : null}
+              {period ? <div className="mt-1 font-mono text-[12px] text-fg-low">{period}</div> : null}
               {p.description ? (
-                <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{p.description}</div>
+                <div className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-fg-mid">{p.description}</div>
               ) : null}
               {tech.length ? (
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                   {tech.map((t) => (
                     <span
                       key={t}
-                      className="flex max-w-full items-center gap-1.5 rounded-[6px] bg-input px-2 py-[3px] font-mono text-[9px] text-fg-mid"
+                      className="flex max-w-full items-center gap-1.5 rounded-[6px] bg-input px-2 py-[3px] font-mono text-[12px] text-fg-mid"
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                       <span className="truncate">{t}</span>
@@ -1235,7 +1235,7 @@ function ProjectsCard({
           className="flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-border-strong bg-input p-3.5 text-center transition-colors hover:border-accent"
         >
           <PlusIcon size={18} strokeWidth={1.6} className="text-accent" />
-          <span className="text-[12.5px] text-fg-mid">Add a project manually</span>
+          <span className="text-[13px] text-fg-mid">Add a project manually</span>
         </button>
       </div>
     </SectionCard>
@@ -1267,15 +1267,15 @@ function CertificatesCard({
               key={ct.id ?? i}
               type="button"
               onClick={() => onOpen(ct)}
-              className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left text-[13px] transition-colors hover:bg-surface-2"
+              className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left text-[14px] transition-colors hover:bg-surface-2"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
                 <AwardIcon size={15} />
               </span>
               <span className="min-w-0 flex-1 truncate text-fg">{ct.name}</span>
-              {ct.issuer ? <span className="shrink-0 truncate font-mono text-[10px] text-fg-low">{ct.issuer}</span> : null}
+              {ct.issuer ? <span className="shrink-0 truncate font-mono text-[12px] text-fg-low">{ct.issuer}</span> : null}
               {ct.issue_date ? (
-                <span className="shrink-0 font-mono text-[10px] text-fg-low">{fmtDate(ct.issue_date)}</span>
+                <span className="shrink-0 font-mono text-[12px] text-fg-low">{fmtDate(ct.issue_date)}</span>
               ) : null}
             </button>
           ))}
@@ -1322,11 +1322,11 @@ function TrainingsCard({
                 <BookIcon size={15} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12.5px] text-fg">{tr.name}</div>
-                {tr.provider ? <div className="truncate font-mono text-[11px] text-fg-low">{tr.provider}</div> : null}
+                <div className="truncate text-[13px] text-fg">{tr.name}</div>
+                {tr.provider ? <div className="truncate font-mono text-[13px] text-fg-low">{tr.provider}</div> : null}
               </div>
               {tr.completion_date ? (
-                <span className="shrink-0 font-mono text-[10px] text-fg-low">{fmtDate(tr.completion_date)}</span>
+                <span className="shrink-0 font-mono text-[12px] text-fg-low">{fmtDate(tr.completion_date)}</span>
               ) : null}
             </button>
           ))}
@@ -1359,8 +1359,8 @@ function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) 
                 <LinkIcon size={14} strokeWidth={1.6} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12.5px] text-fg">{ln.label}</div>
-                <div className="truncate font-mono text-[11px] text-accent-text">{shortUrl(ln.url)}</div>
+                <div className="truncate text-[13px] text-fg">{ln.label}</div>
+                <div className="truncate font-mono text-[13px] text-accent-text">{shortUrl(ln.url)}</div>
               </div>
             </button>
           ))}
@@ -1417,8 +1417,8 @@ function ModalHeader({ icon, kicker, title }: { icon: ReactNode; kicker: string;
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{kicker}</div>
-        <div className="truncate text-[15px] font-bold text-fg">{title}</div>
+        <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">{kicker}</div>
+        <div className="truncate text-[16px] font-bold text-fg">{title}</div>
       </div>
     </div>
   );
@@ -1430,7 +1430,7 @@ function DetailFooter({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =
       <button
         type="button"
         onClick={onDelete}
-        className="rounded-[9px] border px-3 py-1.5 text-[12px] text-danger transition-colors hover:bg-danger-weak"
+        className="rounded-[9px] border px-3 py-1.5 text-[13px] text-danger transition-colors hover:bg-danger-weak"
         style={{ borderColor: "rgba(251,113,133,.32)" }}
       >
         Delete
@@ -1490,19 +1490,19 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
         <>
           <div className="mb-4 flex items-center gap-2">
             {sk.category ? (
-              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[10.5px] text-fg-mid">
+              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[12px] text-fg-mid">
                 {sk.category}
               </span>
             ) : null}
             {typeof sk.years_experience === "number" ? (
-              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[10.5px] text-fg-mid">
+              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[12px] text-fg-mid">
                 {sk.years_experience} yrs
               </span>
             ) : null}
           </div>
           <div className="mb-2.5 flex items-center justify-between">
-            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
-            <span className="text-[12px] font-semibold text-accent-text">{ratingLabel(sk.self_rating)}</span>
+            <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
+            <span className="text-[13px] font-semibold text-accent-text">{ratingLabel(sk.self_rating)}</span>
           </div>
           <div className="flex gap-1.5">
             {[1, 2, 3, 4, 5].map((n) => (
@@ -1510,7 +1510,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
             ))}
           </div>
           {sk.note ? (
-            <div className="mt-3.5 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+            <div className="mt-3.5 rounded-[10px] bg-reading px-3.5 py-3 text-[13px] leading-relaxed text-reading-ink">
               {sk.note}
             </div>
           ) : null}
@@ -1523,23 +1523,23 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
       const tags = [x.employment_type ? titleCase(x.employment_type) : "", x.location ?? ""].filter(Boolean);
       return (
         <>
-          <div className="text-[12.5px] font-semibold text-accent-text">{x.company}</div>
+          <div className="text-[13px] font-semibold text-accent-text">{x.company}</div>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {fmtPeriod(x.start_date, x.end_date, x.is_current) ? (
-              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">
+              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[13px] text-accent-text">
                 {fmtPeriod(x.start_date, x.end_date, x.is_current)}
               </span>
             ) : null}
             {tags.map((t) => (
-              <span key={t} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-fg-mid">
+              <span key={t} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[13px] text-fg-mid">
                 {t}
               </span>
             ))}
           </div>
           {x.description ? (
             <div className="mt-3.5 border-t border-border pt-3.5">
-              <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">What I did</div>
-              <div className="rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              <div className="mb-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">What I did</div>
+              <div className="rounded-[10px] bg-reading px-3.5 py-3 text-[13px] leading-relaxed text-reading-ink">
                 {x.description}
               </div>
             </div>
@@ -1554,21 +1554,21 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
         <>
           <div className="flex items-center gap-2">
             {p.role ? (
-              <span className="rounded-full bg-accent-weak px-2.5 py-0.5 font-mono text-[9px] text-accent-text">{p.role}</span>
+              <span className="rounded-full bg-accent-weak px-2.5 py-0.5 font-mono text-[12px] text-accent-text">{p.role}</span>
             ) : null}
             {fmtPeriod(p.start_date, p.end_date) ? (
-              <span className="ml-auto font-mono text-[10px] text-fg-low">{fmtPeriod(p.start_date, p.end_date)}</span>
+              <span className="ml-auto font-mono text-[12px] text-fg-low">{fmtPeriod(p.start_date, p.end_date)}</span>
             ) : null}
           </div>
           {p.description ? (
-            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[13px] leading-relaxed text-reading-ink">
               {p.description}
             </div>
           ) : null}
           {(p.technologies ?? []).length ? (
             <div className="mt-3.5 flex flex-wrap gap-1.5">
               {(p.technologies ?? []).map((t) => (
-                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2 py-1 font-mono text-[9px] text-fg-mid">
+                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2 py-1 font-mono text-[12px] text-fg-mid">
                   {t}
                 </span>
               ))}
@@ -1590,12 +1590,12 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
       return (
         <>
           <div className="flex items-center gap-2">
-            <span className="text-[12.5px] font-semibold text-accent-text">{ed.institution}</span>
+            <span className="text-[13px] font-semibold text-accent-text">{ed.institution}</span>
           </div>
           {chips.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {chips.map((m) => (
-                <span key={m} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-fg-mid">
+                <span key={m} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[13px] text-fg-mid">
                   {m}
                 </span>
               ))}
@@ -1610,8 +1610,8 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
       return (
         <>
           <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
-            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
-            <span className="text-[13px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
+            <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
+            <span className="text-[14px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
           </div>
           {prov(lg)}
         </>
@@ -1630,15 +1630,15 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
           {ct.issuer ? (
             <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
               <div>
-                <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Issuer</div>
-                <div className="mt-0.5 text-[13px] font-semibold text-fg">{ct.issuer}</div>
+                <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Issuer</div>
+                <div className="mt-0.5 text-[14px] font-semibold text-fg">{ct.issuer}</div>
               </div>
             </div>
           ) : null}
           {chips.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {chips.map((m) => (
-                <span key={m} className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">
+                <span key={m} className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[13px] text-accent-text">
                   {m}
                 </span>
               ))}
@@ -1656,20 +1656,20 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
           {tr.provider ? (
             <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
               <div>
-                <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Provider</div>
-                <div className="mt-0.5 text-[13px] font-semibold text-fg">{tr.provider}</div>
+                <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Provider</div>
+                <div className="mt-0.5 text-[14px] font-semibold text-fg">{tr.provider}</div>
               </div>
             </div>
           ) : null}
           {tr.completion_date ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">
+              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[13px] text-accent-text">
                 Completed {fmtDate(tr.completion_date)}
               </span>
             </div>
           ) : null}
           {tr.description ? (
-            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[13px] leading-relaxed text-reading-ink">
               {tr.description}
             </div>
           ) : null}
@@ -1682,7 +1682,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
       const ln = item as Link;
       return (
         <>
-          {ln.description ? <div className="mb-3 text-[12.5px] leading-relaxed text-fg-mid">{ln.description}</div> : null}
+          {ln.description ? <div className="mb-3 text-[13px] leading-relaxed text-fg-mid">{ln.description}</div> : null}
           <DetailLink url={ln.url} mono />
           {prov(ln)}
         </>
@@ -1700,7 +1700,7 @@ function DetailLink({ url, mono = false }: { url: string; mono?: boolean }) {
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "mt-3.5 flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 text-[12px] text-accent-text transition-colors hover:border-accent",
+        "mt-3.5 flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 text-[13px] text-accent-text transition-colors hover:border-accent",
         mono && "font-mono",
       )}
     >
@@ -1725,7 +1725,7 @@ function SelectInput({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-10 w-full rounded-[9px] border border-border bg-input px-3 text-[13px] text-fg outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak"
+      className="h-10 w-full rounded-[9px] border border-border bg-input px-3 text-[14px] text-fg outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak"
     >
       <option value="">—</option>
       {options.map((o) => (
@@ -1753,7 +1753,7 @@ function FormGrid({
         if (f.type === "checkbox") {
           return (
             <label key={f.name} className={cn("flex items-center justify-between gap-3 rounded-[9px] border border-border bg-input px-3 py-2.5", span)}>
-              <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">{f.label}</span>
+              <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-mid">{f.label}</span>
               <Toggle checked={values[f.name] === true} onChange={(c) => onChange(f.name, c)} aria-label={f.label} />
             </label>
           );
@@ -1799,7 +1799,7 @@ function ModalFooter({
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
       >
         Cancel
       </button>
@@ -2041,8 +2041,8 @@ function SummaryStudioModal({
           <SparkleIcon size={16} strokeWidth={1.6} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-fg">Generate summary</div>
-          <div className="text-[10.5px] text-fg-mid">Drafted from your CV & GitHub — grounded, nothing invented.</div>
+          <div className="text-[15px] font-semibold text-fg">Generate summary</div>
+          <div className="text-[12px] text-fg-mid">Drafted from your CV & GitHub — grounded, nothing invented.</div>
         </div>
         {streaming ? (
           <Pill tone="accent" mono dot>
@@ -2051,7 +2051,7 @@ function SummaryStudioModal({
         ) : null}
       </div>
       <div className="p-4">
-        <div className="min-h-[96px] rounded-[10px] border border-border bg-reading px-3.5 py-3.5 text-[12.5px] leading-relaxed text-reading-ink">
+        <div className="min-h-[96px] rounded-[10px] border border-border bg-reading px-3.5 py-3.5 text-[13px] leading-relaxed text-reading-ink">
           {text}
           {streaming ? <span className="cll-caret" /> : null}
           {!text && !streaming ? <span className="text-fg-low">Nothing drafted yet.</span> : null}
@@ -2063,7 +2063,7 @@ function SummaryStudioModal({
               type="button"
               disabled={streaming || !text.trim()}
               onClick={() => refine(t.instruction)}
-              className="rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-[11px] text-fg transition-colors hover:border-accent disabled:opacity-45"
+              className="rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-[13px] text-fg transition-colors hover:border-accent disabled:opacity-45"
             >
               {t.label}
             </button>
@@ -2072,7 +2072,7 @@ function SummaryStudioModal({
             type="button"
             disabled={streaming}
             onClick={() => run((onEvent, signal) => streamDraft({ field_label: "Professional summary" }, onEvent, signal))}
-            className="rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-[11px] text-fg transition-colors hover:border-accent disabled:opacity-45"
+            className="rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-[13px] text-fg transition-colors hover:border-accent disabled:opacity-45"
           >
             Regenerate
           </button>
@@ -2082,7 +2082,7 @@ function SummaryStudioModal({
         <button
           type="button"
           onClick={onWriteMyself}
-          className="rounded-[9px] border border-border-strong px-3 py-1.5 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          className="rounded-[9px] border border-border-strong px-3 py-1.5 text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
         >
           Write myself
         </button>
@@ -2286,8 +2286,8 @@ function AiCompleteModal({ onClose, onApplied }: { onClose: () => void; onApplie
           <SparkleIcon size={17} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-bold text-fg">AI complete empty fields</div>
-          <div className="text-[11.5px] text-fg-mid">Fill the gaps, grounded in your CV & GitHub — nothing is sent externally.</div>
+          <div className="text-[16px] font-bold text-fg">AI complete empty fields</div>
+          <div className="text-[13px] text-fg-mid">Fill the gaps, grounded in your CV & GitHub — nothing is sent externally.</div>
         </div>
         {streaming ? (
           <Pill tone="accent" mono dot>
@@ -2300,7 +2300,7 @@ function AiCompleteModal({ onClose, onApplied }: { onClose: () => void; onApplie
         <AsyncBoundary
           state={plan}
           skeleton={
-            <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-fg-mid">
+            <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-fg-mid">
               <Spinner size={18} /> Scanning your profile…
             </div>
           }
@@ -2311,8 +2311,8 @@ function AiCompleteModal({ onClose, onApplied }: { onClose: () => void; onApplie
                 <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-[12px] bg-accent-weak text-accent-text">
                   <SparkleIcon size={20} />
                 </div>
-                <div className="text-[13.5px] font-semibold text-fg">Your profile is complete.</div>
-                <div className="mt-1 text-[12px] text-fg-mid">Every fillable section already has content — nothing left to fill.</div>
+                <div className="text-[15px] font-semibold text-fg">Your profile is complete.</div>
+                <div className="mt-1 text-[13px] text-fg-mid">Every fillable section already has content — nothing left to fill.</div>
               </div>
             ) : phase === "plan" ? (
               <PlanList steps={p.steps} />
@@ -2336,7 +2336,7 @@ function AiCompleteModal({ onClose, onApplied }: { onClose: () => void; onApplie
         <button
           type="button"
           onClick={onClose}
-          className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
         >
           Cancel
         </button>
@@ -2365,17 +2365,17 @@ function PlanList({ steps }: { steps: CompletionStep[] }) {
   }
   return (
     <>
-      <div className="mb-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{steps.length} gaps found</div>
+      <div className="mb-3 text-[12px] font-semibold tracking-[0.01em] text-fg-low">{steps.length} gaps found</div>
       <div className="flex flex-col gap-3">
         {[...groups.entries()].map(([label, list]) => (
           <div key={label} className="rounded-[11px] border border-border bg-surface-2 p-3.5">
-            <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
+            <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-fg">
               {label}
-              <span className="rounded-full bg-accent-weak px-1.5 py-px font-mono text-[9px] text-accent-text">{list.length}</span>
+              <span className="rounded-full bg-accent-weak px-1.5 py-px font-mono text-[12px] text-accent-text">{list.length}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {list.map((s) => (
-                <span key={s.id} className="rounded-[7px] border border-border bg-input px-2 py-1 text-[11px] text-fg-mid">
+                <span key={s.id} className="rounded-[7px] border border-border bg-input px-2 py-1 text-[13px] text-fg-mid">
                   {s.label}
                   {s.context_label ? <span className="text-fg-low"> · {s.context_label}</span> : null}
                 </span>
@@ -2434,25 +2434,25 @@ function ReviewList({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-[12.5px] font-semibold text-fg">{s.label}</span>
-                {s.context_label ? <span className="truncate font-mono text-[10px] text-fg-low">{s.context_label}</span> : null}
-                <span className="ml-auto shrink-0 font-mono text-[9px] text-fg-low">{s.section_label}</span>
+                <span className="text-[13px] font-semibold text-fg">{s.label}</span>
+                {s.context_label ? <span className="truncate font-mono text-[12px] text-fg-low">{s.context_label}</span> : null}
+                <span className="ml-auto shrink-0 font-mono text-[12px] text-fg-low">{s.section_label}</span>
               </div>
-              <div className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-fg-mid">{previewValue(s, suggestions[s.id])}</div>
+              <div className="mt-1 line-clamp-3 text-[13px] leading-relaxed text-fg-mid">{previewValue(s, suggestions[s.id])}</div>
             </div>
           </button>
         );
       })}
 
       {streaming ? (
-        <div className="flex items-center gap-2 py-2 text-[11.5px] text-fg-low">
+        <div className="flex items-center gap-2 py-2 text-[13px] text-fg-low">
           <Spinner size={14} /> Drafting the rest…
         </div>
       ) : null}
 
       {githubStep && (githubStep.extra?.repos?.length ?? 0) > 0 ? (
         <div className="mt-1 rounded-[11px] border border-border bg-surface-2 p-3.5">
-          <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-fg">
+          <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
             <BranchIcon size={14} strokeWidth={1.5} /> Turn GitHub repos into projects
           </div>
           <div className="flex flex-col gap-1.5">
@@ -2478,8 +2478,8 @@ function ReviewList({
                     <CheckIcon size={10} strokeWidth={2.6} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12px] font-semibold text-fg">{repo.name}</div>
-                    {repo.purpose ? <div className="truncate text-[11px] text-fg-mid">{repo.purpose}</div> : null}
+                    <div className="truncate text-[13px] font-semibold text-fg">{repo.name}</div>
+                    {repo.purpose ? <div className="truncate text-[13px] text-fg-mid">{repo.purpose}</div> : null}
                   </div>
                 </button>
               );
@@ -2489,7 +2489,7 @@ function ReviewList({
       ) : null}
 
       {nothingYet && !streaming ? (
-        <div className="py-8 text-center text-[12.5px] text-fg-mid">No groundable suggestions were produced.</div>
+        <div className="py-8 text-center text-[13px] text-fg-mid">No groundable suggestions were produced.</div>
       ) : null}
     </div>
   );
