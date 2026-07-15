@@ -16,7 +16,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
-from core import cover_letter, export
+from core import cover_letter, export, pii
 from db import queries
 
 router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
@@ -32,6 +32,10 @@ class CoverLetterRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     letter: str = Field(min_length=1)
+
+
+class PiiScanRequest(BaseModel):
+    text: str = Field(min_length=1)
 
 
 class ExportRequest(BaseModel):
@@ -86,6 +90,19 @@ async def review(payload: ReviewRequest) -> dict:
     """
     claims = await run_in_threadpool(cover_letter.review, payload.letter)
     return {"claims": claims}
+
+
+@router.post("/pii-scan", summary="Flag personal / sensitive data in the letter (local, advisory)")
+async def pii_scan(payload: PiiScanRequest) -> dict:
+    """Scan the letter for PII and return masked findings per the `pii_shield` setting.
+
+    Fully local — regex only, nothing leaves the device. Returns
+    ``{"mode": <off|risky_only|on>, "findings": [{type, label, severity, count, samples}]}``.
+    When the shield is off, findings are always empty.
+    """
+    mode = queries.get_settings().get("pii_shield", "risky_only")
+    findings = pii.scan(payload.text, mode)
+    return {"mode": mode, "findings": findings}
 
 
 @router.post("/export", summary="Download the letter as a templated .docx or .pdf")

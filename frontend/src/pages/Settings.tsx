@@ -40,6 +40,7 @@ import type {
   GeminiKeyConfig,
   KeySwitchMode,
   LLMProviderId,
+  PiiShieldMode,
   ResearchCacheRetention,
   Settings as SettingsModel,
 } from "@/api/types";
@@ -134,6 +135,12 @@ const RETENTION_OPTIONS: { value: ResearchCacheRetention; label: string }[] = [
   { value: "last_10", label: "Last 10" },
 ];
 
+const PII_SHIELD_OPTIONS: { value: PiiShieldMode; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "risky_only", label: "High-risk only" },
+  { value: "on", label: "Always" },
+];
+
 /** Fields persisted by the main Save button (the Gemini pool persists on its own). */
 const MAIN_FIELDS: (keyof SettingsModel)[] = [
   "llm_provider",
@@ -148,6 +155,7 @@ const MAIN_FIELDS: (keyof SettingsModel)[] = [
   "brandfetch_client_id",
   "ocr_enabled",
   "research_cache_retention",
+  "pii_shield",
 ];
 
 const norm = (v: unknown): unknown => (v === undefined || v === null ? "" : v);
@@ -325,6 +333,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
 
   const companyProvider: CompanySearchProvider = draft.company_search_provider ?? "wikidata";
   const retention: ResearchCacheRetention = draft.research_cache_retention ?? "30_days";
+  const piiShield: PiiShieldMode = draft.pii_shield ?? "risky_only";
   const embedOptions =
     draft.embedding_model && !EMBED_MODELS.includes(draft.embedding_model)
       ? [draft.embedding_model, ...EMBED_MODELS]
@@ -662,6 +671,20 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     options={RETENTION_OPTIONS}
                     value={retention}
                     onChange={(v) => setField("research_cache_retention", v)}
+                  />
+                </Field>
+              </div>
+
+              {/* PII shield */}
+              <div className="mt-5 rounded-[12px] border border-border bg-surface p-4">
+                <Field
+                  label="PERSONAL-DATA SHIELD"
+                  hint="After a letter is generated, scan it (locally) for personal or sensitive data and warn you. High-risk only flags things like card / bank / SSN numbers; Always also flags emails, phones and IPs."
+                >
+                  <Segmented
+                    options={PII_SHIELD_OPTIONS}
+                    value={piiShield}
+                    onChange={(v) => setField("pii_shield", v)}
                   />
                 </Field>
               </div>

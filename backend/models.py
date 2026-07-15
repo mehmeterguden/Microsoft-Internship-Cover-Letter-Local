@@ -224,6 +224,7 @@ class Settings(BaseModel):
     ocr_enabled: bool = False            # optional feature: read images via OCR (needs tesseract)
     github_token: str = ""               # optional: GitHub PAT to import repos from the connected account
     research_cache_retention: Literal["off", "7_days", "30_days", "forever", "last_10"] = "7_days"  # keep cached company research for…
+    pii_shield: Literal["off", "risky_only", "on"] = "risky_only"  # warn about personal data in generated letters
 
 
 # ─────────────────────────────────────────────────────────────
