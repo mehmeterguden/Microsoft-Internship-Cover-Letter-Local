@@ -93,13 +93,34 @@ def test_chunks_drop_tiny_fragments():
 def test_retrieve_exemplars_uses_vector_store(monkeypatch):
     monkeypatch.setattr(style.embeddings, "available", lambda: True)
     monkeypatch.setattr(style.embeddings, "embed_one", lambda t: [0.1, 0.2])
+    monkeypatch.setattr(style.vs, "all_documents", lambda name, where=None: [{"document": "your past passage"}])
     monkeypatch.setattr(style.vs, "query", lambda *a, **k: [{"document": "your past passage"}])
+    monkeypatch.setattr(style, "_rerank_enabled", lambda: False)
     assert style.retrieve_exemplars("Frontend at Acme") == ["your past passage"]
 
 
 def test_retrieve_exemplars_empty_without_embeddings(monkeypatch):
     monkeypatch.setattr(style.embeddings, "available", lambda: False)
     assert style.retrieve_exemplars("anything") == []
+
+
+def test_retrieve_exemplars_hybrid_rescues_lexical_match(monkeypatch):
+    corpus = [
+        {"document": "I thrive in fast-paced startup environments."},
+        {"document": "My work centers on Kubernetes and platform reliability."},
+        {"document": "I enjoy mentoring and cross-team collaboration."},
+    ]
+    # Dense retrieval ranks the Kubernetes passage LAST (as if the embedder missed it).
+    dense_order = [corpus[0], corpus[2], corpus[1]]
+    monkeypatch.setattr(style.embeddings, "available", lambda: True)
+    monkeypatch.setattr(style.embeddings, "embed_one", lambda t: [0.1, 0.2])
+    monkeypatch.setattr(style.vs, "all_documents", lambda name, where=None: corpus)
+    monkeypatch.setattr(style.vs, "query", lambda *a, **k: dense_order)
+    monkeypatch.setattr(style, "_rerank_enabled", lambda: False)
+
+    out = style.retrieve_exemplars("Kubernetes platform role", k=2)
+    # BM25 + RRF pull the exact-term match into the top-k despite the weak dense rank.
+    assert any("Kubernetes" in d for d in out)
 
 
 def test_style_context_combines_guide_and_exemplars(monkeypatch):
