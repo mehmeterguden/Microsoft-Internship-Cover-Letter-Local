@@ -47,6 +47,7 @@ type Education = { id: string; degree: string; school: string; meta: string; cou
 type Language = { id: string; name: string; level: string; pct: number; source: Source };
 type Project = { id: string; name: string; role: string; desc: string; tags: string[]; url?: string; stars?: number; source: Source };
 type Certificate = { id: string; name: string; issuer: string; source: Source };
+type Training = { id: string; name: string; provider: string; completed: string; url?: string; source: Source };
 type LinkItem = { id: string; label: string; url: string; source: Source };
 
 type ProfileData = {
@@ -58,6 +59,7 @@ type ProfileData = {
   languages: Language[];
   projects: Project[];
   certificates: Certificate[];
+  trainings: Training[];
   links: LinkItem[];
 };
 
@@ -171,6 +173,11 @@ const FULL: ProfileData = {
     { id: "ct-aws", name: "AWS Machine Learning — Specialty", issuer: "AWS", source: "manual" },
     { id: "ct-tf", name: "TensorFlow Developer", issuer: "Google", source: "manual" },
   ],
+  trainings: [
+    { id: "tr-mlops", name: "MLOps Specialization", provider: "DeepLearning.AI", completed: "2023", url: "coursera.org/learn/mlops", source: "cv" },
+    { id: "tr-llm", name: "Full Stack LLM Bootcamp", provider: "The Full Stack", completed: "2023", source: "linkedin" },
+    { id: "tr-kube", name: "Kubernetes for ML Workloads", provider: "Linux Foundation", completed: "2022", source: "manual" },
+  ],
   links: [
     { id: "ln-site", label: "Portfolio", url: "jordanrivera.dev", source: "manual" },
     { id: "ln-gh", label: "GitHub", url: "github.com/jrivera", source: "github" },
@@ -202,6 +209,7 @@ const SPARSE: ProfileData = {
   languages: [],
   projects: [],
   certificates: [],
+  trainings: [],
   links: [],
 };
 
@@ -213,14 +221,15 @@ const EMPTY: ProfileData = {
   languages: [],
   projects: [],
   certificates: [],
+  trainings: [],
   links: [],
 };
 
 /* ── Preview data-state switcher (the design's top bar) ───────────── */
 type PreviewState = "full" | "cv" | "sparse" | "empty";
 const PREVIEW_TABS: { value: PreviewState; label: string; count: number; hint: string; sync: string }[] = [
-  { value: "full", label: "Full profile", count: 25, hint: "Complete profile — ready to write.", sync: "Synced from CV & GitHub" },
-  { value: "cv", label: "From CV", count: 19, hint: "Imported from your CV — add projects & links.", sync: "Synced from CV" },
+  { value: "full", label: "Full profile", count: 28, hint: "Complete profile — ready to write.", sync: "Synced from CV & GitHub" },
+  { value: "cv", label: "From CV", count: 22, hint: "Imported from your CV — add projects & links.", sync: "Synced from CV" },
   { value: "sparse", label: "Sparse", count: 3, hint: "A few fields filled — let AI complete the rest.", sync: "Partially filled" },
   { value: "empty", label: "Empty", count: 0, hint: "Nothing yet — import a CV or let AI infer it.", sync: "Nothing synced yet" },
 ];
@@ -229,7 +238,7 @@ const DATA_BY_STATE: Record<PreviewState, ProfileData> = { full: FULL, cv: CV_ON
 /* ══════════════════════════════════════════════════════════════════
    Page
    ══════════════════════════════════════════════════════════════════ */
-type DetailKind = "skill" | "experience" | "education" | "project" | "certificate" | "link" | "language";
+type DetailKind = "skill" | "experience" | "education" | "project" | "certificate" | "training" | "link" | "language";
 type Detail = { kind: DetailKind; id: string };
 
 export function Profile() {
@@ -304,6 +313,9 @@ export function Profile() {
           <CertificatesCard certificates={data.certificates} onOpen={(id) => open("certificate", id)} />
           <LinksCard links={data.links} onOpen={(id) => open("link", id)} />
         </div>
+
+        {/* Trainings */}
+        <TrainingsCard trainings={data.trainings} onOpen={(id) => open("training", id)} />
       </div>
 
       {detail ? <DetailModal data={data} detail={detail} onClose={() => setDetail(null)} /> : null}
@@ -833,6 +845,42 @@ function CertificatesCard({ certificates, onOpen }: { certificates: Certificate[
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   Trainings
+   ══════════════════════════════════════════════════════════════════ */
+function TrainingsCard({ trainings, onOpen }: { trainings: Training[]; onOpen: (id: string) => void }) {
+  return (
+    <SectionCard title="Trainings" meta={trainings.length ? `${trainings.length} completed` : undefined} addLabel="Add training" onAdd>
+      {trainings.length === 0 ? (
+        <EmptyPrompt minimal>
+          No trainings yet — <span className="font-semibold text-accent-text">add one</span>.
+        </EmptyPrompt>
+      ) : (
+        <div className="flex flex-col gap-0.5">
+          {trainings.map((tr) => (
+            <button
+              key={tr.id}
+              type="button"
+              onClick={() => onOpen(tr.id)}
+              className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-2"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
+                <BookIcon size={15} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] text-fg">{tr.name}</div>
+                <div className="truncate font-mono text-[11px] text-fg-low">{tr.provider}</div>
+              </div>
+              <SourceBadge source={tr.source} />
+              <span className="shrink-0 font-mono text-[10px] text-fg-low">{tr.completed}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    Links
    ══════════════════════════════════════════════════════════════════ */
 function LinksCard({ links, onOpen }: { links: LinkItem[]; onOpen: (id: string) => void }) {
@@ -1110,6 +1158,38 @@ function renderDetail(data: ProfileData, { kind, id }: Detail): ReactNode {
         </>
       );
     }
+    case "training": {
+      const tr = data.trainings.find((t) => t.id === id);
+      if (!tr) return null;
+      return (
+        <>
+          <ModalHeader icon={<BookIcon size={17} />} kicker="TRAINING" title={tr.name} />
+          <div className="p-4">
+            <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
+              <div>
+                <div className="font-mono text-[9px] tracking-[1px] text-fg-low">PROVIDER</div>
+                <div className="mt-0.5 text-[13px] font-semibold text-fg">{tr.provider}</div>
+              </div>
+              <SourceBadge source={tr.source} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">Completed {tr.completed}</span>
+            </div>
+            {tr.url ? (
+              <a
+                href={`https://${tr.url}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3.5 flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 text-[12px] text-accent-text transition-colors hover:border-accent"
+              >
+                <LinkIcon size={13} strokeWidth={1.6} /> {tr.url}
+              </a>
+            ) : null}
+          </div>
+          <DetailFooter />
+        </>
+      );
+    }
     case "link": {
       const ln = data.links.find((l) => l.id === id);
       if (!ln) return null;
@@ -1153,6 +1233,7 @@ function emptyFields(data: ProfileData): AiField[] {
   if (data.education.length === 0) f.push({ key: "education", label: "Education", note: "Degrees and schools from your CV." });
   if (data.projects.length === 0) f.push({ key: "projects", label: "Projects", note: "Imported from your GitHub repos." });
   if (data.certificates.length === 0) f.push({ key: "certificates", label: "Certificates", note: "Detected in your CV." });
+  if (data.trainings.length === 0) f.push({ key: "trainings", label: "Trainings", note: "Courses and trainings from your CV." });
   if (data.languages.length === 0) f.push({ key: "languages", label: "Languages", note: "Spoken languages from your CV." });
   if (data.links.length === 0) f.push({ key: "links", label: "Links", note: "Portfolio and profile URLs." });
   return f;
@@ -1380,6 +1461,14 @@ function AwardIcon(p: IconProps) {
     <Svg {...p}>
       <circle cx="10" cy="8" r="4" />
       <path d="M7.5 11.5L6 17l4-2 4 2-1.5-5.5" />
+    </Svg>
+  );
+}
+function BookIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M10 5C8.5 3.8 6.5 3.5 4 3.8v10.5c2.5-.3 4.5 0 6 1.2 1.5-1.2 3.5-1.5 6-1.2V3.8c-2.5-.3-4.5 0-6 1.2z" />
+      <path d="M10 5v10.5" />
     </Svg>
   );
 }

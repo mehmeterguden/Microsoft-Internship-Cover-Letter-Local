@@ -33,6 +33,17 @@ const STATE_OPTIONS: { value: ResearchState; label: string; desc: string }[] = [
 
 const COMPANY = "Anthropic";
 
+/* Placeholder company directory for the idle-form autocomplete. Local only —
+   no network. A real build swaps this for a company-suggest endpoint. */
+const COMPANY_SUGGESTIONS: { name: string; domain: string }[] = [
+  { name: "Anthropic", domain: "anthropic.com" },
+  { name: "OpenAI", domain: "openai.com" },
+  { name: "Mistral AI", domain: "mistral.ai" },
+  { name: "Hugging Face", domain: "huggingface.co" },
+  { name: "Cohere", domain: "cohere.com" },
+  { name: "Google DeepMind", domain: "deepmind.google" },
+];
+
 /* ── Placeholder data (verbatim from the design) ─────────────────── */
 type AgentStatus = "done" | "running" | "queued" | "error";
 type Agent = { name: string; status: AgentStatus; note?: string; label?: string; sources?: string[] };
@@ -526,8 +537,18 @@ function WriteCta({ ready }: { ready: boolean }) {
 /* ── Idle entry form ─────────────────────────────────────────────── */
 function IdleForm({ onRun }: { onRun: () => void }) {
   const [company, setCompany] = useState("");
+  const [companyFocused, setCompanyFocused] = useState(false);
   const [role, setRole] = useState("");
   const [url, setUrl] = useState("");
+
+  const query = company.trim().toLowerCase();
+  const matches = query
+    ? COMPANY_SUGGESTIONS.filter(
+        (c) => c.name.toLowerCase().includes(query) || c.domain.toLowerCase().includes(query),
+      )
+    : [];
+  const showSuggestions = companyFocused && matches.length > 0;
+
   return (
     <div className="flex flex-col gap-4">
       <Panel className="cll-fade p-5">
@@ -554,7 +575,57 @@ function IdleForm({ onRun }: { onRun: () => void }) {
           }}
         >
           <Field label="Company">
-            <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Anthropic" />
+            <div className="relative">
+              <Input
+                value={company}
+                onChange={(e) => {
+                  setCompany(e.target.value);
+                  setCompanyFocused(true);
+                }}
+                onFocus={() => setCompanyFocused(true)}
+                onBlur={() => setCompanyFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setCompanyFocused(false);
+                }}
+                placeholder="e.g. Anthropic"
+                role="combobox"
+                aria-expanded={showSuggestions}
+                aria-autocomplete="list"
+                autoComplete="off"
+              />
+              {showSuggestions ? (
+                <div
+                  role="listbox"
+                  aria-label="Company suggestions"
+                  className="absolute inset-x-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-[12px] border border-border-strong bg-surface-3 p-1.5 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
+                  style={{ animation: "cll-menu .16s ease" }}
+                >
+                  {matches.map((c) => (
+                    <button
+                      key={c.domain}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      // mouseDown fires before the input's blur, so the pick lands before the menu closes.
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setCompany(c.name);
+                        setCompanyFocused(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left transition-colors hover:bg-accent-weak"
+                    >
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-surface-2 font-mono text-[12px] text-accent-text">
+                        {c.name.charAt(0)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12.5px] text-fg">{c.name}</span>
+                        <span className="block truncate font-mono text-[10px] text-fg-low">{c.domain}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </Field>
           <Field label="Role / job title">
             <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. ML Engineer" />
