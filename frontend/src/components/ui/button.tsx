@@ -22,10 +22,6 @@ const buttonVariants = cva(
         danger: "bg-danger text-white hover:brightness-[1.07]",
         warning:
           "border border-[color:var(--warning)]/30 bg-warning-weak text-warning hover:brightness-110",
-        // transitional aliases (legacy pages) — removed after migration
-        secondary: "border border-border-strong bg-surface text-fg hover:bg-surface-2",
-        dashed:
-          "border-[1.5px] border-dashed border-border-strong bg-transparent text-fg-mid hover:border-accent hover:text-accent-text",
       },
       size: {
         xs: "h-8 px-3 text-[12px]",

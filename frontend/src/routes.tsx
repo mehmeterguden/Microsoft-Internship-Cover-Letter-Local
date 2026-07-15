@@ -10,7 +10,6 @@ import { Research } from "@/pages/Research";
 import { Write } from "@/pages/Write";
 import { CoverLetters } from "@/pages/CoverLetters";
 import { Settings } from "@/pages/Settings";
-import { ComponentsShowcase } from "@/pages/ComponentsShowcase";
 import { NotFound } from "@/pages/NotFound";
 
 export const router = createBrowserRouter([
@@ -27,7 +26,6 @@ export const router = createBrowserRouter([
       { path: "voice", element: <Voice /> },
       { path: "github", element: <Github /> },
       { path: "settings", element: <Settings /> },
-      { path: "dev/components", element: <ComponentsShowcase /> },
       { path: "*", element: <NotFound /> },
     ],
   },
