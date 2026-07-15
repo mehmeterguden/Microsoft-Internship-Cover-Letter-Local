@@ -42,7 +42,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-medium",
         toneSoftBg[tone],
         toneText[tone],
         mono && "font-mono tracking-[0.3px]",
@@ -143,8 +143,8 @@ export function EmptyState({
           {icon}
         </div>
       ) : null}
-      <h3 className="text-[16px] font-bold text-fg">{title}</h3>
-      {description ? <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-fg-mid">{description}</p> : null}
+      <h3 className="text-[18px] font-bold text-fg">{title}</h3>
+      {description ? <p className="mt-1.5 max-w-sm text-[14px] leading-relaxed text-fg-mid">{description}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );
