@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import {
   AlertTriangle, Check, Copy, Download, FileDown, Info, RotateCw, Save, ShieldCheck, Sparkles,
@@ -11,7 +12,7 @@ import { Spinner } from "@/components/ui/feedback";
 import {
   reviewCoverLetter, streamCoverLetter, type LetterLength, type ReviewClaim,
 } from "@/api/coverLetter";
-import { createJob, updateJob } from "@/api/jobs";
+import { createJob, getJob, updateJob } from "@/api/jobs";
 import type { Tone } from "@/api/types";
 import { toast } from "@/store/toast";
 
@@ -46,8 +47,40 @@ export function Write() {
   const [saving, setSaving] = useState(false);
   const jobIdRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [searchParams] = useSearchParams();
+  const bootRef = useRef(false);
 
   const { length, label: lenLabel, words } = useMemo(() => lengthFor(lengthPct), [lengthPct]);
+
+  // Reopen a saved draft (?job=id, from Cover Letters / Home) or prefill from a
+  // research / company hand-off (?company=&role=&jd=).
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    const jobId = searchParams.get("job");
+    if (jobId) {
+      getJob(Number(jobId))
+        .then((job) => {
+          setCompany(job.company || "");
+          setRole(job.role || "");
+          setJobPosting(job.job_description || "");
+          const text = job.letter?.text ?? "";
+          if (text) {
+            setLetter(text);
+            setDone(true);
+          }
+          jobIdRef.current = job.id ?? Number(jobId);
+        })
+        .catch(() => toast.danger("Couldn't open that letter"));
+      return;
+    }
+    const c = searchParams.get("company");
+    const r = searchParams.get("role");
+    const jd = searchParams.get("jd");
+    if (c) setCompany(c);
+    if (r) setRole(r);
+    if (jd) setJobPosting(jd);
+  }, [searchParams]);
 
   async function runReview(text: string) {
     if (!grounded || !text.trim()) {
@@ -308,6 +341,10 @@ export function Write() {
                     </div>
                   ))}
                 </div>
+              ) : claims === null ? (
+                <p className="text-[12.5px] text-fg-mid">
+                  Not checked yet — hit <b className="text-fg">re-check</b> to scan this letter against your profile.
+                </p>
               ) : (
                 <div className="flex items-center gap-2.5 rounded-[10px] border border-[color:var(--success)]/25 bg-success-weak px-3 py-3 text-[13px] text-fg">
                   <Check size={16} strokeWidth={2.4} className="shrink-0 text-success" />
