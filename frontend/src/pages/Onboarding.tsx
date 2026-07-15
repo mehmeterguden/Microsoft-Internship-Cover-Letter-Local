@@ -10,7 +10,27 @@ import {
   type ReactNode,
 } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Check, FileText, Loader2, Plus, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  AlertTriangle,
+  Award,
+  Braces,
+  Check,
+  FileText,
+  FolderGit2,
+  GraduationCap,
+  Languages as LanguagesIcon,
+  Link2,
+  Loader2,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Sparkles,
+  UserRound,
+  Wrench,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
@@ -25,10 +45,9 @@ import type { CVExtraction, Profile } from "@/api/types";
 import { toast } from "@/store/toast";
 
 /* ── State model ─────────────────────────────────────────────────
-   Add CV is a three-step flow: upload → review (the model streams and
-   the profile fills in live; every field is editable) → done. Parse and
-   review are one screen — sections appear as they're extracted and you can
-   correct anything before saving. */
+   Add CV is a three-step flow: upload -> review (the model streams; the raw JSON
+   flows on the right while, on the left, each field turns into an editable card
+   the moment it's parsed) -> done. Parse and review are one live screen. */
 type OnbState = "upload" | "review" | "ready";
 type SaveMode = "replace" | "merge";
 
@@ -70,8 +89,8 @@ export function Onboarding() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [durationS, setDurationS] = useState<number | null>(null);
 
-  // The editable working copy. While streaming it mirrors the live parse; once
-  // the user edits anything (`dirty`), the stream stops overwriting their work.
+  // The live raw JSON (right pane) and the editable working copy (left pane).
+  const [streamText, setStreamText] = useState("");
   const [draft, setDraft] = useState<CVExtraction>(EMPTY);
   const dirtyRef = useRef(false);
   const accRef = useRef("");
@@ -80,7 +99,6 @@ export function Onboarding() {
   const [saving, setSaving] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  // OCR availability (gates image selection) + any CV already on the profile.
   useEffect(() => {
     let alive = true;
     getSettings()
@@ -99,15 +117,17 @@ export function Onboarding() {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // While streaming, re-parse the accumulating JSON a few times a second and fill
-  // the draft — so sections appear progressively without waiting for valid JSON.
+  // While streaming, a few times a second: push the raw text to the JSON pane and
+  // re-parse the partial JSON so the left cards fill in -- every couple of items,
+  // not only when the whole document is valid.
   useEffect(() => {
     if (!parsing) return;
     const id = window.setInterval(() => {
-      if (dirtyRef.current) return; // user took over — don't clobber their edits
+      setStreamText(accRef.current);
+      if (dirtyRef.current) return; // user took over -- don't clobber their edits
       const parsed = parsePartial(accRef.current);
       if (parsed) setDraft(toExtraction(parsed));
-    }, 120);
+    }, 110);
     return () => window.clearInterval(id);
   }, [parsing]);
 
@@ -126,6 +146,7 @@ export function Onboarding() {
         break;
       case "done":
         setParsing(false);
+        setStreamText(accRef.current);
         setDurationS(event.duration_s);
         if (event.ok && event.structured) {
           if (!dirtyRef.current) setDraft(withArrays(event.structured));
@@ -154,6 +175,7 @@ export function Onboarding() {
       setFile(f);
       setMeta(null);
       setDraft(EMPTY);
+      setStreamText("");
       setDurationS(null);
       setParseError(null);
       setParsing(true);
@@ -178,13 +200,13 @@ export function Onboarding() {
     setFile(null);
     setMeta(null);
     setDraft(EMPTY);
+    setStreamText("");
     setParseError(null);
     setParsing(false);
     setDurationS(null);
     setState("upload");
   }, []);
 
-  // Any edit marks the draft dirty (freezes stream-driven updates) and updates it.
   const edit = useCallback((next: CVExtraction) => {
     dirtyRef.current = true;
     setDraft(next);
@@ -223,7 +245,7 @@ export function Onboarding() {
       }
       bodyClassName="px-7 py-7"
     >
-      <div className="mx-auto flex w-full max-w-[880px] flex-col">
+      <div className={`mx-auto flex w-full flex-col ${state === "review" ? "max-w-[1160px]" : "max-w-[880px]"}`}>
         <Stepper steps={RAIL_STEPS} current={STEP_INDEX[state]} className="mb-7" />
 
         {state === "upload" ? (
@@ -233,6 +255,7 @@ export function Onboarding() {
         {state === "review" ? (
           <ReviewState
             draft={draft}
+            streamText={streamText}
             file={file}
             meta={meta}
             parsing={parsing}
@@ -254,9 +277,8 @@ export function Onboarding() {
 }
 
 /* ── Incremental JSON ────────────────────────────────────────────
-   The model streams a JSON object token by token. To show sections as they
-   arrive (before the JSON is valid), balance the open brackets/strings of the
-   longest parseable prefix and JSON.parse that. */
+   Balance the open brackets/strings of the longest parseable prefix and JSON.parse
+   that, so sections render before the whole document is valid. */
 function closeAndParse(prefix: string): unknown {
   const stack: string[] = [];
   let inStr = false;
@@ -290,7 +312,6 @@ function parsePartial(raw: string): Record<string, unknown> | null {
   const start = raw.indexOf("{");
   if (start === -1) return null;
   const s = raw.slice(start);
-  // Try the full prefix, dropping trailing (incomplete) characters until it parses.
   const floor = Math.max(1, s.length - 600);
   for (let end = s.length; end >= floor; end--) {
     const v = closeAndParse(s.slice(0, end));
@@ -305,7 +326,6 @@ function objectArray(value: unknown): Record<string, unknown>[] {
     : [];
 }
 
-/** Coerce a (possibly partial) parsed object into a CVExtraction-shaped draft. */
 function toExtraction(o: Record<string, unknown>): CVExtraction {
   const profile = o.profile && typeof o.profile === "object" && !Array.isArray(o.profile) ? (o.profile as unknown as Profile) : {};
   return {
@@ -321,7 +341,6 @@ function toExtraction(o: Record<string, unknown>): CVExtraction {
   };
 }
 
-/** Ensure every array key exists (the validated payload always does, but be safe). */
 function withArrays(ex: CVExtraction): CVExtraction {
   return { ...EMPTY, ...ex, profile: ex.profile ?? {} };
 }
@@ -331,12 +350,6 @@ function friendlyDate(iso: string): string {
   return Number.isNaN(d.getTime())
     ? iso
     : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /* ── State 1 · Upload ────────────────────────────────────────────── */
@@ -479,22 +492,24 @@ function UploadState({
   );
 }
 
-/* ── State 2 · Review (live + editable) ──────────────────────────── */
+/* ── State 2 · Review (live, two-pane) ───────────────────────────── */
 type ItemField = { key: string; placeholder: string; wide?: boolean; textarea?: boolean };
 type SectionSpec = {
   key: Exclude<keyof CVExtraction, "profile">;
   title: string;
   singular: string;
-  core?: boolean; // shown even when empty (once done) so the user can add
+  icon: LucideIcon;
+  core?: boolean;
   fields: ItemField[];
 };
 
 const SECTIONS: SectionSpec[] = [
-  { key: "skills", title: "Skills", singular: "skill", core: true, fields: [{ key: "name", placeholder: "Skill" }, { key: "category", placeholder: "Category" }] },
+  { key: "skills", title: "Skills", singular: "skill", icon: Wrench, core: true, fields: [{ key: "name", placeholder: "Skill" }, { key: "category", placeholder: "Category" }] },
   {
     key: "experiences",
     title: "Experience",
     singular: "role",
+    icon: FileText,
     core: true,
     fields: [
       { key: "title", placeholder: "Title" },
@@ -508,6 +523,7 @@ const SECTIONS: SectionSpec[] = [
     key: "education",
     title: "Education",
     singular: "entry",
+    icon: GraduationCap,
     core: true,
     fields: [
       { key: "institution", placeholder: "Institution" },
@@ -521,16 +537,17 @@ const SECTIONS: SectionSpec[] = [
     key: "projects",
     title: "Projects",
     singular: "project",
+    icon: FolderGit2,
     fields: [
       { key: "name", placeholder: "Name" },
       { key: "role", placeholder: "Role" },
       { key: "description", placeholder: "Description", wide: true, textarea: true },
     ],
   },
-  { key: "certificates", title: "Certificates", singular: "certificate", fields: [{ key: "name", placeholder: "Name" }, { key: "issuer", placeholder: "Issuer" }] },
-  { key: "trainings", title: "Training", singular: "training", fields: [{ key: "name", placeholder: "Name" }, { key: "provider", placeholder: "Provider" }] },
-  { key: "languages", title: "Languages", singular: "language", fields: [{ key: "name", placeholder: "Language" }, { key: "proficiency", placeholder: "Level" }] },
-  { key: "links", title: "Links", singular: "link", fields: [{ key: "label", placeholder: "Label" }, { key: "url", placeholder: "https://" }] },
+  { key: "certificates", title: "Certificates", singular: "certificate", icon: Award, fields: [{ key: "name", placeholder: "Name" }, { key: "issuer", placeholder: "Issuer" }] },
+  { key: "trainings", title: "Training", singular: "training", icon: Award, fields: [{ key: "name", placeholder: "Name" }, { key: "provider", placeholder: "Provider" }] },
+  { key: "languages", title: "Languages", singular: "language", icon: LanguagesIcon, fields: [{ key: "name", placeholder: "Language" }, { key: "proficiency", placeholder: "Level" }] },
+  { key: "links", title: "Links", singular: "link", icon: Link2, fields: [{ key: "label", placeholder: "Label" }, { key: "url", placeholder: "https://" }] },
 ];
 
 const PROFILE_FIELDS: { key: keyof Profile; label: string; placeholder: string; type?: string; wide?: boolean; textarea?: boolean }[] = [
@@ -547,8 +564,16 @@ function totalCount(ex: CVExtraction): number {
   return SECTIONS.reduce((n, s) => n + ex[s.key].length, 0) + (ex.profile.name || ex.profile.email ? 1 : 0);
 }
 
+const enterCard = {
+  initial: { opacity: 0, y: 14, scale: 0.97, boxShadow: "0 0 0 2px var(--accent-weak)" },
+  animate: { opacity: 1, y: 0, scale: 1, boxShadow: "0 0 0 0px transparent" },
+  exit: { opacity: 0, scale: 0.97, transition: { duration: 0.12 } },
+  transition: { type: "spring" as const, stiffness: 420, damping: 32 },
+};
+
 function ReviewState({
   draft,
+  streamText,
   file,
   meta,
   parsing,
@@ -562,6 +587,7 @@ function ReviewState({
   onSave,
 }: {
   draft: CVExtraction;
+  streamText: string;
   file: File | null;
   meta: ImportMeta | null;
   parsing: boolean;
@@ -574,6 +600,7 @@ function ReviewState({
   onReset: () => void;
   onSave: () => void;
 }) {
+  const [showJson, setShowJson] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!parsing) {
@@ -589,6 +616,7 @@ function ReviewState({
     onEdit({ ...draft, [key]: items } as unknown as CVExtraction);
 
   const has = totalCount(draft) > 0;
+  const hasProfile = Boolean(draft.profile.name || draft.profile.email || draft.profile.summary);
 
   if (error) {
     return (
@@ -607,77 +635,99 @@ function ReviewState({
 
   return (
     <div className="cll-fade flex flex-col gap-4">
-      {/* Live status bar */}
+      {/* Status / toolbar */}
       <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-accent-weak">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-accent-weak">
           <FileText size={16} className="text-accent-text" aria-hidden="true" />
+          {parsing ? <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent" style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }} /> : null}
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-semibold text-fg">{meta?.filename ?? file?.name ?? "Your CV"}</div>
-          <div className="mt-0.5 font-mono text-[10px] text-fg-low">
-            {file ? formatBytes(file.size) : ""}
-            {meta ? ` · ${meta.source_type.toUpperCase()} · ${meta.num_pages} pp` : ""}
+          <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px]">
+            {parsing ? (
+              <>
+                <Loader2 size={12} className="animate-spin text-accent-text" aria-hidden="true" />
+                <span className="text-fg-mid">Analyzing… turning your CV into an editable profile · {elapsed.toFixed(1)}s</span>
+              </>
+            ) : (
+              <>
+                <Check size={12} className="text-success" aria-hidden="true" />
+                <span className="text-fg-mid">Extracted{durationS != null ? ` in ${durationS.toFixed(1)}s` : ""} · every field is editable</span>
+              </>
+            )}
           </div>
         </div>
-        <span className="flex items-center gap-1.5 text-[12px]">
-          {parsing ? (
-            <>
-              <Loader2 size={14} className="animate-spin text-accent-text" aria-hidden="true" />
-              <span className="text-fg-mid">Reading your CV… {elapsed.toFixed(1)}s</span>
-            </>
-          ) : (
-            <>
-              <Check size={14} className="text-success" aria-hidden="true" />
-              <span className="text-fg-mid">Extracted{durationS != null ? ` in ${durationS.toFixed(1)}s` : ""} · edit anything</span>
-            </>
-          )}
-        </span>
+        <button
+          type="button"
+          onClick={() => setShowJson((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-[9px] border border-border-strong px-3 py-1.5 text-[12px] font-semibold text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        >
+          {showJson ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+          {showJson ? "Hide JSON" : "Show JSON"}
+        </button>
       </div>
 
-      {/* Profile — editable basics */}
-      <SectionShell title="Details">
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          {PROFILE_FIELDS.map((f) => (
-            <Field key={f.key} label={f.label} htmlFor={`p-${f.key}`} className={f.wide ? "sm:col-span-2" : undefined}>
-              {f.textarea ? (
-                <Textarea
-                  id={`p-${f.key}`}
-                  value={(draft.profile[f.key] as string | null | undefined) ?? ""}
-                  placeholder={f.placeholder}
-                  disabled={saving}
-                  onChange={(e) => editProfile({ [f.key]: e.target.value || null } as Partial<Profile>)}
-                />
-              ) : (
-                <Input
-                  id={`p-${f.key}`}
-                  type={f.type ?? "text"}
-                  value={(draft.profile[f.key] as string | null | undefined) ?? ""}
-                  placeholder={f.placeholder}
-                  disabled={saving}
-                  onChange={(e) => editProfile({ [f.key]: e.target.value || null } as Partial<Profile>)}
-                />
-              )}
-            </Field>
-          ))}
+      {/* Two-pane: left cards, right live JSON */}
+      <div className={showJson ? "grid gap-4 lg:grid-cols-[1fr_minmax(300px,380px)]" : "grid gap-4"}>
+        {/* LEFT — live editable containers */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <CountRow draft={draft} />
+
+          <AnimatePresence initial={false}>
+            {hasProfile || !parsing ? (
+              <motion.div key="profile" layout initial={enterCard.initial} animate={enterCard.animate} exit={enterCard.exit} transition={enterCard.transition}>
+                <SectionShell title="Details" icon={UserRound}>
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    {PROFILE_FIELDS.map((f) => (
+                      <Field key={f.key} label={f.label} htmlFor={`p-${f.key}`} className={f.wide ? "sm:col-span-2" : undefined}>
+                        {f.textarea ? (
+                          <Textarea
+                            id={`p-${f.key}`}
+                            value={(draft.profile[f.key] as string | null | undefined) ?? ""}
+                            placeholder={f.placeholder}
+                            disabled={saving}
+                            onChange={(e) => editProfile({ [f.key]: e.target.value || null } as Partial<Profile>)}
+                          />
+                        ) : (
+                          <Input
+                            id={`p-${f.key}`}
+                            type={f.type ?? "text"}
+                            value={(draft.profile[f.key] as string | null | undefined) ?? ""}
+                            placeholder={f.placeholder}
+                            disabled={saving}
+                            onChange={(e) => editProfile({ [f.key]: e.target.value || null } as Partial<Profile>)}
+                          />
+                        )}
+                      </Field>
+                    ))}
+                  </div>
+                </SectionShell>
+              </motion.div>
+            ) : null}
+
+            {SECTIONS.map((spec) => {
+              const items = draft[spec.key] as unknown as Record<string, unknown>[];
+              if (items.length === 0 && !(spec.core && !parsing)) return null;
+              return (
+                <motion.div key={spec.key} layout initial={enterCard.initial} animate={enterCard.animate} exit={enterCard.exit} transition={enterCard.transition}>
+                  <SectionEditor spec={spec} items={items} disabled={saving} onChange={(next) => editSection(spec.key, next)} />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          {parsing && !has ? (
+            <div className="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-border-strong bg-input py-10 text-[12.5px] text-fg-mid">
+              <Sparkles size={14} className="text-accent-text" /> Waiting for the first fields to arrive…
+            </div>
+          ) : null}
         </div>
-      </SectionShell>
 
-      {/* Every list section — editable, appears as it's extracted */}
-      {SECTIONS.map((spec) => {
-        const items = draft[spec.key] as unknown as Record<string, unknown>[];
-        if (items.length === 0 && !(spec.core && !parsing)) return null;
-        return (
-          <SectionEditor
-            key={spec.key}
-            spec={spec}
-            items={items}
-            disabled={saving}
-            onChange={(next) => editSection(spec.key, next)}
-          />
-        );
-      })}
+        {/* RIGHT — live JSON stream */}
+        {showJson ? <JsonConsole text={streamText} parsing={parsing} durationS={durationS} elapsed={elapsed} /> : null}
+      </div>
 
-      {/* Save mode */}
+      {/* Save bar */}
       <div className="flex flex-col gap-3 rounded-[12px] border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-fg">Saving mode</div>
@@ -706,19 +756,74 @@ function ReviewState({
           {parsing ? "Cancel" : "Try another file"}
         </button>
         <Button variant="primary" onClick={onSave} loading={saving} disabled={saving || parsing || !has}>
-          {saving ? "Saving…" : "Save to profile"}
+          {saving ? "Saving…" : "Save & finish"}
+          {!saving ? <Check size={15} /> : null}
         </Button>
       </div>
     </div>
   );
 }
 
-function SectionShell({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+function CountRow({ draft }: { draft: CVExtraction }) {
+  const stats: { label: string; n: number }[] = [
+    { label: "roles", n: draft.experiences.length },
+    { label: "skills", n: draft.skills.length },
+    { label: "projects", n: draft.projects.length },
+    { label: "degrees", n: draft.education.length },
+  ];
+  return (
+    <div className="flex flex-wrap gap-2">
+      {stats.map((s) => (
+        <div key={s.label} className="flex items-center gap-1.5 rounded-[9px] border border-border bg-surface px-2.5 py-1.5 text-[12px] text-fg-mid">
+          <motion.b
+            key={s.n}
+            initial={{ scale: 1.35, color: "var(--accent-text)" }}
+            animate={{ scale: 1, color: "var(--fg)" }}
+            transition={{ type: "spring", stiffness: 500, damping: 24 }}
+            className="tabular-nums font-bold"
+          >
+            {s.n}
+          </motion.b>
+          {s.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function JsonConsole({ text, parsing, durationS, elapsed }: { text: string; parsing: boolean; durationS: number | null; elapsed: number }) {
+  const ref = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (ref.current && parsing) ref.current.scrollTop = ref.current.scrollHeight;
+  }, [text, parsing]);
+  const time = parsing ? elapsed.toFixed(1) : durationS != null ? durationS.toFixed(1) : "0.0";
+  return (
+    <div className="flex min-h-[280px] flex-col overflow-hidden rounded-[12px] border border-border bg-reading lg:sticky lg:top-2 lg:max-h-[calc(100dvh-160px)]">
+      <div className="flex items-center gap-2 border-b border-border/60 px-3.5 py-2.5">
+        <Braces size={14} className="text-accent-text" aria-hidden="true" />
+        <span className="font-mono text-[11px] font-semibold text-reading-ink">response.json</span>
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] text-accent-text">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: parsing ? "var(--accent)" : "var(--success)", animation: parsing ? "cll-pulse 1.3s ease-in-out infinite" : undefined }} />
+          {parsing ? "streaming" : "done"} · {time}s
+        </span>
+      </div>
+      <pre ref={ref} className="flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-[11.5px] leading-[1.7] text-reading-ink">
+        {text || (parsing ? "Waiting for the model to respond…" : "")}
+        {parsing ? <span className="cll-caret" /> : null}
+      </pre>
+    </div>
+  );
+}
+
+function SectionShell({ title, icon: Icon, action, children }: { title: string; icon: LucideIcon; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="rounded-[12px] border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-accent-weak">
+          <Icon size={13} className="text-accent-text" aria-hidden="true" />
+        </span>
         <span className="text-[12px] font-semibold text-fg">{title}</span>
-        {action}
+        <span className="ml-auto">{action}</span>
       </div>
       {children}
     </div>
@@ -736,16 +841,15 @@ function SectionEditor({
   disabled: boolean;
   onChange: (items: Record<string, unknown>[]) => void;
 }) {
-  const setField = (i: number, key: string, value: string) => {
-    const next = items.map((it, idx) => (idx === i ? { ...it, [key]: value || null } : it));
-    onChange(next);
-  };
+  const setField = (i: number, key: string, value: string) =>
+    onChange(items.map((it, idx) => (idx === i ? { ...it, [key]: value || null } : it)));
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
   const add = () => onChange([...items, {}]);
 
   return (
     <SectionShell
       title={`${spec.title}${items.length ? ` · ${items.length}` : ""}`}
+      icon={spec.icon}
       action={
         <button
           type="button"
@@ -761,37 +865,41 @@ function SectionEditor({
         <p className="text-[12px] text-fg-low">Nothing yet — add {spec.singular === "entry" ? "an" : "a"} {spec.singular}.</p>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {items.map((item, i) => (
-            <div key={i} className="relative grid grid-cols-1 gap-2.5 rounded-[10px] border border-border bg-input p-3 sm:grid-cols-2">
-              {spec.fields.map((f) => {
-                const value = typeof item[f.key] === "string" ? (item[f.key] as string) : "";
-                return (
-                  <div key={f.key} className={f.wide ? "sm:col-span-2" : undefined}>
-                    {f.textarea ? (
-                      <Textarea
-                        className="min-h-[64px]"
-                        value={value}
-                        placeholder={f.placeholder}
-                        disabled={disabled}
-                        onChange={(e) => setField(i, f.key, e.target.value)}
-                      />
-                    ) : (
-                      <Input value={value} placeholder={f.placeholder} disabled={disabled} onChange={(e) => setField(i, f.key, e.target.value)} />
-                    )}
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                disabled={disabled}
-                aria-label={`Remove ${spec.singular}`}
-                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-[7px] text-fg-low transition-colors hover:bg-danger-weak hover:text-danger disabled:opacity-50"
+          <AnimatePresence initial={false}>
+            {items.map((item, i) => (
+              <motion.div
+                key={i}
+                layout
+                initial={{ opacity: 0, y: 10, scale: 0.97, boxShadow: "0 0 0 2px var(--accent-weak)" }}
+                animate={{ opacity: 1, y: 0, scale: 1, boxShadow: "0 0 0 0px transparent" }}
+                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12 } }}
+                transition={{ type: "spring", stiffness: 460, damping: 34 }}
+                className="relative grid grid-cols-1 gap-2.5 rounded-[10px] border border-border bg-input p-3 sm:grid-cols-2"
               >
-                <X size={13} />
-              </button>
-            </div>
-          ))}
+                {spec.fields.map((f) => {
+                  const value = typeof item[f.key] === "string" ? (item[f.key] as string) : "";
+                  return (
+                    <div key={f.key} className={f.wide ? "sm:col-span-2" : undefined}>
+                      {f.textarea ? (
+                        <Textarea className="min-h-[64px]" value={value} placeholder={f.placeholder} disabled={disabled} onChange={(e) => setField(i, f.key, e.target.value)} />
+                      ) : (
+                        <Input value={value} placeholder={f.placeholder} disabled={disabled} onChange={(e) => setField(i, f.key, e.target.value)} />
+                      )}
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  disabled={disabled}
+                  aria-label={`Remove ${spec.singular}`}
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-[7px] text-fg-low transition-colors hover:bg-danger-weak hover:text-danger disabled:opacity-50"
+                >
+                  <X size={13} />
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
     </SectionShell>
@@ -809,9 +917,7 @@ function ReadyState({ draft, mode }: { draft: CVExtraction; mode: SaveMode }) {
     add(draft.education.length, "degree");
     return out;
   }, [draft]);
-  const summary = parts.length
-    ? `${mode === "replace" ? "Imported" : "Merged in"} ${parts.join(", ")}.`
-    : "Your profile is saved.";
+  const summary = parts.length ? `${mode === "replace" ? "Imported" : "Merged in"} ${parts.join(", ")}.` : "Your profile is saved.";
 
   return (
     <div className="cll-fade flex flex-col items-center py-[30px] text-center">
