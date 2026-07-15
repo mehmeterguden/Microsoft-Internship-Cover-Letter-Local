@@ -264,16 +264,12 @@ export interface Settings {
 
 export interface ReportSource {
   label: string;
-  url?: string;
-  ok: boolean;
+  url?: string | null;
 }
 
-export interface ReportSection {
-  key: string;
-  title: string;
-  body: string;
-  bullets?: string[];
-  sources: ReportSource[];
+export interface ReportEvidence {
+  text: string;
+  source: ReportSource;
 }
 
 export interface CVExtraction {
@@ -288,12 +284,95 @@ export interface CVExtraction {
   links: Link[];
 }
 
-export interface CompanyIntelReport {
-  company: string;
-  role?: string;
+export interface Firmographics {
+  industry?: string | null;
+  size?: string | null;
+  employees?: number | null;
+  hq?: string | null;
+  founded?: string | null;
+  website?: string | null;
+}
+export interface Overview {
+  summary?: string | null;
+  mission?: string | null;
+  division_context?: string | null;
+}
+export interface ValueSignal {
+  name: string;
+  weight: number;
+  evidence: ReportEvidence[];
+}
+export interface Culture {
+  ways_of_working: string[];
+  notes: ReportEvidence[];
+}
+export interface TechItem {
+  name: string;
+  you_know: boolean;
+  worth_learning: boolean;
+  source?: ReportSource | null;
+}
+export interface NewsSignal {
+  headline: string;
+  date?: string | null;
+  url?: string | null;
+  why_it_matters?: string | null;
+}
+export interface InterviewFocus {
+  order: number;
+  area: string;
+  note?: string | null;
+}
+export interface RoleAnalysis {
+  title?: string | null;
+  responsibilities: string[];
+  must_haves: string[];
+  nice_to_haves: string[];
+  keywords: string[];
+}
+export interface FitDimension {
+  name: string;
+  you: number;
+  role_need: number;
+}
+export interface Fit {
+  score: number;
+  verdict?: string | null;
+  recommendation?: string | null;
+  dimensions: FitDimension[];
+  matched_skills: string[];
+  gaps: string[];
+  experience_fit_pct: number;
+}
+export interface LetterHook {
+  hook: string;
+  use_in_letter?: string | null;
+}
+export interface ReportMeta {
+  sources: ReportSource[];
+  section_sources: Record<string, ReportSource[]>;
+  confidence: number;
   completeness: number;
-  sections: ReportSection[];
-  fit?: MatchBreakdown | null;
-  ammo?: string[];
-  from_cache?: boolean;
+  missing: string[];
+  gathered_at?: string | null;
+  duration_s?: number | null;
+  from_cache: boolean;
+  agents: string[];
+}
+
+/** The full company research report (backend core/research/schema.py). */
+export interface CompanyIntelReport {
+  company_name: string;
+  role_title?: string | null;
+  firmographics: Firmographics;
+  overview: Overview;
+  values: ValueSignal[];
+  culture: Culture;
+  tech_stack: TechItem[];
+  signals: NewsSignal[];
+  interview: InterviewFocus[];
+  role: RoleAnalysis;
+  fit: Fit;
+  ammo: LetterHook[];
+  meta: ReportMeta;
 }
