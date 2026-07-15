@@ -1,107 +1,54 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
+import { Plus, RotateCw, Trash2 } from "lucide-react";
 import { Page } from "@/components/common/Page";
+import { AsyncBoundary } from "@/components/common/AsyncBoundary";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Segmented } from "@/components/ui/controls";
+import { Field, Textarea } from "@/components/ui/field";
 import { Pill, StatDot } from "@/components/ui/feedback";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useAsync } from "@/lib/useAsync";
+import { toast } from "@/store/toast";
+import { errorMessage } from "@/api/client";
+import {
+  createPastLetter,
+  deletePastLetter,
+  getStyle,
+  learnVoice,
+  listPastLetters,
+  updatePastLetter,
+  type StyleState,
+} from "@/api/style";
+import type { PastCoverLetter, VoiceProfile } from "@/api/types";
 import { cn } from "@/lib/utils";
 
-/* ── State model ─────────────────────────────────────────────────
-   Backend wiring is deferred; the segmented switcher (from the design)
-   drives local state so every variant is viewable. When the backend is
-   wired, `state` is derived from real data (no samples / analyzing /
-   fingerprint ready) and the switcher becomes a dev-only affordance. */
-type VoiceState = "empty" | "learning" | "done";
+const EYEBROW = "SETUP / WRITING VOICE";
+const TITLE = "Writing Voice";
 
-const STATE_OPTIONS: { value: VoiceState; label: string }[] = [
-  { value: "empty", label: "Empty" },
-  { value: "learning", label: "Learning" },
-  { value: "done", label: "Learned" },
-];
+/* ── Small text helpers over raw letter content ──────────────────── */
+function wordCount(text: string): number {
+  return (text.match(/\b[\w']+\b/g) ?? []).length;
+}
 
-/* ── Placeholder data (verbatim from the design) ─────────────────── */
-type Letter = {
-  id: string;
-  card: string;
-  type: "PDF" | "DOCX" | "TXT";
-  rating: number;
-  title: string;
-  meta: string;
-  body: string;
-};
+/** First non-empty line, truncated — used as a human label for a sample. */
+function previewLabel(text: string): string {
+  const line = text.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+  return line.length > 34 ? `${line.slice(0, 34).trimEnd()}…` : line;
+}
 
-const LETTERS: Letter[] = [
-  {
-    id: "anthropic",
-    card: "Anthropic · 2024",
-    type: "PDF",
-    rating: 5,
-    title: "Anthropic · ML Engineer",
-    meta: "2024 · rated 5/5 · 312 words",
-    body: `Dear Anthropic Hiring Team,
+/** Map a free-text formality descriptor onto the 0–100 meter position. */
+function formalityPercent(f: string): number {
+  const s = f.toLowerCase();
+  if (s.includes("very formal")) return 88;
+  if (s.includes("formal")) return 78;
+  if (s.includes("professional")) return 66;
+  if (s.includes("semi") || s.includes("balanced") || s.includes("neutral") || s.includes("moderate")) return 54;
+  if (s.includes("conversational") || s.includes("warm") || s.includes("friendly")) return 40;
+  if (s.includes("casual") || s.includes("informal") || s.includes("relaxed")) return 26;
+  return 52;
+}
 
-When I read that this role owns the evaluation pipelines behind your alignment work, it mapped almost exactly onto the two years I spent building reproducible eval harnesses for on-device models — work I still maintain in the open.
-
-In my last role I cut model regression detection from days to minutes by building a lightweight harness that ran on every commit. The same discipline I'd bring to owning your evaluation pipelines.
-
-I'd welcome the chance to walk your team through the approach.
-
-Best,
-Jordan Rivera`,
-  },
-  {
-    id: "stripe",
-    card: "Stripe · 2023",
-    type: "DOCX",
-    rating: 4,
-    title: "Stripe · Backend Engineer",
-    meta: "2023 · rated 4/5 · 280 words",
-    body: `Dear Stripe Team,
-
-Your work making money movement programmable is exactly the kind of infrastructure I like to build behind. Over the past two years I've shipped payment-adjacent services that had to be correct first and fast second.
-
-At my last role I owned the reconciliation pipeline that processed millions of events a day, and I cut its tail latency by 40% without loosening a single correctness guarantee.
-
-I'd love to bring that same care to Stripe.
-
-Best,
-Jordan Rivera`,
-  },
-  {
-    id: "figma",
-    card: "Figma · 2023",
-    type: "TXT",
-    rating: 3,
-    title: "Figma · Product Engineer",
-    meta: "2023 · rated 3/5 · 240 words",
-    body: `Dear Figma Team,
-
-I've spent years on the seam between design and engineering, and Figma is where that seam basically disappears. I want to work on tools that make good work feel effortless.
-
-Recently I built an internal component explorer that cut the time designers spent hunting for the right pattern from minutes to seconds.
-
-I'd be thrilled to do that kind of work at Figma.
-
-Best,
-Jordan Rivera`,
-  },
-];
-
-type Sample = { name: string; meta: string; status: "parsed" | "reading" };
-const SAMPLES: Sample[] = [
-  { name: "Anthropic_2024.pdf", meta: "312 words · parsed", status: "parsed" },
-  { name: "Stripe_2023.docx", meta: "280 words · parsed", status: "parsed" },
-  { name: "Figma_2023.txt", meta: "reading…", status: "reading" },
-];
-
-type AnalysisStep = { label: string; state: "done" | "running" | "queued" };
-const ANALYSIS: AnalysisStep[] = [
-  { label: "Tone & register", state: "done" },
-  { label: "Structure patterns", state: "done" },
-  { label: "Signature phrasing", state: "running" },
-  { label: "Vocabulary & avoid-list", state: "queued" },
-];
-
-/* ── Inline icons (copied from the design for 1:1 fidelity) ──────── */
+/* ── Inline icons (kept from the original design for 1:1 fidelity) ── */
 function IconCheck({ size = 12, color = "var(--success)" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
@@ -126,40 +73,384 @@ function IconSparkle({ size = 10 }: { size?: number }) {
   );
 }
 
-function FileTypeIcon({ type }: { type: Letter["type"] }) {
-  if (type === "PDF") {
-    return (
-      <svg width={13} height={13} viewBox="0 0 20 20" fill="none" stroke="var(--danger)" strokeWidth={1.4}>
-        <path d="M6 3h6l3 3v11H5V3z" />
-      </svg>
-    );
-  }
-  if (type === "DOCX") {
-    return (
-      <svg width={13} height={13} viewBox="0 0 20 20" fill="none" stroke="#93c5fd" strokeWidth={1.4}>
-        <rect x="4" y="4" width="12" height="12" rx="2" />
-        <path d="M8 8h4M8 11h4" />
-      </svg>
-    );
-  }
+function DocIcon() {
   return (
-    <svg width={13} height={13} viewBox="0 0 20 20" fill="none" stroke="var(--text-mid)" strokeWidth={1.4}>
-      <path d="M4 5h12M4 10h12M4 15h8" />
+    <svg width={13} height={13} viewBox="0 0 20 20" fill="none" stroke="var(--text-mid)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <path d="M6 3h6l3 3v11H5V3z" />
+      <path d="M8 10h4M8 13h3" />
     </svg>
   );
 }
 
-function Stars({ value }: { value: number }) {
+/* ── Editable star rating ────────────────────────────────────────── */
+function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className="mt-1.5 text-[12px] tracking-[2px] text-accent">
-      <span>{"★".repeat(value)}</span>
-      {value < 5 ? <span className="text-fg-low">{"★".repeat(5 - value)}</span> : null}
+    <div className="flex items-center gap-0.5 tracking-[1px]" role="group" aria-label="Your rating">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          aria-label={`Rate ${n} of 5`}
+          aria-pressed={n <= value}
+          onClick={(e) => {
+            e.stopPropagation();
+            onChange(n);
+          }}
+          className={cn(
+            "text-[13px] leading-none outline-none transition-colors focus-visible:text-accent",
+            n <= value ? "text-accent" : "text-fg-low hover:text-fg-mid",
+          )}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── One sample in the left list (open / rate / delete) ──────────── */
+function LetterCard({
+  letter,
+  index,
+  onOpen,
+  onRate,
+  onDelete,
+}: {
+  letter: PastCoverLetter;
+  index: number;
+  onOpen: (l: PastCoverLetter) => void;
+  onRate: (l: PastCoverLetter, rating: number) => void;
+  onDelete: (l: PastCoverLetter) => void;
+}) {
+  const words = wordCount(letter.content);
+  const label = previewLabel(letter.content) || `Letter ${index + 1}`;
+  return (
+    <div className="group rounded-[11px] border border-border bg-surface px-[15px] py-[13px] transition-colors hover:border-border-strong">
+      <button
+        type="button"
+        onClick={() => onOpen(letter)}
+        className="flex w-full items-center gap-2 text-left outline-none focus-visible:text-accent-text"
+      >
+        <DocIcon />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg">{label}</span>
+        <span className="shrink-0 font-mono text-[9px] text-fg-low">{words}w</span>
+      </button>
+      <div className="mt-2 flex items-center justify-between">
+        <StarRating value={letter.user_rating ?? 0} onChange={(v) => onRate(letter, v)} />
+        <button
+          type="button"
+          aria-label="Remove letter"
+          onClick={() => onDelete(letter)}
+          className="rounded-[6px] p-1 text-fg-low opacity-0 outline-none transition-[opacity,color] hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Fingerprint group (label + tags/lines) ──────────────────────── */
+function FpGroup({ title, danger = false, children }: { title: string; danger?: boolean; children: ReactNode }) {
+  return (
+    <div>
+      <div className={cn("mb-[9px] text-[12px]", danger ? "text-danger" : "text-fg")} style={{ fontWeight: 650 }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── The learned voice fingerprint (real VoiceProfile) ───────────── */
+function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCount: number }) {
+  const deep = !!profile.llm_analyzed;
+
+  const stats: { k: string; v: string }[] = [
+    profile.tone ? { k: "TONE", v: profile.tone } : null,
+    profile.structure ? { k: "STRUCTURE", v: profile.structure } : null,
+    profile.sentence_patterns ? { k: "SENTENCES", v: profile.sentence_patterns } : null,
+  ].filter((s): s is { k: string; v: string } => s !== null);
+
+  const metrics: { k: string; v: string }[] = [
+    profile.word_count != null ? { k: "Avg length", v: `${profile.word_count} words` } : null,
+    profile.sentence_style ? { k: "Sentence style", v: profile.sentence_style } : null,
+    profile.pronoun_style ? { k: "First-person", v: profile.pronoun_style } : null,
+  ].filter((m): m is { k: string; v: string } => m !== null);
+
+  const heading = profile.tagline || (deep ? "Your writing voice" : "Quick voice snapshot");
+
+  return (
+    <div className="relative overflow-hidden rounded-[14px] border border-border bg-surface px-6 py-[22px]">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
+        style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.32 }}
+      />
+
+      <div className="relative flex items-center justify-between gap-3">
+        <span className="font-mono text-[10px] tracking-[1px] text-accent-text">VOICE FINGERPRINT</span>
+        <Pill tone={deep ? "accent" : "neutral"} mono className="gap-1 whitespace-nowrap px-[9px] py-[3px] text-[9px]">
+          <IconSparkle /> {deep ? `DEEP ANALYSIS · ${letterCount} letter${letterCount === 1 ? "" : "s"}` : "LOCAL METRICS"}
+        </Pill>
+      </div>
+
+      {profile.enough_signal === false ? (
+        <div className="relative mt-3 rounded-[10px] border border-warning-weak bg-warning-weak px-3.5 py-2.5 text-[12px] leading-[1.55] text-warning">
+          Not enough signal yet — add another letter or two so the analysis has more of your writing to learn from.
+        </div>
+      ) : null}
+
+      <div className="relative mt-3 max-w-[560px] text-[20px] leading-[1.35] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>
+        {heading}
+      </div>
+      {profile.summary ? (
+        <p className="relative mt-2 max-w-[560px] text-[13px] leading-[1.65] text-fg-mid">{profile.summary}</p>
+      ) : null}
+      {profile.self_presentation ? (
+        <p className="relative mt-2 max-w-[560px] text-[12.5px] leading-[1.6] text-fg-low">{profile.self_presentation}</p>
+      ) : null}
+
+      {/* tone / structure / sentences */}
+      {stats.length > 0 ? (
+        <div
+          className="relative mt-5 grid gap-2.5"
+          style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
+        >
+          {stats.map((s) => (
+            <div key={s.k} className="rounded-[10px] bg-surface-2 p-3">
+              <div className="font-mono text-[9px] text-fg-low">{s.k}</div>
+              <div className="mt-[5px] text-[13px] font-semibold text-fg first-letter:uppercase">{s.v}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {/* formality meter */}
+      {profile.formality ? (
+        <div className="relative mt-4">
+          <div className="mb-1.5 flex justify-between font-mono text-[9px] text-fg-low">
+            <span>FORMALITY · {profile.formality}</span>
+            <span>Casual ↔ Formal</span>
+          </div>
+          <div className="relative h-1.5 rounded-[3px] bg-input">
+            <div
+              className="absolute bottom-0 left-0 top-0 rounded-[3px]"
+              style={{ width: `${formalityPercent(profile.formality)}%`, background: "var(--accent-grad)" }}
+            />
+            <div
+              className="absolute top-1/2 h-[13px] w-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
+              style={{ left: `${formalityPercent(profile.formality)}%`, boxShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* strengths / themes / phrases / vocabulary / moves / open+close / emphasis */}
+      <div className="relative mt-5 grid grid-cols-1 gap-x-[22px] gap-y-[18px] sm:grid-cols-2">
+        {profile.strengths?.length ? (
+          <FpGroup title="Strengths">
+            <div className="flex flex-wrap gap-1.5">
+              {profile.strengths.map((t) => (
+                <span key={t} className="rounded-[7px] bg-accent-weak px-2.5 py-[5px] text-[11px] text-accent-text">{t}</span>
+              ))}
+            </div>
+          </FpGroup>
+        ) : null}
+
+        {profile.themes?.length ? (
+          <FpGroup title="Recurring themes">
+            <div className="flex flex-wrap gap-1.5">
+              {profile.themes.map((t) => (
+                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[11px] text-fg-mid">{t}</span>
+              ))}
+            </div>
+          </FpGroup>
+        ) : null}
+
+        {profile.signature_phrases?.length ? (
+          <FpGroup title="Signature phrases">
+            <div className="flex flex-col gap-[5px] text-[12px] italic leading-[1.5] text-fg-mid">
+              {profile.signature_phrases.map((p) => (
+                <span key={p}>&ldquo;{p}&rdquo;</span>
+              ))}
+            </div>
+          </FpGroup>
+        ) : null}
+
+        {profile.vocabulary?.length ? (
+          <FpGroup title="Vocabulary">
+            <div className="flex flex-wrap gap-1.5">
+              {profile.vocabulary.map((t) => (
+                <span key={t} className="rounded-[6px] bg-surface-2 px-[9px] py-1 font-mono text-[10px] text-fg-mid">{t}</span>
+              ))}
+            </div>
+          </FpGroup>
+        ) : null}
+
+        {profile.rhetorical_moves ? (
+          <FpGroup title="Rhetorical moves">
+            <p className="text-[12px] leading-[1.55] text-fg-mid">{profile.rhetorical_moves}</p>
+          </FpGroup>
+        ) : null}
+
+        {profile.opening_habits || profile.closing_habits ? (
+          <FpGroup title="Opening & closing">
+            <div className="flex flex-col gap-[5px] text-[12px] leading-[1.5] text-fg-mid">
+              {profile.opening_habits ? (
+                <span>
+                  <b className="font-semibold text-fg">Open:</b> {profile.opening_habits}
+                </span>
+              ) : null}
+              {profile.closing_habits ? (
+                <span>
+                  <b className="font-semibold text-fg">Close:</b> {profile.closing_habits}
+                </span>
+              ) : null}
+            </div>
+          </FpGroup>
+        ) : null}
+
+        {profile.emphasis?.length ? (
+          <FpGroup title="Emphasizes">
+            <div className="flex flex-wrap gap-1.5">
+              {profile.emphasis.map((t) => (
+                <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[11px] text-fg-mid">{t}</span>
+              ))}
+            </div>
+          </FpGroup>
+        ) : null}
+      </div>
+
+      {/* example sentences */}
+      {profile.example_sentences?.length ? (
+        <div className="relative mt-5">
+          <div className="mb-[9px] text-[12px] text-fg" style={{ fontWeight: 650 }}>Example sentences</div>
+          <div className="flex flex-col gap-2">
+            {profile.example_sentences.map((s) => (
+              <div key={s} className="rounded-[10px] border border-border bg-reading px-[13px] py-[11px] text-[12.5px] italic leading-[1.6] text-reading-ink">
+                &ldquo;{s}&rdquo;
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* avoids + local metrics */}
+      {(profile.avoid?.length || metrics.length) ? (
+        <div className="relative mt-5 grid grid-cols-1 gap-x-[22px] gap-y-[18px] sm:grid-cols-2">
+          {profile.avoid?.length ? (
+            <FpGroup title="Avoids" danger>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.avoid.map((t) => (
+                  <span key={t} className="rounded-[6px] bg-danger-weak px-[9px] py-1 text-[11px] text-danger">{t}</span>
+                ))}
+              </div>
+            </FpGroup>
+          ) : null}
+
+          {metrics.length ? (
+            <FpGroup title="Local metrics">
+              <div className="flex flex-col gap-1.5 text-[11.5px] text-fg-mid">
+                {metrics.map((m) => (
+                  <div key={m.k} className="flex justify-between gap-3">
+                    <span>{m.k}</span>
+                    <span className="font-mono text-right text-fg">{m.v}</span>
+                  </div>
+                ))}
+              </div>
+            </FpGroup>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ── Right panel when there are samples but no learned profile ───── */
+function NotLearnedPanel({ count, analyzing, onLearn }: { count: number; analyzing: boolean; onLearn: () => void }) {
+  return (
+    <div className="relative overflow-hidden rounded-[14px] border border-border bg-surface px-6 py-[22px]">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
+        style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.28 }}
+      />
+      <span className="relative font-mono text-[10px] tracking-[1px] text-accent-text">VOICE FINGERPRINT</span>
+      <div className="relative mt-3 text-[19px] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>Not learned yet</div>
+      <p className="relative mt-2 max-w-[440px] text-[13px] leading-[1.65] text-fg-mid">
+        You&rsquo;ve added {count} letter{count === 1 ? "" : "s"}. Analyze them to build your voice fingerprint — the model
+        studies your tone, structure, and phrasing.
+      </p>
+      <div className="relative mt-5">
+        <Button variant="primary" size="md" onClick={onLearn} loading={analyzing}>
+          <IconSparkle /> Learn my voice
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Learned/loaded state — letters list + fingerprint ───────────── */
+function DoneBody({
+  letters,
+  profile,
+  analyzing,
+  onOpen,
+  onRate,
+  onDelete,
+  onAdd,
+  onLearn,
+}: {
+  letters: PastCoverLetter[];
+  profile: VoiceProfile | null;
+  analyzing: boolean;
+  onOpen: (l: PastCoverLetter) => void;
+  onRate: (l: PastCoverLetter, rating: number) => void;
+  onDelete: (l: PastCoverLetter) => void;
+  onAdd: () => void;
+  onLearn: () => void;
+}) {
+  return (
+    <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
+      {/* Left — the past letters */}
+      <section className="cll-fade flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10px] tracking-[1px] text-fg-low">YOUR LETTERS · {letters.length}</span>
+          {profile?.llm_analyzed ? (
+            <Pill tone="accent" mono className="gap-1 px-[9px] py-[3px] text-[9px]">
+              <IconSparkle /> DEEP
+            </Pill>
+          ) : null}
+        </div>
+
+        {letters.map((l, i) => (
+          <LetterCard key={l.id ?? i} letter={l} index={i} onOpen={onOpen} onRate={onRate} onDelete={onDelete} />
+        ))}
+
+        <button
+          type="button"
+          onClick={onAdd}
+          className="rounded-[11px] border border-dashed border-border-strong bg-transparent px-3 py-3 text-[12.5px] text-accent-text outline-none transition-colors hover:border-accent focus-visible:border-accent"
+        >
+          + Add a past letter
+        </button>
+      </section>
+
+      {/* Right — the learned fingerprint (or a prompt to learn) */}
+      <section className="cll-fade">
+        {profile ? (
+          <Fingerprint profile={profile} letterCount={letters.length} />
+        ) : (
+          <NotLearnedPanel count={letters.length} analyzing={analyzing} onLearn={onLearn} />
+        )}
+      </section>
     </div>
   );
 }
 
 /* ── Empty state — teach the AI ──────────────────────────────────── */
-function EmptyBody() {
+function EmptyBody({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex min-h-full items-center justify-center p-7">
       <div className="cll-fade w-full max-w-[580px] text-center">
@@ -170,26 +461,28 @@ function EmptyBody() {
         </div>
         <div className="text-[21px] font-bold tracking-[-0.4px] text-fg">Teach the AI how you write</div>
         <p className="mt-[11px] text-[13.5px] leading-[1.7] text-fg-mid">
-          Add a few cover letters you've written before. The model studies your real tone, structure, and phrasing —
+          Add a few cover letters you&rsquo;ve written before. The model studies your real tone, structure, and phrasing —
           then drafts new letters that sound like <span className="text-accent-text">you</span>, not like generic AI.
         </p>
 
         <button
           type="button"
-          className="mt-6 block w-full cursor-pointer rounded-[14px] border border-dashed border-border-strong bg-input p-9 text-center transition-colors hover:border-accent"
+          onClick={onAdd}
+          className="mt-6 block w-full cursor-pointer rounded-[14px] border border-dashed border-border-strong bg-input p-9 text-center outline-none transition-colors hover:border-accent focus-visible:border-accent"
         >
           <span className="mx-auto mb-[13px] flex h-[46px] w-[46px] items-center justify-center rounded-[13px] bg-surface-2">
             <svg width={21} height={21} viewBox="0 0 20 20" fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 13V4M6.5 7.5L10 4l3.5 3.5M4 15h12" />
             </svg>
           </span>
-          <span className="block text-[14px] font-semibold text-fg">Drop past cover letters</span>
-          <span className="mt-[5px] block text-[12px] text-fg-low">PDF · DOCX · TXT — or paste text</span>
+          <span className="block text-[14px] font-semibold text-fg">Paste a past cover letter</span>
+          <span className="mt-[5px] block text-[12px] text-fg-low">It stays on your machine — nothing is uploaded</span>
         </button>
 
-        <div className="mt-4 flex justify-center gap-2.5">
-          <Button variant="primary" size="md" type="button">Upload files</Button>
-          <Button variant="outline" size="md" type="button">Paste text</Button>
+        <div className="mt-4 flex justify-center">
+          <Button variant="primary" size="md" type="button" onClick={onAdd}>
+            <Plus size={15} /> Paste a letter
+          </Button>
         </div>
 
         <div className="mt-[18px] inline-flex items-center gap-1.5 text-[11px] text-fg-low">
@@ -201,20 +494,21 @@ function EmptyBody() {
   );
 }
 
-/* ── Learning state — analyzing progress ─────────────────────────── */
-function LearningBody() {
+/* ── Learning state — analysis in progress ───────────────────────── */
+function LearningBody({ letters }: { letters: PastCoverLetter[] }) {
+  const facets = ["Tone & register", "Structure & rhetoric", "Signature phrasing", "Vocabulary & avoid-list"];
   return (
     <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
       <section className="cll-fade flex flex-col gap-2.5">
-        <div className="font-mono text-[10px] tracking-[1px] text-fg-low">SAMPLES · 3</div>
-        {SAMPLES.map((s) => (
-          <div key={s.name} className="flex items-center gap-2.5 rounded-[11px] border border-border bg-surface px-3.5 py-3">
+        <div className="font-mono text-[10px] tracking-[1px] text-fg-low">SAMPLES · {letters.length}</div>
+        {letters.map((l, i) => (
+          <div key={l.id ?? i} className="flex items-center gap-2.5 rounded-[11px] border border-border bg-surface px-3.5 py-3">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-accent-weak">
-              {s.status === "parsed" ? <IconCheck size={11} /> : <IconSpin size={12} />}
+              <IconCheck size={11} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-semibold text-fg">{s.name}</div>
-              <div className={cn("font-mono text-[9px]", s.status === "parsed" ? "text-fg-low" : "text-accent-text")}>{s.meta}</div>
+              <div className="truncate text-[12.5px] font-semibold text-fg">{previewLabel(l.content) || `Letter ${i + 1}`}</div>
+              <div className="font-mono text-[9px] text-fg-low">{wordCount(l.content)} words</div>
             </div>
           </div>
         ))}
@@ -227,41 +521,28 @@ function LearningBody() {
             className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
             style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.35 }}
           />
-          <div className="relative flex items-center justify-between">
+          <div className="relative flex items-center gap-2">
             <div className="text-[15px] text-fg" style={{ fontWeight: 650 }}>Analyzing your voice</div>
-            <span className="font-mono text-[10px] text-accent-text">68%</span>
+            <StatDot tone="accent" pulse size={7} />
           </div>
-          <div className="relative mt-1.5 h-[5px] overflow-hidden rounded-[3px] bg-input">
-            <div className="h-full" style={{ width: "68%", background: "var(--accent-grad)" }} />
+          <div className="relative mt-2 h-[5px] overflow-hidden rounded-[3px] bg-input">
+            <div className="h-full w-2/5 rounded-[3px]" style={{ background: "var(--accent-grad)", animation: "cll-pulse 1.6s ease-in-out infinite" }} />
           </div>
 
           <div className="relative mt-5 flex flex-col gap-[13px]">
-            {ANALYSIS.map((step) => (
-              <div key={step.label} className={cn("flex items-center gap-[11px]", step.state === "queued" && "opacity-50")}>
-                <span className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px]", step.state === "queued" ? "bg-input" : "bg-accent-weak")}>
-                  {step.state === "done" ? (
-                    <IconCheck size={12} />
-                  ) : step.state === "running" ? (
-                    <IconSpin size={13} />
-                  ) : (
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--text-low)" }} />
-                  )}
+            {facets.map((label) => (
+              <div key={label} className="flex items-center gap-[11px]">
+                <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-accent-weak">
+                  <IconSpin size={13} />
                 </span>
-                <span className={cn("flex-1 text-[12.5px]", step.state === "queued" ? "text-fg-mid" : "text-fg")}>{step.label}</span>
-                <span
-                  className={cn(
-                    "font-mono text-[9px]",
-                    step.state === "done" ? "text-success" : step.state === "running" ? "text-accent-text" : "text-fg-low",
-                  )}
-                >
-                  {step.state === "done" ? "DONE" : step.state === "running" ? "RUNNING" : "QUEUED"}
-                </span>
+                <span className="flex-1 text-[12.5px] text-fg">{label}</span>
+                <span className="font-mono text-[9px] text-accent-text">WORKING</span>
               </div>
             ))}
           </div>
 
           <div className="relative mt-[18px] border-t border-border pt-3.5 text-[12.5px] leading-[1.7] text-fg-mid">
-            You tend to open with a concrete result, keep sentences active, and close by tying your work to the reader's problem
+            Reading your letters and reverse-engineering how you open, build an argument, and close — so new drafts sound like you
             <span
               className="ml-px inline-block h-3.5 w-[7px] translate-y-0.5 bg-accent"
               style={{ animation: "cll-blink 1.05s step-end infinite" }}
@@ -273,281 +554,239 @@ function LearningBody() {
   );
 }
 
-/* ── Voice fingerprint group (label + tags/lines) ────────────────── */
-function FpGroup({ title, danger = false, children }: { title: string; danger?: boolean; children: ReactNode }) {
+/* ── Letter reader modal (shared Dialog primitive) ───────────────── */
+function LetterModal({ letter, onClose }: { letter: PastCoverLetter; onClose: () => void }) {
+  const words = wordCount(letter.content);
+  const meta = [`${words} words`, letter.user_rating ? `rated ${letter.user_rating}/5` : null].filter(Boolean).join(" · ");
   return (
-    <div>
-      <div className={cn("mb-[9px] text-[12px]", danger ? "text-danger" : "text-fg")} style={{ fontWeight: 650 }}>
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/* ── Done state — letters list + voice fingerprint ───────────────── */
-function DoneBody({ onOpen }: { onOpen: (l: Letter) => void }) {
-  return (
-    <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
-      {/* Left — the past letters */}
-      <section className="cll-fade flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] tracking-[1px] text-fg-low">YOUR LETTERS · 6</span>
-          <Pill tone="accent" mono className="gap-1 px-[9px] py-[3px] text-[9px]">
-            <IconSparkle /> DEEP
-          </Pill>
-        </div>
-
-        {LETTERS.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            onClick={() => onOpen(l)}
-            className="rounded-[11px] border border-border bg-surface px-[15px] py-[13px] text-left transition-colors hover:border-border-strong"
-          >
-            <div className="flex items-center gap-2">
-              <FileTypeIcon type={l.type} />
-              <span className="text-[13px] font-semibold text-fg">{l.card}</span>
-              <span className="ml-auto font-mono text-[9px] text-fg-low">{l.type}</span>
-            </div>
-            <Stars value={l.rating} />
-          </button>
-        ))}
-
-        <button
-          type="button"
-          className="rounded-[11px] border border-dashed border-border-strong bg-transparent px-3 py-3 text-[12.5px] text-accent-text transition-colors hover:border-accent"
-        >
-          + Add a past letter
-        </button>
-      </section>
-
-      {/* Right — the learned fingerprint */}
-      <section className="cll-fade">
-        <div className="relative overflow-hidden rounded-[14px] border border-border bg-surface px-6 py-[22px]">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
-            style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.32 }}
-          />
-
-          <div className="relative flex items-center justify-between">
-            <span className="font-mono text-[10px] tracking-[1px] text-accent-text">VOICE FINGERPRINT</span>
-            <Pill tone="accent" mono className="gap-1 px-[9px] py-[3px] text-[9px]">
-              <IconSparkle /> DEEP ANALYSIS · 6 letters
-            </Pill>
-          </div>
-
-          <div className="relative mt-3 max-w-[560px] text-[20px] leading-[1.35] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>
-            Evidence-led, quietly confident, reader-first
-          </div>
-          <p className="relative mt-2 max-w-[560px] text-[13px] leading-[1.65] text-fg-mid">
-            You open with a concrete result, connect it to the reader's problem, and close without hedging. You persuade with
-            specifics, not adjectives.
-          </p>
-
-          {/* tone / structure / pace */}
-          <div className="relative mt-5 grid grid-cols-3 gap-2.5">
-            {[
-              { k: "TONE", v: "Warm · confident" },
-              { k: "STRUCTURE", v: "Hook → proof → fit" },
-              { k: "PACE", v: "Brisk · varied" },
-            ].map((s) => (
-              <div key={s.k} className="rounded-[10px] bg-surface-2 p-3">
-                <div className="font-mono text-[9px] text-fg-low">{s.k}</div>
-                <div className="mt-[5px] text-[13px] font-semibold text-fg">{s.v}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* formality meter */}
-          <div className="relative mt-4">
-            <div className="mb-1.5 flex justify-between font-mono text-[9px] text-fg-low">
-              <span>FORMALITY</span>
-              <span>Casual ↔ Formal</span>
-            </div>
-            <div className="relative h-1.5 rounded-[3px] bg-input">
-              <div className="absolute bottom-0 left-0 top-0 rounded-[3px]" style={{ width: "58%", background: "var(--accent-grad)" }} />
-              <div
-                className="absolute top-1/2 h-[13px] w-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
-                style={{ left: "58%", boxShadow: "0 2px 6px rgba(0,0,0,.5)" }}
-              />
-            </div>
-          </div>
-
-          {/* strengths / themes / phrases / vocabulary / moves / open+close */}
-          <div className="relative mt-5 grid grid-cols-1 gap-x-[22px] gap-y-[18px] sm:grid-cols-2">
-            <FpGroup title="Strengths">
-              <div className="flex flex-wrap gap-1.5">
-                {["Specific metrics", "Active voice", "Reader-focused openings"].map((t) => (
-                  <span key={t} className="rounded-[7px] bg-accent-weak px-2.5 py-[5px] text-[11px] text-accent-text">{t}</span>
-                ))}
-              </div>
-            </FpGroup>
-
-            <FpGroup title="Recurring themes">
-              <div className="flex flex-wrap gap-1.5">
-                {["Reliability", "Craft", "Ownership"].map((t) => (
-                  <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2.5 py-[5px] text-[11px] text-fg-mid">{t}</span>
-                ))}
-              </div>
-            </FpGroup>
-
-            <FpGroup title="Signature phrases">
-              <div className="flex flex-col gap-[5px] text-[12px] italic leading-[1.5] text-fg-mid">
-                <span>"mapped almost exactly onto…"</span>
-                <span>"the same discipline I'd bring…"</span>
-                <span>"correct first and fast second"</span>
-              </div>
-            </FpGroup>
-
-            <FpGroup title="Vocabulary">
-              <div className="flex flex-wrap gap-1.5">
-                {["reproducible", "harness", "discipline", "own"].map((t) => (
-                  <span key={t} className="rounded-[6px] bg-surface-2 px-[9px] py-1 font-mono text-[10px] text-fg-mid">{t}</span>
-                ))}
-              </div>
-            </FpGroup>
-
-            <FpGroup title="Rhetorical moves">
-              <div className="flex flex-col gap-[5px] text-[12px] leading-[1.5] text-fg-mid">
-                <span>· Lead with a measurable outcome</span>
-                <span>· Mirror the company's own language</span>
-                <span>· Under-claim, over-evidence</span>
-              </div>
-            </FpGroup>
-
-            <FpGroup title="Opening & closing">
-              <div className="flex flex-col gap-[5px] text-[12px] leading-[1.5] text-fg-mid">
-                <span>
-                  <b className="font-semibold text-fg">Open:</b> reacts to a specific detail of the role
-                </span>
-                <span>
-                  <b className="font-semibold text-fg">Close:</b> short, forward-looking, no filler
-                </span>
-              </div>
-            </FpGroup>
-          </div>
-
-          {/* example sentences */}
-          <div className="relative mt-5">
-            <div className="mb-[9px] text-[12px] text-fg" style={{ fontWeight: 650 }}>Example sentences</div>
-            <div className="flex flex-col gap-2">
-              {[
-                "\"I cut model regression detection from days to minutes by building a harness that ran on every commit.\"",
-                "\"Correct first and fast second — I cut tail latency 40% without loosening a guarantee.\"",
-              ].map((s) => (
-                <div key={s} className="rounded-[10px] border border-border bg-reading px-[13px] py-[11px] text-[12.5px] italic leading-[1.6] text-reading-ink">
-                  {s}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* avoids + local metrics */}
-          <div className="relative mt-5 grid grid-cols-1 gap-x-[22px] gap-y-[18px] sm:grid-cols-2">
-            <FpGroup title="Avoids" danger>
-              <div className="flex flex-wrap gap-1.5">
-                {["\"I am writing to…\"", "\"passionate\"", "\"team player\"", "exclamation marks"].map((t) => (
-                  <span key={t} className="rounded-[6px] px-[9px] py-1 text-[11px] text-danger" style={{ background: "rgba(251,113,133,.1)" }}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </FpGroup>
-
-            <FpGroup title="Local metrics">
-              <div className="flex flex-col gap-1.5 text-[11.5px] text-fg-mid">
-                {[
-                  { k: "Avg length", v: "277 words" },
-                  { k: "Sentence length", v: "18 words · varied" },
-                  { k: "First-person", v: "balanced I / you" },
-                ].map((m) => (
-                  <div key={m.k} className="flex justify-between">
-                    <span>{m.k}</span>
-                    <span className="font-mono text-fg">{m.v}</span>
-                  </div>
-                ))}
-              </div>
-            </FpGroup>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-/* ── Letter reader modal ─────────────────────────────────────────── */
-function LetterModal({ letter, onClose }: { letter: Letter; onClose: () => void }) {
-  return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(3,7,14,.62)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", animation: "cll-backdrop .2s ease" }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[84%] w-[560px] max-w-[92%] flex-col overflow-hidden rounded-[16px] border border-border-strong bg-surface"
-        style={{ boxShadow: "0 40px 100px -30px rgba(0,0,0,.85)", animation: "cll-modal .32s cubic-bezier(.16,1,.3,1)" }}
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[84vh] w-[min(92vw,560px)] flex-col overflow-hidden p-0"
       >
-        <div className="flex items-center justify-between border-b border-border px-[22px] py-[18px]">
-          <div>
-            <div className="text-[15px] text-fg" style={{ fontWeight: 650 }}>{letter.title}</div>
-            <div className="mt-[3px] font-mono text-[10px] text-fg-mid">{letter.meta}</div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] border border-border bg-transparent text-fg-mid transition-colors hover:bg-surface-2 hover:text-fg"
-          >
-            <svg width={14} height={14} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
-              <path d="M6 6l8 8M14 6l-8 8" />
-            </svg>
-          </button>
+        <div className="border-b border-border px-[22px] py-[18px] pr-12">
+          <DialogTitle className="text-[15px]">{previewLabel(letter.content) || "Past letter"}</DialogTitle>
+          <div className="mt-[3px] font-mono text-[10px] text-fg-mid">{meta}</div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto bg-reading px-[26px] py-6">
-          <div className="max-w-[520px] whitespace-pre-wrap text-[14px] leading-[1.85] text-reading-ink">{letter.body}</div>
+          <div className="whitespace-pre-wrap text-[14px] leading-[1.85] text-reading-ink">{letter.content}</div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-border bg-surface-2 px-[22px] py-3.5">
+        <div className="flex items-center justify-between gap-3 border-t border-border bg-surface-2 px-[22px] py-3.5">
           <span className="text-[11px] text-fg-low">Used as a style reference — never copied verbatim.</span>
           <Button variant="primary" size="sm" type="button" onClick={onClose}>Done</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/* ── Header actions — state switcher + add ───────────────────────── */
-function HeaderActions({ state, onState }: { state: VoiceState; onState: (s: VoiceState) => void }) {
+/* ── Add-a-letter dialog (paste text) ────────────────────────────── */
+function AddLetterDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (content: string) => Promise<void>;
+}) {
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const trimmed = text.trim();
+
+  function handleOpenChange(next: boolean) {
+    if (submitting) return;
+    if (!next) setText("");
+    onOpenChange(next);
+  }
+
+  async function submit() {
+    if (!trimmed || submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(trimmed);
+      setText("");
+    } catch (e) {
+      toast.danger("Couldn't add the letter", errorMessage(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[min(92vw,520px)]">
+        <DialogTitle>Add a past letter</DialogTitle>
+        <DialogDescription>
+          Paste the full text of a cover letter you wrote. It stays on your machine and teaches the AI how you write.
+        </DialogDescription>
+        <div className="mt-4">
+          <Field label="Letter text" hint={trimmed ? `${wordCount(text)} words` : "Paste at least a paragraph or two"}>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={"Dear Hiring Team,\n\nWhen I read that this role…"}
+              className="min-h-[220px]"
+              autoFocus
+            />
+          </Field>
+        </div>
+        <div className="mt-5 flex justify-end gap-2.5">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button variant="primary" onClick={submit} loading={submitting} disabled={!trimmed}>Add &amp; learn</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Loaded shell — owns the wired state once data has arrived ───── */
+type Loaded = { letters: PastCoverLetter[]; style: StyleState };
+
+function VoiceLoaded({ initial }: { initial: Loaded }) {
+  const [letters, setLetters] = useState<PastCoverLetter[]>(initial.letters);
+  const [profile, setProfile] = useState<VoiceProfile | null>(initial.style.style_profile);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [reader, setReader] = useState<PastCoverLetter | null>(null);
+  const [toDelete, setToDelete] = useState<PastCoverLetter | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // (Re)analyze the whole corpus into a fresh voice fingerprint.
+  const runLearn = useCallback(async () => {
+    setAnalyzing(true);
+    try {
+      const res = await learnVoice();
+      setProfile(res.style_profile);
+      if (res.analysis_failed) {
+        toast.warning(
+          "Deep analysis didn't complete",
+          res.suggest_model_switch
+            ? `The model (${res.model ?? "current"}) looks busy — try again, or switch model in Settings.`
+            : "We kept your existing voice. Please try again in a moment.",
+        );
+      } else if (res.style_profile?.enough_signal === false) {
+        toast.info("Not enough signal yet", "Add another letter or two so the analysis has more to learn from.");
+      } else {
+        toast.success("Voice updated", `Learned from ${res.samples} letter${res.samples === 1 ? "" : "s"}.`);
+      }
+    } catch (e) {
+      toast.danger("Couldn't analyze your voice", errorMessage(e));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, []);
+
+  // Paste flow: persist the sample, then (re)analyze into the fingerprint.
+  const handleAdd = useCallback(
+    async (content: string) => {
+      const created = await createPastLetter({ content });
+      setLetters((prev) => [...prev, created]);
+      setAddOpen(false);
+      void runLearn();
+    },
+    [runLearn],
+  );
+
+  const handleRate = useCallback((letter: PastCoverLetter, rating: number) => {
+    if (letter.id == null) return;
+    const id = letter.id;
+    const next = { ...letter, user_rating: rating };
+    setLetters((prev) => prev.map((l) => (l.id === id ? next : l))); // optimistic
+    updatePastLetter(id, next).catch((e) => {
+      toast.danger("Couldn't save rating", errorMessage(e));
+      setLetters((prev) => prev.map((l) => (l.id === id ? letter : l))); // revert
+    });
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    const target = toDelete;
+    if (target?.id == null) return;
+    setDeleting(true);
+    try {
+      await deletePastLetter(target.id);
+      setLetters((prev) => prev.filter((l) => l.id !== target.id));
+      setToDelete(null);
+      toast.success("Letter removed", "Re-analyze to refresh your voice fingerprint.");
+    } catch (e) {
+      toast.danger("Couldn't remove letter", errorMessage(e));
+    } finally {
+      setDeleting(false);
+    }
+  }, [toDelete]);
+
+  const hasLetters = letters.length > 0;
+  const view = analyzing ? "learning" : profile ? "done" : hasLetters ? "unlearned" : "empty";
+
+  const actions = (
     <>
-      <Segmented options={STATE_OPTIONS} value={state} onChange={onState} />
-      <Button variant="primary" size="md" type="button">
-        <svg width={14} height={14} viewBox="0 0 20 20" fill="none" stroke="#fff" strokeWidth={1.8} strokeLinecap="round">
-          <path d="M10 4v12M4 10h12" />
-        </svg>
-        Add a letter
+      {hasLetters && !analyzing ? (
+        <Button variant="outline" size="md" onClick={() => void runLearn()}>
+          <RotateCw size={14} /> Re-analyze
+        </Button>
+      ) : null}
+      <Button variant="primary" size="md" onClick={() => setAddOpen(true)} disabled={analyzing}>
+        <Plus size={14} /> Add a letter
       </Button>
     </>
+  );
+
+  return (
+    <Page eyebrow={EYEBROW} title={TITLE} actions={actions} bodyClassName="p-0">
+      {view === "learning" ? (
+        <LearningBody letters={letters} />
+      ) : view === "empty" ? (
+        <EmptyBody onAdd={() => setAddOpen(true)} />
+      ) : (
+        <DoneBody
+          letters={letters}
+          profile={profile}
+          analyzing={analyzing}
+          onOpen={setReader}
+          onRate={handleRate}
+          onDelete={setToDelete}
+          onAdd={() => setAddOpen(true)}
+          onLearn={() => void runLearn()}
+        />
+      )}
+
+      <AddLetterDialog open={addOpen} onOpenChange={setAddOpen} onSubmit={handleAdd} />
+      {reader ? <LetterModal letter={reader} onClose={() => setReader(null)} /> : null}
+      <ConfirmDialog
+        open={toDelete !== null}
+        onOpenChange={(o) => {
+          if (!o) setToDelete(null);
+        }}
+        tone="danger"
+        icon={<Trash2 size={22} />}
+        title="Remove this letter?"
+        description="It will no longer be used to learn your writing voice. This can't be undone."
+        confirmLabel="Remove"
+        loading={deleting}
+        onConfirm={() => void confirmDelete()}
+      />
+    </Page>
   );
 }
 
 export function Voice() {
-  const [state, setState] = useState<VoiceState>("done");
-  const [openLetter, setOpenLetter] = useState<Letter | null>(null);
-
-  return (
-    <Page
-      eyebrow="SETUP / WRITING VOICE"
-      title="Writing Voice"
-      actions={<HeaderActions state={state} onState={setState} />}
-      bodyClassName="p-0"
-    >
-      {state === "empty" ? <EmptyBody /> : state === "learning" ? <LearningBody /> : <DoneBody onOpen={setOpenLetter} />}
-      {openLetter ? <LetterModal letter={openLetter} onClose={() => setOpenLetter(null)} /> : null}
-    </Page>
+  const load = useAsync<Loaded>(
+    () => Promise.all([listPastLetters(), getStyle()]).then(([letters, style]) => ({ letters, style })),
+    [],
   );
+
+  // Header stays visible while the one-time load resolves; AsyncBoundary
+  // renders the spinner / error+retry. Once data arrives, the loaded shell
+  // seeds its own state (flash-free) and owns all wired interactions.
+  if (!load.data) {
+    return (
+      <Page eyebrow={EYEBROW} title={TITLE} bodyClassName="p-0">
+        <AsyncBoundary state={load}>{() => null}</AsyncBoundary>
+      </Page>
+    );
+  }
+
+  return <VoiceLoaded initial={load.data} />;
 }

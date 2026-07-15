@@ -1,17 +1,23 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Check, ChevronDown, PenLine, FileText, AudioLines, Github, Target, ShieldCheck, AudioWaveform, Star } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { OpenSourceBanner } from "@/components/common/OpenSourceBanner";
 import { Button } from "@/components/ui/button";
-import { Pill, StatDot } from "@/components/ui/feedback";
+import { Pill, StatDot, Skeleton, Spinner } from "@/components/ui/feedback";
+import { useAsync } from "@/lib/useAsync";
+import { toast } from "@/store/toast";
+import { getProfile, listSkills } from "@/api/profile";
+import { getStyle } from "@/api/style";
+import { listSavedRepos } from "@/api/githubRepos";
+import { listJobs } from "@/api/jobs";
+import type { Job } from "@/api/types";
 import { cn } from "@/lib/utils";
 
 /* ── State model ─────────────────────────────────────────────────
-   Backend wiring is deferred; the "PREVIEW STATE" switcher (from the
-   design) drives local state so every variant is viewable. When we wire
-   the backend, `state` is derived from real data (has CV / voice / repos /
-   letters) and the switcher becomes a dev-only affordance. */
+   The state is DERIVED from real data (has CV / voice / repos / letters).
+   The "PREVIEW STATE" switcher survives as a dev-only override — when its
+   value is null (the default) we render the derived state. */
 type HomeState = "welcome" | "cv" | "ready" | "active" | "clean";
 
 const STATE_OPTIONS: { value: HomeState; label: string; desc: string }[] = [
@@ -161,8 +167,15 @@ function SetupChecklist({ header, count, pct, items }: { header: string; count: 
 
 const smallAction = "shrink-0 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold";
 
+const DoneTag = (
+  <span className="flex items-center gap-1.5 text-[11.5px] text-success">
+    <Check size={13} strokeWidth={2.6} />
+    Done
+  </span>
+);
+
 /* ── Recent letters / activity ───────────────────────────────────── */
-type LetterRow = { letter: string; title: string; company: string; status: "Draft" | "Completed"; match: number };
+type LetterRow = { letter: string; title: string; company: string; status: "Draft" | "Completed"; match: number | null; to: string };
 function RecentList({ header, rows }: { header: string; rows: LetterRow[] }) {
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-[18px] pb-3 pt-1.5">
@@ -172,8 +185,8 @@ function RecentList({ header, rows }: { header: string; rows: LetterRow[] }) {
       </div>
       {rows.map((r, i) => (
         <Link
-          key={r.title + r.company}
-          to="/cover-letters"
+          key={`${r.to}-${i}`}
+          to={r.to}
           className={cn("flex items-center gap-3 rounded-[9px] px-2 py-2.5 transition-colors hover:bg-surface-2", i < rows.length - 1 && "border-b border-border")}
         >
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-border bg-surface-2 text-[12.5px] font-bold text-accent-text">{r.letter}</span>
@@ -182,15 +195,43 @@ function RecentList({ header, rows }: { header: string; rows: LetterRow[] }) {
             <div className="text-[11px] text-fg-low">{r.company}</div>
           </div>
           <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold", r.status === "Completed" ? "bg-success-weak text-success" : "bg-surface-2 text-fg-mid")}>{r.status}</span>
-          <span className="shrink-0 font-mono text-[10px] text-accent-text">Match {r.match}</span>
+          <span className="shrink-0 font-mono text-[10px] text-accent-text">{r.match != null ? `Match ${r.match}` : "No match"}</span>
         </Link>
       ))}
     </div>
   );
 }
 
-/* ── State content ───────────────────────────────────────────────── */
-function StateBody({ state }: { state: HomeState }) {
+/* ── Derived data shape ──────────────────────────────────────────── */
+type ActivityItem = { c: string; t: string; tag: string };
+interface Derived {
+  name: string | null;
+  hasProfile: boolean;
+  hasVoice: boolean;
+  hasRepos: boolean;
+  hasLetters: boolean;
+  profilePct: number;
+  fieldsLeft: number;
+  skillsCount: number;
+  reposCount: number;
+  voiceStatus: string;
+  voiceSamples: number;
+  voiceAnalyzed: boolean;
+  lettersCount: number;
+  completedCount: number;
+  draftCount: number;
+  avgMatch: number | null;
+  maxMatch: number | null;
+  recent: LetterRow[];
+  topDraft: { role: string; company: string; match: number | null; to: string } | null;
+  activity: ActivityItem[];
+  setupItems: SetupItem[];
+  railSetup: RailStep[];
+  setupDone: number;
+}
+
+/* ── State content (all numbers/copy come from `d`) ──────────────── */
+function StateBody({ state, d }: { state: HomeState; d: Derived }) {
   if (state === "welcome") {
     return (
       <>
@@ -205,24 +246,9 @@ function StateBody({ state }: { state: HomeState }) {
               <Button asChild variant="outline" size="md"><Link to="/github">Import from GitHub</Link></Button>
             </>
           }
-          steps={[
-            { label: "Add CV", status: "active", pct: 30 },
-            { label: "Voice", status: "todo" },
-            { label: "GitHub", status: "todo" },
-            { label: "First letter", status: "todo" },
-          ]}
+          steps={d.railSetup}
         />
-        <SetupChecklist
-          header="GET SET UP · 3 MINUTES"
-          count="0 of 4"
-          pct={4}
-          items={[
-            { n: 1, title: "Add your CV", desc: "Parsed on-device into an editable profile.", status: "active", action: <Button asChild size="sm" className={smallAction}><Link to="/onboarding">Add CV</Link></Button> },
-            { n: 2, title: "Analyze your writing voice", desc: "Drop in past letters so drafts sound like you.", status: "todo", action: <Button asChild variant="outline" size="sm" className={smallAction}><Link to="/voice">Add samples</Link></Button> },
-            { n: 3, title: "Import from GitHub", desc: "Pull real projects and skills into your profile.", status: "todo", action: <Button asChild variant="outline" size="sm" className={smallAction}><Link to="/github">Connect</Link></Button> },
-            { n: 4, title: "Write your first letter", desc: "Tailored, grounded, and in your voice.", status: "todo", action: <span className="text-[10.5px] text-fg-low">Soon</span> },
-          ]}
-        />
+        <SetupChecklist header="GET SET UP · 3 MINUTES" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             { icon: <ShieldCheck size={17} />, title: "100% on-device", desc: "A local model does the writing. Your CV and letters never touch a server." },
@@ -247,59 +273,38 @@ function StateBody({ state }: { state: HomeState }) {
         <Hero
           badge="CV added"
           badgeTone="success"
-          title="Nice — your CV is in."
-          desc="Parsed 4 roles, 25 skills and 2 degrees. Two quick steps and you are ready to write."
+          title={d.name ? `Nice, ${d.name} — your CV is in.` : "Nice — your CV is in."}
+          desc={`Your CV is imported${d.skillsCount ? `, ${d.skillsCount} skills tracked` : ""}. A couple of quick steps and you are ready to write.`}
           actions={
             <>
               <Button asChild size="md"><Link to="/voice"><AudioLines size={15} /> Analyze my voice</Link></Button>
               <Button asChild variant="outline" size="md"><Link to="/profile">Review profile</Link></Button>
             </>
           }
-          steps={[
-            { label: "CV added", status: "done" },
-            { label: "Voice", status: "active", pct: 35 },
-            { label: "GitHub", status: "todo" },
-            { label: "First letter", status: "todo" },
-          ]}
+          steps={d.railSetup}
         />
         <StatStrip
           stats={[
-            { label: "Profile complete", value: "82%", sub: "3 fields left" },
-            { label: "Skills tracked", value: "25", sub: "from your CV" },
-            { label: "Writing voice", value: "Pending", sub: "add samples", tone: "warning" },
-            { label: "Letters", value: "0", sub: "none yet" },
+            { label: "Profile complete", value: `${d.profilePct}%`, sub: d.fieldsLeft ? `${d.fieldsLeft} fields left` : "all fields" },
+            { label: "Skills tracked", value: String(d.skillsCount), sub: d.skillsCount ? "from your CV" : "add skills" },
+            { label: "Writing voice", value: d.voiceStatus, sub: d.voiceSamples ? `${d.voiceSamples} samples` : "add samples", tone: d.voiceAnalyzed ? "accent" : "warning" },
+            { label: "Letters", value: String(d.lettersCount), sub: d.lettersCount ? "in progress" : "none yet" },
           ]}
         />
-        <SetupChecklist
-          header="FINISH SETTING UP"
-          count="1 of 4"
-          pct={32}
-          items={[
-            { n: 1, title: "Add your CV", desc: "Imported and turned into your profile.", status: "done", action: <span className="flex items-center gap-1.5 text-[11.5px] text-success"><Check size={13} strokeWidth={2.6} />Done</span> },
-            { n: 2, title: "Analyze your writing voice", desc: "Drop in past letters so drafts sound like you.", status: "active", action: <Button asChild size="sm" className={smallAction}><Link to="/voice">Add samples</Link></Button> },
-            { n: 3, title: "Import from GitHub", desc: "Pull real projects and skills into your profile.", status: "todo", action: <Button asChild variant="outline" size="sm" className={smallAction}><Link to="/github">Connect</Link></Button> },
-            { n: 4, title: "Write your first letter", desc: "Tailored, grounded, and in your voice.", status: "todo", action: <Button asChild variant="outline" size="sm" className={smallAction}><Link to="/write">Write</Link></Button> },
-          ]}
-        />
+        <SetupChecklist header="FINISH SETTING UP" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
         <OpenSourceBanner />
       </>
     );
   }
 
   if (state === "ready") {
-    const picks = [
-      { l: "A", name: "Anthropic", role: "ML Engineer" },
-      { l: "O", name: "OpenAI", role: "Research Eng" },
-      { l: "M", name: "Mistral", role: "Research Eng" },
-      { l: "H", name: "Hugging Face", role: "Platform Eng" },
-    ];
     return (
       <>
         <Hero
           badge="All connected"
           badgeTone="success"
           title="You are ready to write."
-          desc="Profile, writing voice and GitHub are all set. Pick a company and get a tailored first draft."
+          desc={`Profile, writing voice and ${d.reposCount} ${d.reposCount === 1 ? "repo" : "repos"} are all set. Pick a company and get a tailored first draft.`}
           actions={
             <>
               <Button asChild size="md"><Link to="/write"><PenLine size={15} /> Write a letter</Link></Button>
@@ -315,29 +320,22 @@ function StateBody({ state }: { state: HomeState }) {
         />
         <StatStrip
           stats={[
-            { label: "Profile complete", value: "100%", sub: "all fields", tone: "success" },
-            { label: "Skills tracked", value: "25", sub: "5 categories" },
-            { label: "Voice samples", value: "6", sub: "analyzed", tone: "accent" },
-            { label: "GitHub repos", value: "8", sub: "imported" },
+            { label: "Profile complete", value: `${d.profilePct}%`, sub: d.fieldsLeft ? `${d.fieldsLeft} fields left` : "all fields", tone: d.profilePct >= 100 ? "success" : undefined },
+            { label: "Skills tracked", value: String(d.skillsCount), sub: "from your profile" },
+            { label: "Voice samples", value: String(d.voiceSamples), sub: d.voiceAnalyzed ? "analyzed" : "collected", tone: "accent" },
+            { label: "GitHub repos", value: String(d.reposCount), sub: "imported" },
           ]}
         />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
           <div className="mb-3 flex items-center justify-between">
-            <span className="font-mono text-[10px] tracking-[1px] text-fg-low">START WITH A COMPANY</span>
-            <Link to="/write" className="text-[12px] text-accent-text">Search all →</Link>
+            <span className="font-mono text-[10px] tracking-[1px] text-fg-low">START YOUR FIRST LETTER</span>
+            <Link to="/write" className="text-[12px] text-accent-text">Open composer →</Link>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-            {picks.map((p) => (
-              <Link key={p.name} to="/write" className="rounded-[11px] border border-border bg-surface-2 p-3 transition-transform hover:-translate-y-0.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] border border-border bg-surface text-[13px] font-bold text-accent-text">{p.l}</span>
-                  <div className="min-w-0">
-                    <div className="truncate text-[12.5px] font-semibold text-fg">{p.name}</div>
-                    <div className="text-[11px] text-fg-low">{p.role}</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+          <p className="max-w-[560px] text-[12.5px] leading-relaxed text-fg-mid">
+            Everything is connected. Enter a company and role and the local model drafts a tailored letter grounded in your CV — with a match score per posting.
+          </p>
+          <div className="mt-4">
+            <Button asChild size="md"><Link to="/write"><PenLine size={15} /> Write a letter</Link></Button>
           </div>
         </div>
         <OpenSourceBanner />
@@ -346,56 +344,49 @@ function StateBody({ state }: { state: HomeState }) {
   }
 
   if (state === "active") {
+    const draft = d.topDraft;
+    const descParts = ["Draft"];
+    if (draft?.match != null) descParts.push(`match ${draft.match}`);
+    descParts.push(`${d.draftCount} in progress`);
+    if (d.completedCount) descParts.push(`${d.completedCount} completed`);
     return (
       <>
         <Hero
           badge="Draft in progress"
           badgeTone="warning"
-          title="ML Engineer · Anthropic"
-          desc="Draft · match 74 · edited 2h ago · 1 unsupported claim to review."
+          title={draft ? `${draft.role} · ${draft.company}` : "Draft in progress"}
+          desc={descParts.join(" · ")}
           actions={
             <>
-              <Button asChild size="md"><Link to="/write"><PenLine size={15} /> Resume draft</Link></Button>
+              <Button asChild size="md"><Link to={draft?.to ?? "/write"}><PenLine size={15} /> Resume draft</Link></Button>
               <Button asChild variant="outline" size="md"><Link to="/cover-letters">All letters</Link></Button>
             </>
           }
           steps={[
             { label: "Research", status: "done" },
             { label: "Draft", status: "done" },
-            { label: "Match 74", status: "done" },
-            { label: "Review · 1 flag", status: "warn", pct: 35 },
+            { label: draft?.match != null ? `Match ${draft.match}` : "Match", status: "done" },
+            { label: "Review", status: "warn", pct: 35 },
           ]}
         />
         <StatStrip
           stats={[
-            { label: "Active drafts", value: "3", sub: "in progress" },
-            { label: "Completed", value: "4", sub: "sent" },
-            { label: "Avg match", value: "88", sub: "across letters", tone: "accent" },
-            { label: "Skills tracked", value: "25", sub: "5 categories" },
+            { label: "Active drafts", value: String(d.draftCount), sub: "in progress" },
+            { label: "Completed", value: String(d.completedCount), sub: "done" },
+            { label: "Avg match", value: d.avgMatch != null ? String(d.avgMatch) : "—", sub: "across letters", tone: "accent" },
+            { label: "Skills tracked", value: String(d.skillsCount), sub: "tracked" },
           ]}
         />
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
-          <RecentList
-            header="RECENT LETTERS"
-            rows={[
-              { letter: "A", title: "ML Engineer", company: "Anthropic", status: "Draft", match: 74 },
-              { letter: "M", title: "Research Engineer", company: "Mistral", status: "Draft", match: 90 },
-              { letter: "H", title: "Platform Engineer", company: "Hugging Face", status: "Completed", match: 94 },
-              { letter: "O", title: "Research Engineer", company: "OpenAI", status: "Completed", match: 96 },
-            ]}
-          />
+          <RecentList header="RECENT LETTERS" rows={d.recent} />
           <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
             <div className="font-mono text-[10px] tracking-[1px] text-fg-low">RECENT ACTIVITY</div>
             <div className="mt-3 flex flex-col gap-3">
-              {[
-                { c: "var(--accent)", t: "Generated a letter for Anthropic", time: "2h" },
-                { c: "#a78bfa", t: "Imported 8 repos from GitHub", time: "1d" },
-                { c: "var(--success)", t: "Sent letter to Hugging Face", time: "2d" },
-              ].map((a) => (
+              {d.activity.map((a) => (
                 <div key={a.t} className="flex items-center gap-2.5 text-[12px] text-fg">
                   <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: a.c }} />
                   <span className="flex-1">{a.t}</span>
-                  <span className="font-mono text-[10px] text-fg-low">{a.time}</span>
+                  <span className="font-mono text-[10px] text-fg-low">{a.tag}</span>
                 </div>
               ))}
             </div>
@@ -413,7 +404,7 @@ function StateBody({ state }: { state: HomeState }) {
         badge="All caught up"
         badgeTone="success"
         title="You are all caught up."
-        desc="7 letters sent with a 90 average match. Line up the next role whenever you are ready."
+        desc={`${d.completedCount} ${d.completedCount === 1 ? "letter" : "letters"} sent${d.avgMatch != null ? ` with a ${d.avgMatch} average match` : ""}. Line up the next role whenever you are ready.`}
         actions={
           <>
             <Button asChild size="md"><Link to="/write"><PenLine size={15} /> New letter</Link></Button>
@@ -423,28 +414,20 @@ function StateBody({ state }: { state: HomeState }) {
         steps={[
           { label: "Research", status: "done" },
           { label: "Draft", status: "done" },
-          { label: "Match 90", status: "done" },
+          { label: d.avgMatch != null ? `Match ${d.avgMatch}` : "Match", status: "done" },
           { label: "All sent", status: "done" },
         ]}
       />
       <StatStrip
         stats={[
-          { label: "Completed", value: "7", sub: "all sent", tone: "success" },
-          { label: "Avg match", value: "90", sub: "strong fit", tone: "accent" },
-          { label: "This week", value: "3", sub: "letters sent" },
-          { label: "Drafts open", value: "0", sub: "inbox zero" },
+          { label: "Completed", value: String(d.completedCount), sub: "all sent", tone: "success" },
+          { label: "Avg match", value: d.avgMatch != null ? String(d.avgMatch) : "—", sub: "strong fit", tone: "accent" },
+          { label: "Top match", value: d.maxMatch != null ? String(d.maxMatch) : "—", sub: "best fit" },
+          { label: "Drafts open", value: String(d.draftCount), sub: d.draftCount ? "in progress" : "inbox zero" },
         ]}
       />
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
-        <RecentList
-          header="RECENTLY SENT"
-          rows={[
-            { letter: "O", title: "Research Engineer", company: "OpenAI", status: "Completed", match: 96 },
-            { letter: "H", title: "Platform Engineer", company: "Hugging Face", status: "Completed", match: 94 },
-            { letter: "C", title: "Applied Scientist", company: "Cohere", status: "Completed", match: 91 },
-            { letter: "D", title: "Research Scientist", company: "Google DeepMind", status: "Completed", match: 89 },
-          ]}
-        />
+        <RecentList header="RECENTLY SENT" rows={d.recent} />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
           <div className="font-mono text-[10px] tracking-[1px] text-fg-low">DO MORE</div>
           <div className="mt-3 flex flex-col gap-2.5">
@@ -470,10 +453,26 @@ function StateBody({ state }: { state: HomeState }) {
   );
 }
 
-/* ── Preview-state switcher ──────────────────────────────────────── */
-function StateSwitcher({ state, onPick }: { state: HomeState; onPick: (s: HomeState) => void }) {
+/* ── Loading skeleton ────────────────────────────────────────────── */
+function HomeSkeleton() {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <div className="flex items-center gap-2 text-fg-low">
+        <Spinner size={14} />
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Loading workspace</span>
+      </div>
+      <Skeleton className="h-[168px] w-full rounded-[15px]" />
+      <Skeleton className="h-[74px] w-full rounded-[14px]" />
+      <Skeleton className="h-[210px] w-full rounded-[14px]" />
+    </div>
+  );
+}
+
+/* ── Preview-state switcher (dev override) ───────────────────────── */
+function StateSwitcher({ derived, override, onPick }: { derived: HomeState; override: HomeState | null; onPick: (s: HomeState | null) => void }) {
   const [open, setOpen] = useState(false);
-  const current = STATE_OPTIONS.find((o) => o.value === state)!;
+  const derivedOption = STATE_OPTIONS.find((o) => o.value === derived)!;
+  const overrideOption = override ? STATE_OPTIONS.find((o) => o.value === override)! : null;
   return (
     <div className="relative">
       <button
@@ -484,7 +483,7 @@ function StateSwitcher({ state, onPick }: { state: HomeState; onPick: (s: HomeSt
         <StatDot tone="accent" glow size={7} />
         <span className="text-left leading-tight">
           <span className="block font-mono text-[8.5px] tracking-[0.7px] text-fg-low">PREVIEW STATE</span>
-          <span className="mt-px block text-[12.5px] font-semibold text-fg">{current.label}</span>
+          <span className="mt-px block text-[12.5px] font-semibold text-fg">{overrideOption ? overrideOption.label : `Auto · ${derivedOption.label}`}</span>
         </span>
         <ChevronDown size={15} className="text-fg-mid" />
       </button>
@@ -495,6 +494,18 @@ function StateSwitcher({ state, onPick }: { state: HomeState; onPick: (s: HomeSt
             className="absolute right-0 top-[calc(100%+8px)] z-40 w-[290px] rounded-[13px] border border-border-strong bg-surface-3 p-1.5 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
             style={{ animation: "cll-menu .16s ease" }}
           >
+            <button
+              type="button"
+              onClick={() => { onPick(null); setOpen(false); }}
+              className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] font-semibold text-fg">Auto (live data)</div>
+                <div className="mt-px text-[11px] text-fg-mid">Follow your real setup — {derivedOption.label}</div>
+              </div>
+              {override === null ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
+            </button>
+            <div className="my-1 h-px bg-border" />
             {STATE_OPTIONS.map((o) => (
               <button
                 key={o.value}
@@ -506,7 +517,7 @@ function StateSwitcher({ state, onPick }: { state: HomeState; onPick: (s: HomeSt
                   <div className="text-[12.5px] font-semibold text-fg">{o.label}</div>
                   <div className="mt-px text-[11px] text-fg-mid">{o.desc}</div>
                 </div>
-                {o.value === state ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
+                {o.value === override ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
               </button>
             ))}
           </div>
@@ -516,12 +527,175 @@ function StateSwitcher({ state, onPick }: { state: HomeState; onPick: (s: HomeSt
   );
 }
 
+/* ── Derivation helpers ──────────────────────────────────────────── */
+type Status3 = "done" | "active" | "todo";
+/** Mark completed steps done; the first incomplete one is "active", the rest "todo". */
+function stepStatuses(flags: boolean[]): Status3[] {
+  let usedActive = false;
+  return flags.map((done) => {
+    if (done) return "done";
+    if (!usedActive) {
+      usedActive = true;
+      return "active";
+    }
+    return "todo";
+  });
+}
+
 export function Home() {
-  const [state, setState] = useState<HomeState>("welcome");
+  const [override, setOverride] = useState<HomeState | null>(null);
+
+  const profile = useAsync(getProfile);
+  const style = useAsync(getStyle);
+  const repos = useAsync(listSavedRepos);
+  const jobs = useAsync(listJobs);
+  const skills = useAsync(listSkills);
+
+  const loading = profile.loading || style.loading || repos.loading || jobs.loading || skills.loading;
+  const loadError = profile.error ?? jobs.error ?? style.error ?? repos.error ?? skills.error;
+
+  useEffect(() => {
+    if (!loading && loadError) {
+      toast.warning("Couldn't load everything", "Showing what we could — some data may be missing.");
+    }
+  }, [loading, loadError]);
+
+  // ── Derive everything from whatever loaded (null-safe → welcome on failure) ──
+  const p = profile.data;
+  const st = style.data;
+  const rp = repos.data ?? [];
+  const jb = jobs.data ?? [];
+  const sk = skills.data ?? [];
+
+  const hasProfile = !!(p && (p.name || p.surname || p.email || p.summary || p.github || p.linkedin));
+  const hasVoice = !!(st && (st.style_profile || (st.samples ?? 0) > 0));
+  const hasRepos = rp.length > 0;
+
+  const isDone = (j: Job) => j.letter?.completed === true;
+  const lettersCount = jb.length;
+  const completedCount = jb.filter(isDone).length;
+  const draftCount = lettersCount - completedCount;
+  const hasLetters = lettersCount > 0;
+  const allCompleted = hasLetters && draftCount === 0;
+
+  const scores = jb.map((j) => j.match_score).filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+  const avgMatch = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const maxMatch = scores.length ? Math.max(...scores) : null;
+
+  const profileFields = [p?.name, p?.surname, p?.email, p?.phone, p?.linkedin, p?.github, p?.summary];
+  const filled = profileFields.filter(Boolean).length;
+  const profilePct = Math.round((filled / profileFields.length) * 100);
+
+  const voiceAnalyzed = !!st?.style_profile?.llm_analyzed;
+  const voiceSamples = st?.samples ?? 0;
+  const voiceStatus = voiceAnalyzed ? "Analyzed" : hasVoice ? "In progress" : "Pending";
+
+  const byNewest = [...jb].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+  const jobTo = (j: Job) => (j.id != null ? `/write?job=${j.id}` : "/cover-letters");
+  const recent: LetterRow[] = byNewest.slice(0, 4).map((j) => ({
+    letter: (j.company?.trim()?.[0] ?? "?").toUpperCase(),
+    title: j.role?.trim() || "Untitled role",
+    company: j.company?.trim() || "Unknown company",
+    status: isDone(j) ? "Completed" : "Draft",
+    match: typeof j.match_score === "number" ? j.match_score : null,
+    to: jobTo(j),
+  }));
+
+  const topDraftJob = byNewest.find((j) => !isDone(j));
+  const topDraft = topDraftJob
+    ? {
+        role: topDraftJob.role?.trim() || "Untitled role",
+        company: topDraftJob.company?.trim() || "Unknown company",
+        match: typeof topDraftJob.match_score === "number" ? topDraftJob.match_score : null,
+        to: jobTo(topDraftJob),
+      }
+    : null;
+
+  const activity: ActivityItem[] = [];
+  if (topDraft) activity.push({ c: "var(--accent)", t: `Draft in progress · ${topDraft.role} at ${topDraft.company}`, tag: "DRAFT" });
+  if (completedCount > 0) activity.push({ c: "var(--success)", t: `${completedCount} ${completedCount === 1 ? "letter" : "letters"} completed`, tag: "DONE" });
+  if (hasRepos) activity.push({ c: "var(--accent-2)", t: `${rp.length} ${rp.length === 1 ? "repo" : "repos"} imported from GitHub`, tag: "GITHUB" });
+  if (voiceAnalyzed) activity.push({ c: "var(--accent)", t: "Writing voice analyzed", tag: "VOICE" });
+
+  // Setup steps (welcome / cv states)
+  const setupFlags = [hasProfile, hasVoice, hasRepos, hasLetters];
+  const setupStatuses = stepStatuses(setupFlags);
+  const setupDone = setupFlags.filter(Boolean).length;
+  const railSetup: RailStep[] = ["Add CV", "Voice", "GitHub", "First letter"].map((label, i) => ({
+    label,
+    status: setupStatuses[i],
+    pct: setupStatuses[i] === "active" ? 30 : undefined,
+  }));
+  const setupItems: SetupItem[] = [
+    {
+      n: 1,
+      title: "Add your CV",
+      desc: hasProfile ? "Imported and turned into your profile." : "Parsed on-device into an editable profile.",
+      status: setupStatuses[0],
+      action: hasProfile ? DoneTag : <Button asChild size="sm" className={smallAction}><Link to="/onboarding">Add CV</Link></Button>,
+    },
+    {
+      n: 2,
+      title: "Analyze your writing voice",
+      desc: "Drop in past letters so drafts sound like you.",
+      status: setupStatuses[1],
+      action: hasVoice ? DoneTag : <Button asChild variant="outline" size="sm" className={smallAction}><Link to="/voice">Add samples</Link></Button>,
+    },
+    {
+      n: 3,
+      title: "Import from GitHub",
+      desc: "Pull real projects and skills into your profile.",
+      status: setupStatuses[2],
+      action: hasRepos ? DoneTag : <Button asChild variant="outline" size="sm" className={smallAction}><Link to="/github">Connect</Link></Button>,
+    },
+    {
+      n: 4,
+      title: "Write your first letter",
+      desc: "Tailored, grounded, and in your voice.",
+      status: setupStatuses[3],
+      action: hasLetters ? (
+        DoneTag
+      ) : setupStatuses[3] === "active" ? (
+        <Button asChild size="sm" className={smallAction}><Link to="/write">Write</Link></Button>
+      ) : (
+        <span className="text-[10.5px] text-fg-low">Soon</span>
+      ),
+    },
+  ];
+
+  const derived: HomeState = !hasProfile ? "welcome" : hasLetters ? (allCompleted ? "clean" : "active") : hasVoice && hasRepos ? "ready" : "cv";
+  const effective = override ?? derived;
+
+  const d: Derived = {
+    name: p?.name ?? null,
+    hasProfile,
+    hasVoice,
+    hasRepos,
+    hasLetters,
+    profilePct,
+    fieldsLeft: profileFields.length - filled,
+    skillsCount: sk.length,
+    reposCount: rp.length,
+    voiceStatus,
+    voiceSamples,
+    voiceAnalyzed,
+    lettersCount,
+    completedCount,
+    draftCount,
+    avgMatch,
+    maxMatch,
+    recent,
+    topDraft,
+    activity,
+    setupItems,
+    railSetup,
+    setupDone,
+  };
+
   return (
-    <Page eyebrow="WORKSPACE / HOME" title="Home" actions={<StateSwitcher state={state} onPick={setState} />} bodyClassName="px-7 py-5">
+    <Page eyebrow="WORKSPACE / HOME" title="Home" actions={<StateSwitcher derived={derived} override={override} onPick={setOverride} />} bodyClassName="px-7 py-5">
       <div className="flex flex-col gap-3.5">
-        <StateBody state={state} />
+        {loading ? <HomeSkeleton /> : <StateBody state={effective} d={d} />}
       </div>
     </Page>
   );

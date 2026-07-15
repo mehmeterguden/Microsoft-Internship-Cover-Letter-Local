@@ -1,71 +1,311 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/ui/controls";
 import { Stepper } from "@/components/ui/data";
-import { StatDot } from "@/components/ui/feedback";
+import { streamImportCv, saveExtraction, type CvImportEvent } from "@/api/cv";
+import { getSettings } from "@/api/settings";
+import { errorMessage } from "@/api/client";
+import type { CVExtraction } from "@/api/types";
+import { toast } from "@/store/toast";
 
 /* ── State model ─────────────────────────────────────────────────
-   "Add CV" is a four-step flow. Backend wiring is deferred, so the flow
-   is driven entirely by local state: the in-content CTAs advance it, and a
-   "PREVIEW STATE" switcher (in the page header, like Home.tsx) lets every
-   variant be inspected on its own. The design's placeholder data is used
-   verbatim. When wired up, `state` derives from the real parse pipeline. */
+   "Add CV" is a four-step flow wired to the real import pipeline:
+   upload → streamImportCv (live tokens) → review the extracted
+   CVExtraction → saveExtraction → done. The stepper mirrors these
+   states; everything below `state` derives from the SSE stream and
+   the settings fetch (OCR availability). */
 type OnbState = "upload" | "parse" | "review" | "ready";
-
-const STATE_OPTIONS: { value: OnbState; label: string; desc: string }[] = [
-  { value: "upload", label: "Upload", desc: "Drop a CV to begin" },
-  { value: "parse", label: "Parsing", desc: "Reading it on-device" },
-  { value: "review", label: "Review", desc: "Check parsed sections" },
-  { value: "ready", label: "Done", desc: "Profile saved" },
-];
+type SaveMode = "replace" | "merge";
 
 const RAIL_STEPS = [{ label: "Upload" }, { label: "Parse" }, { label: "Review" }, { label: "Done" }];
 const STEP_INDEX: Record<OnbState, number> = { upload: 0, parse: 1, review: 2, ready: 3 };
 
+const ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.tiff,.bmp";
+
+/** Metadata emitted by the first SSE frame (`meta`). */
+interface ImportMeta {
+  filename: string;
+  source_type: string;
+  num_pages: number;
+  char_count: number;
+}
+
 /* ── Page ────────────────────────────────────────────────────────── */
 export function Onboarding() {
   const [state, setState] = useState<OnbState>("upload");
+
+  // OCR availability (drives the "images need OCR" note). null = unknown.
+  const [ocrEnabled, setOcrEnabled] = useState<boolean | null>(null);
+
+  // Import stream state.
+  const [file, setFile] = useState<File | null>(null);
+  const [meta, setMeta] = useState<ImportMeta | null>(null);
+  const [streamText, setStreamText] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [durationS, setDurationS] = useState<number | null>(null);
+  const [extraction, setExtraction] = useState<CVExtraction | null>(null);
+
+  // Save state.
+  const [saveMode, setSaveMode] = useState<SaveMode>("replace");
+  const [saving, setSaving] = useState(false);
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Fetch OCR availability once; a failure just leaves the note hidden.
+  useEffect(() => {
+    let alive = true;
+    getSettings()
+      .then((s) => alive && setOcrEnabled(Boolean(s.ocr_enabled)))
+      .catch(() => alive && setOcrEnabled(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Abort any in-flight import on unmount.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const onEvent = useCallback((event: CvImportEvent) => {
+    switch (event.type) {
+      case "meta":
+        setMeta({
+          filename: event.filename,
+          source_type: event.source_type,
+          num_pages: event.num_pages,
+          char_count: event.char_count,
+        });
+        break;
+      case "token":
+        setStreamText((t) => t + event.text);
+        break;
+      case "done":
+        setParsing(false);
+        setDurationS(event.duration_s);
+        if (event.ok && event.structured) {
+          setExtraction(event.structured);
+        } else {
+          const msg = event.error ?? "The model couldn't structure this CV.";
+          setParseError(msg);
+          toast.danger("Couldn't read that CV", msg);
+        }
+        break;
+      case "fatal":
+        setParsing(false);
+        setParseError(event.error);
+        toast.danger("Import failed", event.error);
+        break;
+    }
+  }, []);
+
+  const startStream = useCallback(
+    (f: File) => {
+      abortRef.current?.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+
+      setFile(f);
+      setMeta(null);
+      setStreamText("");
+      setExtraction(null);
+      setDurationS(null);
+      setParseError(null);
+      setParsing(true);
+      setState("parse");
+
+      streamImportCv(f, onEvent, ctrl.signal).catch((err: unknown) => {
+        if (ctrl.signal.aborted) return;
+        const msg = errorMessage(err);
+        setParsing(false);
+        setParseError(msg);
+        toast.danger("Couldn't parse that file", msg);
+      });
+    },
+    [onEvent],
+  );
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setFile(null);
+    setMeta(null);
+    setStreamText("");
+    setExtraction(null);
+    setParseError(null);
+    setParsing(false);
+    setDurationS(null);
+    setState("upload");
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!extraction) return;
+    setSaving(true);
+    try {
+      const res = await saveExtraction(extraction, saveMode === "replace", meta?.filename);
+      const total = Object.values(res.saved).reduce((a, b) => a + b, 0);
+      toast.success(
+        "Saved to profile",
+        saveMode === "replace"
+          ? `Replaced your profile with ${total} imported item${total === 1 ? "" : "s"}.`
+          : `Merged ${total} item${total === 1 ? "" : "s"} into your profile.`,
+      );
+      setState("ready");
+    } catch (err) {
+      toast.danger("Couldn't save", errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [extraction, saveMode, meta]);
 
   return (
     <Page
       eyebrow="SETUP / ADD CV"
       title="Add your CV"
       actions={
-        <>
-          <StateSwitcher state={state} onPick={setState} />
-          <Link
-            to="/"
-            className="rounded-[9px] border border-border-strong bg-transparent px-4 py-[9px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
-          >
-            Skip for now
-          </Link>
-        </>
+        <Link
+          to="/"
+          className="rounded-[9px] border border-border-strong bg-transparent px-4 py-[9px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        >
+          Skip for now
+        </Link>
       }
       bodyClassName="px-7 py-7"
     >
       <div className="mx-auto flex w-full max-w-[860px] flex-col">
         <Stepper steps={RAIL_STEPS} current={STEP_INDEX[state]} className="mb-7" />
 
-        {state === "upload" ? <UploadState onChoose={() => setState("parse")} /> : null}
-        {state === "parse" ? <ParseState onContinue={() => setState("review")} /> : null}
-        {state === "review" ? (
-          <ReviewState onReset={() => setState("upload")} onSave={() => setState("ready")} />
+        {state === "upload" ? <UploadState onChoose={startStream} ocrEnabled={ocrEnabled} /> : null}
+        {state === "parse" ? (
+          <ParseState
+            file={file}
+            meta={meta}
+            streamText={streamText}
+            parsing={parsing}
+            extraction={extraction}
+            error={parseError}
+            durationS={durationS}
+            onContinue={() => setState("review")}
+            onReset={reset}
+          />
         ) : null}
-        {state === "ready" ? <ReadyState /> : null}
+        {state === "review" && extraction ? (
+          <ReviewState
+            extraction={extraction}
+            mode={saveMode}
+            onModeChange={setSaveMode}
+            saving={saving}
+            onReset={reset}
+            onSave={handleSave}
+          />
+        ) : null}
+        {state === "ready" && extraction ? <ReadyState extraction={extraction} mode={saveMode} /> : null}
       </div>
     </Page>
   );
 }
 
+/* ── Extraction helpers ──────────────────────────────────────────── */
+function countExtraction(ex: CVExtraction) {
+  return {
+    roles: ex.experiences.length,
+    skills: ex.skills.length,
+    projects: ex.projects.length,
+    degrees: ex.education.length,
+    certificates: ex.certificates.length,
+    languages: ex.languages.length,
+    trainings: ex.trainings.length,
+    links: ex.links.length,
+  };
+}
+
+function previewNames(names: (string | null | undefined)[]): string {
+  const clean = names.filter((n): n is string => Boolean(n && n.trim()));
+  if (!clean.length) return "—";
+  const head = clean.slice(0, 2).join(", ");
+  const rest = clean.length - 2;
+  return rest > 0 ? `${head}, +${rest}` : head;
+}
+
+function chipPreview(names: (string | null | undefined)[]): string[] {
+  const clean = names.filter((n): n is string => Boolean(n && n.trim()));
+  const head = clean.slice(0, 3);
+  const rest = clean.length - head.length;
+  return rest > 0 ? [...head, `+${rest}`] : head;
+}
+
+function joinList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 /* ── State 1 · Upload ────────────────────────────────────────────── */
-function UploadState({ onChoose }: { onChoose: () => void }) {
+function UploadState({ onChoose, ocrEnabled }: { onChoose: (file: File) => void; ocrEnabled: boolean | null }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const pick = (file: File | undefined | null) => {
+    if (file) onChoose(file);
+  };
+
+  const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pick(e.target.files?.[0]);
+    e.target.value = ""; // allow re-selecting the same file
+  };
+
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
+    pick(e.dataTransfer.files?.[0]);
+  };
+
+  const formats: { label: string; ocr?: boolean }[] = [
+    { label: "PDF" },
+    { label: "DOCX" },
+    { label: "TXT" },
+    { label: "Scanned image · OCR", ocr: true },
+  ];
+  const ocrOff = ocrEnabled === false;
+
   return (
     <div className="cll-fade flex flex-col items-center py-[18px] text-center">
+      <input ref={inputRef} type="file" accept={ACCEPT} className="hidden" onChange={onInputChange} />
       <div
-        onClick={onChoose}
-        className="w-full max-w-[560px] cursor-pointer rounded-[18px] border-[1.5px] border-dashed border-border-strong px-10 py-11 transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-accent"
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        className={`w-full max-w-[560px] cursor-pointer rounded-[18px] border-[1.5px] border-dashed px-10 py-11 transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-accent ${
+          dragging ? "-translate-y-0.5 border-accent" : "border-border-strong"
+        }`}
         style={{
           background:
             "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 58%), var(--input)",
@@ -81,25 +321,57 @@ function UploadState({ onChoose }: { onChoose: () => void }) {
             <path d="M12 11v6M9 14l3-3 3 3" />
           </svg>
         </div>
-        <div className="text-[18px] font-bold tracking-[-0.3px] text-fg">Drop your CV to get started</div>
+        <div className="text-[18px] font-bold tracking-[-0.3px] text-fg">
+          {dragging ? "Drop it here" : "Drop your CV to get started"}
+        </div>
         <div className="mt-2 text-[13px] leading-[1.55] text-fg-mid">
           or click to browse — it's read right here on your device,
           <br />
           then turned into a profile you can edit.
         </div>
         <div className="mt-[18px] flex flex-wrap justify-center gap-[7px]">
-          {["PDF", "DOCX", "TXT", "Scanned image · OCR"].map((f) => (
+          {formats.map((f) => (
             <span
-              key={f}
-              className="whitespace-nowrap rounded-[8px] border border-border bg-surface-2 px-[11px] py-[5px] font-mono text-[10px] text-fg-mid"
+              key={f.label}
+              className={`whitespace-nowrap rounded-[8px] border px-[11px] py-[5px] font-mono text-[10px] ${
+                f.ocr && ocrOff
+                  ? "border-warning-weak bg-warning-weak text-warning"
+                  : "border-border bg-surface-2 text-fg-mid"
+              }`}
             >
-              {f}
+              {f.label}
             </span>
           ))}
         </div>
-        <Button variant="primary" size="lg" className="mt-[22px] rounded-[11px]" onClick={onChoose}>
-          Choose file
-        </Button>
+        {ocrOff ? (
+          <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] text-fg-mid">
+            <AlertTriangle size={13} className="text-warning" aria-hidden="true" />
+            <span>
+              Scanned images need OCR —{" "}
+              <Link
+                to="/settings"
+                className="text-accent-text underline-offset-2 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                enable it in Settings
+              </Link>
+              . PDF, DOCX and TXT work as-is.
+            </span>
+          </div>
+        ) : null}
+        <div>
+          <Button
+            variant="primary"
+            size="lg"
+            className="mt-[22px] rounded-[11px]"
+            onClick={(e) => {
+              e.stopPropagation();
+              inputRef.current?.click();
+            }}
+          >
+            Choose file
+          </Button>
+        </div>
       </div>
 
       <div className="mt-[22px] flex flex-wrap justify-center gap-x-[22px] gap-y-2.5">
@@ -120,7 +392,7 @@ function UploadState({ onChoose }: { onChoose: () => void }) {
   );
 }
 
-function TrustItem({ label, children }: { label: string; children: React.ReactNode }) {
+function TrustItem({ label, children }: { label: string; children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-[7px] text-[11.5px] text-fg-mid">
       <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="var(--accent-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -132,13 +404,58 @@ function TrustItem({ label, children }: { label: string; children: React.ReactNo
 }
 
 /* ── State 2 · Parse (live) ──────────────────────────────────────── */
-function ParseState({ onContinue }: { onContinue: () => void }) {
+function ParseState({
+  file,
+  meta,
+  streamText,
+  parsing,
+  extraction,
+  error,
+  durationS,
+  onContinue,
+  onReset,
+}: {
+  file: File | null;
+  meta: ImportMeta | null;
+  streamText: string;
+  parsing: boolean;
+  extraction: CVExtraction | null;
+  error: string | null;
+  durationS: number | null;
+  onContinue: () => void;
+  onReset: () => void;
+}) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    setElapsed(0);
+    if (!parsing) return;
     const id = setInterval(() => setElapsed((e) => e + 0.1), 100);
     return () => clearInterval(id);
-  }, []);
+  }, [parsing]);
+
+  if (error) {
+    return (
+      <div className="cll-fade rounded-[12px] border border-danger-weak bg-surface p-6 text-center">
+        <div className="mx-auto mb-3.5 flex h-11 w-11 items-center justify-center rounded-[12px] bg-danger-weak">
+          <AlertTriangle size={20} className="text-danger" aria-hidden="true" />
+        </div>
+        <div className="text-[15px] font-semibold text-fg">We couldn't read that file</div>
+        <div className="mx-auto mt-2 max-w-[460px] text-[12.5px] leading-[1.55] text-fg-mid">{error}</div>
+        <Button variant="primary" className="mt-[18px]" onClick={onReset}>
+          Try another file
+        </Button>
+      </div>
+    );
+  }
+
+  const done = !parsing && extraction !== null;
+  const c = extraction ? countExtraction(extraction) : null;
+  const counters: { n: number | null; label: string }[] = [
+    { n: c ? c.roles : null, label: "roles" },
+    { n: c ? c.skills : null, label: "skills" },
+    { n: c ? c.projects : null, label: "projects" },
+    { n: c ? c.degrees : null, label: "degrees" },
+  ];
+  const timeLabel = done && durationS != null ? durationS.toFixed(1) : elapsed.toFixed(1);
 
   return (
     <div className="cll-fade">
@@ -152,28 +469,36 @@ function ParseState({ onContinue }: { onContinue: () => void }) {
               </svg>
             </div>
             <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-fg">
-              Resume_2025.pdf
-              <SuccessCheck />
+              <span className="truncate">{meta?.filename ?? file?.name ?? "Your CV"}</span>
+              {done ? <SuccessCheck /> : <Loader2 size={14} className="shrink-0 animate-spin text-accent-text" aria-hidden="true" />}
             </div>
-            <div className="mt-[5px] font-mono text-[10px] text-fg-low">214 KB · uploaded</div>
+            <div className="mt-[5px] font-mono text-[10px] text-fg-low">
+              {file ? formatBytes(file.size) : ""}
+              {meta
+                ? ` · ${meta.source_type.toUpperCase()} · ${meta.num_pages} pp · ${meta.char_count.toLocaleString()} chars`
+                : parsing
+                  ? " · reading"
+                  : ""}
+            </div>
             <div className="mt-3.5 h-1 overflow-hidden rounded-[2px] bg-surface-2">
-              <div className="h-full w-full" style={{ background: "var(--accent-grad)" }} />
+              <div
+                className="h-full w-full"
+                style={{
+                  background: "var(--accent-grad)",
+                  animation: parsing ? "cll-pulse 1.3s ease-in-out infinite" : undefined,
+                }}
+              />
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-2">
             <div className="font-mono text-[10px] tracking-[0.6px] text-fg-mid">EXTRACTED SO FAR</div>
             <div className="flex flex-wrap gap-2">
-              {[
-                { n: "4", label: "roles" },
-                { n: "12", label: "skills" },
-                { n: "3", label: "projects" },
-                { n: "2", label: "degrees" },
-              ].map((c) => (
+              {counters.map((ct) => (
                 <span
-                  key={c.label}
+                  key={ct.label}
                   className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1.5 text-[11.5px] text-fg"
                 >
-                  <b className="text-accent-text">{c.n}</b> {c.label}
+                  <b className="text-accent-text">{ct.n ?? "—"}</b> {ct.label}
                 </span>
               ))}
             </div>
@@ -185,29 +510,31 @@ function ParseState({ onContinue }: { onContinue: () => void }) {
           <div className="absolute right-4 top-3.5 flex items-center gap-1.5 font-mono text-[9.5px] text-accent-text">
             <span
               className="h-1.5 w-1.5 rounded-full"
-              style={{ background: "var(--accent)", animation: "cll-pulse 1.3s ease-in-out infinite" }}
+              style={{
+                background: done ? "var(--success)" : "var(--accent)",
+                animation: parsing ? "cll-pulse 1.3s ease-in-out infinite" : undefined,
+              }}
             />
-            PARSING · {elapsed.toFixed(1)}s
+            {done ? "PARSED" : "PARSING"} · {timeLabel}s
           </div>
-          <pre className="whitespace-pre-wrap font-mono text-[12px] leading-[1.75] text-fg-mid">
-{`{
-  `}
-            <span className="text-accent-text">"name"</span>: <span className="text-success">"Jordan Rivera"</span>,{`
-  `}
-            <span className="text-accent-text">"title"</span>: <span className="text-success">"ML Engineer"</span>,{`
-  `}
-            <span className="text-accent-text">"skills"</span>: [<span className="text-success">"PyTorch"</span>, <span className="text-success">"Rust"</span>,{`
-    `}
-            <span className="text-success">"Evaluation"</span>
-            <span className="cll-caret" />
+          <pre className="mt-5 max-h-[300px] overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.75] text-reading-ink">
+            {streamText || (parsing ? "Waiting for the model to respond…" : "")}
+            {parsing ? <span className="cll-caret" /> : null}
           </pre>
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
-        <Button variant="primary" onClick={onContinue}>
-          Continue to review
-          <ArrowRight />
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        >
+          Cancel
+        </button>
+        <Button variant="primary" onClick={onContinue} disabled={!done} loading={parsing}>
+          {parsing ? "Parsing…" : "Continue to review"}
+          {done ? <ArrowRight /> : null}
         </Button>
       </div>
     </div>
@@ -222,33 +549,77 @@ type ReviewCard = {
   chips?: string[];
 };
 
-const REVIEW_CARDS: ReviewCard[] = [
-  { title: "Identity", status: "ok", text: "Jordan Rivera · ML Engineer · SF" },
-  { title: "Skills · 12", status: "ok", chips: ["PyTorch", "Rust", "+10"] },
-  { title: "Experience · 4", status: "ok", text: "Latent Labs, Corevance, +2" },
-  { title: "Education · 2", status: "ok", text: "B.S. CS · UC Berkeley" },
-  { title: "Projects · 3", status: "warn", text: "eval-kit, stream-parse · review URLs" },
-  { title: "Languages · 5", status: "ok", text: "English, Spanish, +3" },
-];
+function buildReviewCards(ex: CVExtraction): ReviewCard[] {
+  const p = ex.profile;
+  const fullName = [p.name, p.surname].filter(Boolean).join(" ").trim();
+  const cards: ReviewCard[] = [
+    {
+      title: "Identity",
+      status: fullName || p.email ? "ok" : "warn",
+      text: previewNames([fullName, p.email, p.phone]) === "—" ? "Add your details" : [fullName, p.email].filter(Boolean).join(" · "),
+    },
+    { title: `Skills · ${ex.skills.length}`, status: ex.skills.length ? "ok" : "warn", chips: chipPreview(ex.skills.map((s) => s.name)) },
+    {
+      title: `Experience · ${ex.experiences.length}`,
+      status: ex.experiences.length ? "ok" : "warn",
+      text: ex.experiences.length ? previewNames(ex.experiences.map((e) => e.company)) : "No roles found",
+    },
+    {
+      title: `Education · ${ex.education.length}`,
+      status: ex.education.length ? "ok" : "warn",
+      text: ex.education.length ? previewNames(ex.education.map((e) => e.degree ?? e.institution)) : "No education found",
+    },
+    {
+      title: `Projects · ${ex.projects.length}`,
+      status: ex.projects.length ? "ok" : "warn",
+      text: ex.projects.length ? previewNames(ex.projects.map((pj) => pj.name)) : "No projects found",
+    },
+    {
+      title: `Languages · ${ex.languages.length}`,
+      status: ex.languages.length ? "ok" : "warn",
+      text: ex.languages.length ? previewNames(ex.languages.map((l) => l.name)) : "None listed",
+    },
+  ];
+  if (ex.certificates.length)
+    cards.push({ title: `Certificates · ${ex.certificates.length}`, status: "ok", text: previewNames(ex.certificates.map((c) => c.name)) });
+  if (ex.trainings.length)
+    cards.push({ title: `Training · ${ex.trainings.length}`, status: "ok", text: previewNames(ex.trainings.map((t) => t.name)) });
+  if (ex.links.length) cards.push({ title: `Links · ${ex.links.length}`, status: "ok", text: previewNames(ex.links.map((l) => l.label)) });
+  return cards;
+}
 
-function ReviewState({ onReset, onSave }: { onReset: () => void; onSave: () => void }) {
+function ReviewState({
+  extraction,
+  mode,
+  onModeChange,
+  saving,
+  onReset,
+  onSave,
+}: {
+  extraction: CVExtraction;
+  mode: SaveMode;
+  onModeChange: (mode: SaveMode) => void;
+  saving: boolean;
+  onReset: () => void;
+  onSave: () => void;
+}) {
+  const cards = buildReviewCards(extraction);
+  const empty = countExtraction(extraction);
+  const nothing = Object.values(empty).every((n) => n === 0);
+
   return (
     <div className="cll-fade">
       <div className="mb-3.5 text-[13px] text-fg-mid">
-        Click any section to review the parsed content and edit it before saving.
+        Here's what we pulled from your CV. Save it now — you can refine every section from your profile afterwards.
       </div>
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3">
-        {REVIEW_CARDS.map((c) => (
-          <button
-            key={c.title}
-            type="button"
-            className="rounded-[12px] border border-border bg-surface p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong"
-          >
+        {cards.map((c) => (
+          <div key={c.title} className="rounded-[12px] border border-border bg-surface p-4 transition-colors duration-200 hover:border-border-strong">
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-fg">{c.title}</span>
               {c.status === "ok" ? <SuccessCheck /> : <WarnMark />}
             </div>
-            {c.chips ? (
+            {c.chips && c.chips.length ? (
               <div className="mt-[9px] flex flex-wrap gap-[5px]">
                 {c.chips.map((chip) => (
                   <span key={chip} className="rounded-[6px] bg-surface-2 px-2 py-[3px] text-[10.5px] text-fg-mid">
@@ -259,20 +630,43 @@ function ReviewState({ onReset, onSave }: { onReset: () => void; onSave: () => v
             ) : (
               <div className="mt-2 text-[12px] leading-[1.5] text-fg-mid">{c.text}</div>
             )}
-          </button>
+          </div>
         ))}
       </div>
+
+      {/* Save mode */}
+      <div className="mt-[18px] flex flex-col gap-3 rounded-[12px] border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="font-mono text-[10px] uppercase tracking-[0.6px] text-fg-low">Saving mode</div>
+          <div className="mt-1 text-[12px] leading-[1.5] text-fg-mid">
+            {mode === "replace"
+              ? "Replace everything in your profile with this CV."
+              : "Merge into your existing profile, keeping current entries."}
+          </div>
+        </div>
+        <Segmented
+          className="w-full shrink-0 sm:w-[220px]"
+          options={[
+            { value: "replace", label: "Replace" },
+            { value: "merge", label: "Merge" },
+          ]}
+          value={mode}
+          onChange={onModeChange}
+        />
+      </div>
+
       <div className="mt-[18px] flex items-center justify-between">
         <button
           type="button"
           onClick={onReset}
-          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          disabled={saving}
+          className="rounded-[10px] border border-border-strong bg-transparent px-[18px] py-[11px] text-[13px] text-fg-mid transition-colors hover:border-accent hover:text-fg disabled:opacity-50"
         >
           Try another file
         </button>
-        <Button variant="primary" onClick={onSave}>
-          Save to profile
-          <SuccessCheckLight />
+        <Button variant="primary" onClick={onSave} loading={saving} disabled={saving || nothing}>
+          {saving ? "Saving…" : "Save to profile"}
+          {!saving ? <SuccessCheckLight /> : null}
         </Button>
       </div>
     </div>
@@ -280,7 +674,22 @@ function ReviewState({ onReset, onSave }: { onReset: () => void; onSave: () => v
 }
 
 /* ── State 4 · Ready ─────────────────────────────────────────────── */
-function ReadyState() {
+function ReadyState({ extraction, mode }: { extraction: CVExtraction; mode: SaveMode }) {
+  const c = countExtraction(extraction);
+  const parts: string[] = [];
+  const add = (n: number, word: string) => {
+    if (n > 0) parts.push(`${n} ${word}${n === 1 ? "" : "s"}`);
+  };
+  add(c.roles, "role");
+  add(c.skills, "skill");
+  add(c.projects, "project");
+  add(c.degrees, "degree");
+  add(c.certificates, "certificate");
+  add(c.languages, "language");
+  const summary = parts.length
+    ? `${mode === "replace" ? "Imported" : "Merged in"} ${joinList(parts)}.`
+    : "Your profile is saved.";
+
   return (
     <div className="cll-fade flex flex-col items-center py-[30px] text-center">
       <div
@@ -297,8 +706,7 @@ function ReadyState() {
       </div>
       <div className="mt-[18px] text-[21px] font-bold tracking-[-0.4px] text-fg">Your profile is ready</div>
       <div className="mt-2.5 max-w-[460px] text-[13.5px] leading-[1.65] text-fg-mid">
-        Imported 4 roles, 12 skills, 3 projects and 2 degrees. You can refine anything from your profile, or
-        jump straight into writing.
+        {summary} You can refine anything from your profile, or jump straight into writing.
       </div>
       <div className="mt-[22px] flex gap-2.5">
         <Button asChild variant="outline">
@@ -312,59 +720,10 @@ function ReadyState() {
   );
 }
 
-/* ── Preview-state switcher (mirrors Home.tsx) ───────────────────── */
-function StateSwitcher({ state, onPick }: { state: OnbState; onPick: (s: OnbState) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = STATE_OPTIONS.find((o) => o.value === state)!;
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2.5 rounded-[10px] border border-border-strong bg-surface px-3 py-2 transition-colors hover:border-accent"
-      >
-        <StatDot tone="accent" glow size={7} />
-        <span className="text-left leading-tight">
-          <span className="block font-mono text-[8.5px] tracking-[0.7px] text-fg-low">PREVIEW STATE</span>
-          <span className="mt-px block text-[12.5px] font-semibold text-fg">{current.label}</span>
-        </span>
-        <ChevronDown size={15} className="text-fg-mid" />
-      </button>
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div
-            className="absolute right-0 top-[calc(100%+8px)] z-40 w-[290px] rounded-[13px] border border-border-strong bg-surface-3 p-1.5 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
-            style={{ animation: "cll-menu .16s ease" }}
-          >
-            {STATE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => {
-                  onPick(o.value);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-semibold text-fg">{o.label}</div>
-                  <div className="mt-px text-[11px] text-fg-mid">{o.desc}</div>
-                </div>
-                {o.value === state ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
 /* ── Local glyphs (inline SVG for 1:1 fidelity with the design) ──── */
 function SuccessCheck() {
   return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="var(--success)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="var(--success)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
       <path d="M4 10l4 4 8-9" />
     </svg>
   );
@@ -372,7 +731,7 @@ function SuccessCheck() {
 
 function WarnMark() {
   return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
       <path d="M10 4v7M10 15v.5" />
     </svg>
   );

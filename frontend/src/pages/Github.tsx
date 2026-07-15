@@ -1,165 +1,84 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, ExternalLink, Loader2, Sparkles, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, Check, ChevronRight, ExternalLink, Loader2, RotateCw, Sparkles, Trash2 } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { OpenSourceBanner } from "@/components/common/OpenSourceBanner";
+import { AsyncBoundary } from "@/components/common/AsyncBoundary";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { StatDot, EmptyState, ProgressBar } from "@/components/ui/feedback";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState, ProgressBar, Spinner, StatDot } from "@/components/ui/feedback";
+import { useAsync } from "@/lib/useAsync";
+import { errorMessage } from "@/api/client";
+import { toast } from "@/store/toast";
+import { analyzeRepos, fetchRepos, githubStatus, saveRepos, type GithubProfile } from "@/api/github";
+import { deleteSavedRepo, listSavedRepos } from "@/api/githubRepos";
+import type { GithubRepo, ScoredSkill } from "@/api/types";
 import { cn } from "@/lib/utils";
 
-/* ── State model ─────────────────────────────────────────────────
-   Backend wiring is deferred; the "PREVIEW STATE" switcher (from the
-   design) drives local state so every variant is viewable. When we wire
-   the backend, `state` is derived from real data (connected account /
-   fetched repos / analysis in flight) and the switcher becomes a dev
-   affordance. */
-type GhState = "connect" | "analyzing" | "results";
+/* ── The page walks a real lifecycle derived from backend calls ──────
+   connect  → githubStatus() tells us if a token/account is linked; the
+              user enters a username (or uses their account).
+   analyzing→ fetchRepos() then analyzeRepos() run back-to-back; the
+              analyze call can take a while, so we show progress.
+   results  → analyzed repos + detected skills; save/remove sync with the
+              profile via listSavedRepos()/saveRepos()/deleteSavedRepo(). */
+type Phase = "connect" | "analyzing" | "results";
 
-const STATE_OPTIONS: { value: GhState; label: string; desc: string }[] = [
-  { value: "connect", label: "Connect", desc: "No account linked yet" },
-  { value: "analyzing", label: "Analyzing", desc: "Fetching and reading repos" },
-  { value: "results", label: "Results", desc: "Repos analyzed and imported" },
-];
-
-/* ── Data (design placeholder — no backend calls) ───────────────── */
-const LANG_COLORS = {
+/* ── GitHub-language identity colors (data colors, not theme tokens) ── */
+const LANG_COLORS: Record<string, string> = {
   Python: "#3572A5",
   Rust: "#dea584",
   TypeScript: "#3178c6",
+  JavaScript: "#f1e05a",
   Go: "#00ADD8",
   Shell: "#89e051",
   HTML: "#e34c26",
-} as const;
-
-type Repo = {
-  id: string;
-  name: string;
-  stars: string;
-  lang: keyof typeof LANG_COLORS;
-  desc: string;
-  summary: string;
-  involvement: string[];
-  tech: string[];
+  CSS: "#563d7c",
+  Java: "#b07219",
+  "C++": "#f34b7d",
+  C: "#555555",
+  Ruby: "#701516",
+  Swift: "#F05138",
+  Kotlin: "#A97BFF",
+  Dart: "#00B4AB",
+  PHP: "#4F5D95",
 };
 
-/* First three ship in the profile by default; the rest are fetched but
-   not yet imported. */
-const REPOS: Repo[] = [
-  {
-    id: "llm-serve",
-    name: "llm-serve",
-    stars: "1.2k",
-    lang: "Python",
-    desc: "High-throughput inference server for open-weight LLMs — continuous batching and token streaming.",
-    summary:
-      "A production-grade inference server for open-weight LLMs. Handles continuous batching, token-level streaming over SSE, and a paged KV-cache that keeps GPU memory bounded under load.",
-    involvement: [
-      "Author and lead maintainer — 1.2k stars, 40+ contributors.",
-      "Designed the continuous-batching scheduler and paged KV-cache.",
-      "Owns the release process and the CUDA kernel benchmarks.",
-    ],
-    tech: ["Python", "LLM inference", "Token streaming", "Batching", "CUDA"],
-  },
-  {
-    id: "vector-index",
-    name: "vector-index",
-    stars: "842",
-    lang: "Rust",
-    desc: "Approximate nearest-neighbor index with on-disk quantization for billion-scale embeddings.",
-    summary:
-      "An approximate nearest-neighbor index built for billion-scale embeddings, with on-disk product quantization and SIMD-accelerated distance kernels.",
-    involvement: [
-      "Core author of the on-disk quantization format.",
-      "Wrote the SIMD distance kernels (AVX-512 / NEON).",
-      "Benchmarked recall and latency against FAISS and HNSWlib.",
-    ],
-    tech: ["Rust", "Vector search", "Quantization", "ANN indexing", "SIMD"],
-  },
-  {
-    id: "promptkit",
-    name: "promptkit",
-    stars: "517",
-    lang: "TypeScript",
-    desc: "Composable prompt templates and offline evals for local models — zero external calls.",
-    summary:
-      "A zero-dependency toolkit for composing prompt templates and running offline evals against local models — no external API calls, everything stays on-device.",
-    involvement: [
-      "Created the template DSL and the eval runner.",
-      "Designed the snapshot-based regression tests.",
-      "Maintains the docs and the example gallery.",
-    ],
-    tech: ["TypeScript", "Prompt templates", "Evals", "Token streaming", "Local models"],
-  },
-  {
-    id: "token-stream",
-    name: "token-stream",
-    stars: "293",
-    lang: "TypeScript",
-    desc: "Server-sent-events helper for streaming model tokens to the browser with backpressure.",
-    summary:
-      "A small server-sent-events helper for streaming model tokens to the browser, with backpressure handling and automatic reconnection.",
-    involvement: [
-      "Sole author of the library.",
-      "Handles backpressure and reconnection edge cases.",
-      "Used in three downstream projects.",
-    ],
-    tech: ["TypeScript", "SSE", "Backpressure", "Streaming", "Node.js"],
-  },
-  {
-    id: "mini-rag",
-    name: "mini-rag",
-    stars: "421",
-    lang: "Python",
-    desc: "A 400-line retrieval-augmented-generation reference with pluggable vector stores.",
-    summary:
-      "A 400-line reference implementation of retrieval-augmented generation, with pluggable vector stores and swappable chunking strategies.",
-    involvement: [
-      "Author of the reference implementation.",
-      "Kept the codebase deliberately small and readable.",
-      "Documented the retrieval trade-offs in the README.",
-    ],
-    tech: ["Python", "RAG", "Embeddings", "Retrieval", "Chunking"],
-  },
-  {
-    id: "gguf-tools",
-    name: "gguf-tools",
-    stars: "176",
-    lang: "Go",
-    desc: "CLI to inspect, convert and quantize GGUF model files.",
-    summary:
-      "A command-line toolkit to inspect, convert and quantize GGUF model files, with a readable dump of tensor metadata.",
-    involvement: [
-      "Author and maintainer.",
-      "Implemented the GGUF parser and the quantizer.",
-      "Added round-trip conversion tests.",
-    ],
-    tech: ["Go", "GGUF", "Quantization", "CLI", "Model conversion"],
-  },
-  {
-    id: "dotfiles",
-    name: "dotfiles",
-    stars: "88",
-    lang: "Shell",
-    desc: "My terminal, editor and shell setup — Zsh, Neovim, Tmux.",
-    summary:
-      "Personal terminal, editor and shell configuration — Zsh, Neovim and Tmux tuned for a keyboard-driven workflow.",
-    involvement: ["Personal configuration repo.", "No collaborators."],
-    tech: ["Shell", "Zsh", "Neovim", "Tmux"],
-  },
-  {
-    id: "resume-site",
-    name: "resume-site",
-    stars: "34",
-    lang: "HTML",
-    desc: "Personal site and CV, hand-built and static.",
-    summary: "A static personal site and CV, hand-built with semantic HTML and CSS — no framework.",
-    involvement: ["Personal project.", "Static, deployed on a CDN."],
-    tech: ["HTML", "CSS", "Static site"],
-  },
-];
+const langColor = (name?: string | null): string => (name && LANG_COLORS[name]) || "var(--text-low)";
+const primaryLang = (repo: GithubRepo): string | null => repo.technologies?.[0] ?? null;
 
-const DEFAULT_PROFILE_IDS = ["llm-serve", "vector-index", "promptkit"];
+const formatStars = (n?: number | null): string => {
+  const v = n ?? 0;
+  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
+  return String(v);
+};
 
-/* ── Icons (design SVGs kept for fidelity) ──────────────────────── */
+const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
+
+/** Involvement bullets: prefer AI highlights, fall back to the contribution note. */
+const involvementLines = (repo: GithubRepo): string[] => {
+  if (repo.highlights && repo.highlights.length > 0) return repo.highlights;
+  if (repo.contribution) return [repo.contribution];
+  return [];
+};
+
+/** Score badge for a detected skill — 0..1 relevance shown as a compact percent. */
+const formatScore = (score?: number | null): string | null => {
+  if (score == null || !Number.isFinite(score)) return null;
+  const pct = score <= 1 ? Math.round(score * 100) : Math.round(score);
+  return String(pct);
+};
+
+const initials = (profile: GithubProfile): string => {
+  const base = (profile.name || profile.login || "").trim();
+  if (!base) return "?";
+  const parts = base.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return base.slice(0, 2).toUpperCase();
+};
+
+/* ── Icons (kept from the design for fidelity) ──────────────────────── */
 function GithubMark({ size = 14, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
@@ -176,92 +95,93 @@ function StarIcon({ size = 11, className }: { size?: number; className?: string 
   );
 }
 
-/* ── Account chip (header, right) ───────────────────────────────── */
-function AccountChip({ connected }: { connected: boolean }) {
-  if (!connected) {
-    return (
-      <div className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5">
-        <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-border bg-surface-2 text-fg-low">
-          <GithubMark size={15} />
+/* ── Account chip (header, right) ───────────────────────────────────── */
+function AccountChip({ connected, profile }: { connected: boolean; profile: GithubProfile | null }) {
+  if (profile?.login) {
+    const chip = (
+      <>
+        <span
+          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
+          style={{ background: "var(--accent-grad)" }}
+        >
+          {initials(profile)}
         </span>
         <span className="leading-tight">
-          <span className="block text-[13px] font-semibold text-fg-mid">No account</span>
-          <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-fg-low">
-            <span className="h-[5px] w-[5px] rounded-full" style={{ background: "var(--text-low)" }} />
-            NOT CONNECTED
+          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-fg">
+            @{profile.login}
+            {profile.html_url ? <ExternalLink size={12} className="text-fg-low" /> : null}
+          </span>
+          <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-success">
+            <StatDot tone="success" glow size={5} />
+            {typeof profile.public_repos === "number" ? `${profile.public_repos} REPOS` : "LOADED"}
           </span>
         </span>
-      </div>
+      </>
     );
+    if (profile.html_url) {
+      return (
+        <a
+          href={profile.html_url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5 no-underline transition-colors hover:border-accent"
+        >
+          {chip}
+        </a>
+      );
+    }
+    return <div className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5">{chip}</div>;
   }
+
   return (
-    <a
-      href="https://github.com/jrivera"
-      target="_blank"
-      rel="noreferrer"
-      className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5 no-underline transition-colors hover:border-accent"
-    >
-      <span
-        className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
-        style={{ background: "var(--accent-grad)" }}
-      >
-        JR
+    <div className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5">
+      <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-border bg-surface-2 text-fg-low">
+        <GithubMark size={15} />
       </span>
       <span className="leading-tight">
-        <span className="flex items-center gap-1.5 text-[13px] font-semibold text-fg">
-          @jrivera
-          <ExternalLink size={12} className="text-fg-low" />
-        </span>
-        <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-success">
-          <StatDot tone="success" glow size={5} />
-          CONNECTED
+        <span className="block text-[13px] font-semibold text-fg-mid">{connected ? "Account linked" : "No account"}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px]" style={{ color: connected ? "var(--success)" : "var(--text-low)" }}>
+          <span className="h-[5px] w-[5px] rounded-full" style={{ background: connected ? "var(--success)" : "var(--text-low)" }} />
+          {connected ? "TOKEN SET" : "NOT CONNECTED"}
         </span>
       </span>
-    </a>
+    </div>
   );
 }
 
-/* ── Repo card ──────────────────────────────────────────────────── */
+/* ── Repo card ──────────────────────────────────────────────────────── */
 type RepoCardProps = {
-  repo: Repo;
+  repo: GithubRepo;
   inProfile: boolean;
   analyzing?: boolean;
-  queued?: boolean;
-  onOpen: () => void;
+  onOpen?: () => void;
   onRemove?: () => void;
 };
 
-function RepoCard({ repo, inProfile, analyzing = false, queued = false, onOpen, onRemove }: RepoCardProps) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-      className="group cursor-pointer rounded-[13px] border border-border bg-surface p-4 text-left outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevated focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-weak"
-    >
+function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: RepoCardProps) {
+  const lang = primaryLang(repo);
+  const desc = repo.description ?? repo.purpose ?? "No description provided.";
+  const interactive = !!onOpen;
+
+  const body = (
+    <>
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-[7px] text-[14px] font-[650]">
           <GithubMark size={14} className="shrink-0 text-fg-low" />
-          <span className="truncate text-fg">{repo.name}</span>
+          <span className="truncate text-fg">{repo.repo_name}</span>
         </span>
         <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] text-fg-mid">
           <StarIcon size={11} />
-          {repo.stars}
+          {formatStars(repo.stars)}
         </span>
       </div>
 
-      <p className="mt-2 line-clamp-2 text-[11.5px] leading-[1.55] text-fg-mid">{repo.desc}</p>
+      <p className="mt-2 line-clamp-2 text-[11.5px] leading-[1.55] text-fg-mid">{desc}</p>
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[10.5px] text-fg-mid">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: LANG_COLORS[repo.lang] }} />
-          {repo.lang}
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: langColor(lang) }} />
+          {lang ?? "—"}
         </span>
 
         {inProfile ? (
@@ -276,7 +196,7 @@ function RepoCard({ repo, inProfile, analyzing = false, queued = false, onOpen, 
             {onRemove ? (
               <button
                 type="button"
-                title="Remove analysis from profile"
+                title="Remove from profile"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemove();
@@ -292,30 +212,37 @@ function RepoCard({ repo, inProfile, analyzing = false, queued = false, onOpen, 
             <Loader2 size={12} className="animate-spin" />
             Analyzing…
           </span>
-        ) : queued ? (
-          <span className="shrink-0 rounded-full border border-border bg-surface-2 px-2.5 py-[3px] font-mono text-[9px] uppercase tracking-[0.5px] text-fg-low">
-            Queued
-          </span>
         ) : (
           <ChevronRight size={16} className="shrink-0 text-fg-low transition-colors group-hover:text-accent-text" />
         )}
       </div>
+    </>
+  );
+
+  if (!interactive) {
+    return <div className="rounded-[13px] border border-border bg-surface p-4">{body}</div>;
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen?.();
+        }
+      }}
+      className="group cursor-pointer rounded-[13px] border border-border bg-surface p-4 text-left outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevated focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-weak"
+    >
+      {body}
     </div>
   );
 }
 
-/* ── Section header (mono label + right slot) ───────────────────── */
-function SectionHead({
-  label,
-  count,
-  tone,
-  right,
-}: {
-  label: string;
-  count: number;
-  tone: "success" | "low";
-  right?: ReactNode;
-}) {
+/* ── Section header (mono label + right slot) ───────────────────────── */
+function SectionHead({ label, count, tone, right }: { label: string; count: number; tone: "success" | "low"; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between">
       <span className={cn("font-mono text-[10px] tracking-[1px]", tone === "success" ? "text-success" : "text-fg-low")}>
@@ -326,132 +253,123 @@ function SectionHead({
   );
 }
 
-/* ── Detected skills ────────────────────────────────────────────── */
-function SkillsCard({ repos }: { repos: Repo[] }) {
-  const counts = new Map<string, number>();
-  for (const r of repos) for (const t of r.tech) counts.set(t, (counts.get(t) ?? 0) + 1);
-  const skills = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+/* ── Detected skills (real ScoredSkill[]) ───────────────────────────── */
+function SkillsCard({ skills, repoCount }: { skills: ScoredSkill[]; repoCount: number }) {
+  const sorted = useMemo(
+    () => [...skills].sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.name.localeCompare(b.name)),
+    [skills],
+  );
 
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
       <div className="mb-3.5 flex items-center justify-between">
         <span className="flex items-center gap-2 font-mono text-[10px] tracking-[1px] text-fg-low">
           <Sparkles size={12} className="text-accent-text" />
-          DETECTED SKILLS · {skills.length}
+          DETECTED SKILLS · {sorted.length}
         </span>
-        <span className="font-mono text-[10px] text-fg-low">
-          from {repos.length} analyzed {repos.length === 1 ? "repo" : "repos"}
-        </span>
+        <span className="font-mono text-[10px] text-fg-low">from {plural(repoCount, "analyzed repo")}</span>
       </div>
-      {skills.length === 0 ? (
-        <p className="text-[12px] text-fg-mid">Analyze a repository to pull its skills into your profile.</p>
+      {sorted.length === 0 ? (
+        <p className="text-[12px] text-fg-mid">No skills detected yet — analyze a repository to pull its skills into your profile.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {skills.map(([name, n]) => (
-            <span
-              key={name}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-[12px] text-fg"
-            >
-              {name}
-              {n > 1 ? <span className="font-mono text-[9.5px] text-accent-text">×{n}</span> : null}
-            </span>
-          ))}
+          {sorted.map((s) => {
+            const score = formatScore(s.score);
+            return (
+              <span
+                key={s.name}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-[12px] text-fg"
+              >
+                {s.name}
+                {score ? <span className="font-mono text-[9.5px] text-accent-text">{score}</span> : null}
+              </span>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-/* ── Repo detail modal (AI summary / involvement / tech) ────────── */
+/* ── Repo detail modal (AI summary / involvement / tech) ────────────── */
 function RepoDetail({
   repo,
   inProfile,
+  saving,
   onClose,
-  onToggle,
+  onAdd,
+  onRemove,
 }: {
-  repo: Repo;
+  repo: GithubRepo;
   inProfile: boolean;
+  saving: boolean;
   onClose: () => void;
-  onToggle: (id: string) => void;
+  onAdd: () => void;
+  onRemove: () => void;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const lang = primaryLang(repo);
+  const summary = repo.purpose ?? repo.description ?? "No AI summary is available for this repository yet.";
+  const bullets = involvementLines(repo);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${repo.name} analysis`}
-    >
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div
-        className="relative flex max-h-[85vh] w-full max-w-[560px] flex-col overflow-y-auto rounded-[16px] border border-border-strong bg-surface-3 p-6 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
-        style={{ animation: "cll-menu .16s ease" }}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[16px] font-bold tracking-[-0.3px] text-fg">
-              <GithubMark size={16} className="text-fg-low" />
-              <span className="truncate">{repo.name}</span>
-            </div>
-            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-fg-mid">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ background: LANG_COLORS[repo.lang] }} />
-                {repo.lang}
-              </span>
-              <span className="flex items-center gap-1 font-mono">
-                <StarIcon size={11} />
-                {repo.stars}
-              </span>
-            </div>
+    <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
+      <DialogContent className="w-[min(92vw,560px)] max-h-[85vh] overflow-y-auto p-6">
+        <div className="pr-8">
+          <DialogTitle className="flex items-center gap-2 text-[16px] tracking-[-0.3px]">
+            <GithubMark size={16} className="text-fg-low" />
+            <span className="truncate">{repo.repo_name}</span>
+          </DialogTitle>
+          <div className="mt-1.5 flex items-center gap-3 text-[11px] text-fg-mid">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ background: langColor(lang) }} />
+              {lang ?? "—"}
+            </span>
+            <span className="flex items-center gap-1 font-mono">
+              <StarIcon size={11} />
+              {formatStars(repo.stars)}
+            </span>
+            {typeof repo.involvement_rating === "number" ? (
+              <span className="font-mono uppercase tracking-[0.5px] text-fg-low">Involvement {repo.involvement_rating}/5</span>
+            ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-surface-2 text-fg-mid transition-colors hover:text-fg"
-          >
-            <X size={15} />
-          </button>
         </div>
 
-        <p className="mt-4 text-[12.5px] leading-relaxed text-fg-mid">{repo.desc}</p>
+        {repo.description ? <p className="mt-4 text-[12.5px] leading-relaxed text-fg-mid">{repo.description}</p> : null}
 
         <div className="mt-4 rounded-[11px] border border-border bg-surface-2 p-3.5">
           <div className="mb-2 flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[1px] text-accent-text">
             <Sparkles size={12} />
             AI Summary
           </div>
-          <p className="text-[12.5px] leading-relaxed text-fg">{repo.summary}</p>
+          <p className="text-[12.5px] leading-relaxed text-fg">{summary}</p>
         </div>
 
-        <div className="mt-4">
-          <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[1px] text-fg-low">Your involvement</div>
-          <ul className="flex flex-col gap-2">
-            {repo.involvement.map((line) => (
-              <li key={line} className="flex gap-2.5 text-[12.5px] leading-relaxed text-fg">
-                <Check size={14} strokeWidth={2.4} className="mt-0.5 shrink-0 text-success" />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-4">
-          <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[1px] text-fg-low">Tech</div>
-          <div className="flex flex-wrap gap-2">
-            {repo.tech.map((t) => (
-              <span key={t} className="rounded-full border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10px] text-fg-mid">
-                {t}
-              </span>
-            ))}
+        {bullets.length > 0 ? (
+          <div className="mt-4">
+            <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[1px] text-fg-low">Your involvement</div>
+            <ul className="flex flex-col gap-2">
+              {bullets.map((line) => (
+                <li key={line} className="flex gap-2.5 text-[12.5px] leading-relaxed text-fg">
+                  <Check size={14} strokeWidth={2.4} className="mt-0.5 shrink-0 text-success" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+        ) : null}
+
+        {repo.technologies && repo.technologies.length > 0 ? (
+          <div className="mt-4">
+            <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[1px] text-fg-low">Tech</div>
+            <div className="flex flex-wrap gap-2">
+              {repo.technologies.map((t) => (
+                <span key={t} className="rounded-full border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10px] text-fg-mid">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-5 flex items-center gap-2.5 border-t border-border pt-4">
           {inProfile ? (
@@ -461,37 +379,53 @@ function RepoDetail({
                 In your profile
               </span>
               <div className="flex-1" />
-              <Button variant="outline" size="sm" onClick={() => onToggle(repo.id)}>
+              <Button variant="outline" size="sm" onClick={onRemove}>
                 <Trash2 size={13} />
                 Remove
               </Button>
             </>
           ) : (
             <>
-              <Button variant="primary" size="md" onClick={() => onToggle(repo.id)}>
+              <Button variant="primary" size="md" loading={saving} onClick={onAdd}>
                 <Sparkles size={14} />
                 Add to profile
               </Button>
               <div className="flex-1" />
             </>
           )}
-          <a
-            href={`https://github.com/jrivera/${repo.name}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface px-3 py-2 text-[12px] font-medium text-fg no-underline transition-colors hover:bg-surface-2"
-          >
-            View on GitHub
-            <ExternalLink size={12} />
-          </a>
+          {repo.url ? (
+            <a
+              href={repo.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface px-3 py-2 text-[12px] font-medium text-fg no-underline transition-colors hover:bg-surface-2"
+            >
+              View on GitHub
+              <ExternalLink size={12} />
+            </a>
+          ) : null}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/* ── Intro + connect input (shared across states) ───────────────── */
-function ConnectRow({ user, onUser, onFetch }: { user: string; onUser: (v: string) => void; onFetch: () => void }) {
+/* ── Intro + connect input (shared across states) ───────────────────── */
+function ConnectRow({
+  username,
+  onUsername,
+  onFetch,
+  onUseAccount,
+  connected,
+  busy,
+}: {
+  username: string;
+  onUsername: (v: string) => void;
+  onFetch: () => void;
+  onUseAccount: () => void;
+  connected: boolean;
+  busy: boolean;
+}) {
   return (
     <div className="cll-fade mx-auto mb-6 w-full max-w-[640px]">
       <p className="mb-3 text-center text-[13px] text-fg-mid">
@@ -510,92 +444,218 @@ function ConnectRow({ user, onUser, onFetch }: { user: string; onUser: (v: strin
           </span>
           <input
             type="text"
-            value={user}
-            onChange={(e) => onUser(e.target.value)}
+            value={username}
+            onChange={(e) => onUsername(e.target.value)}
             placeholder="github username or profile URL"
             className="h-11 w-full rounded-[11px] border border-border-strong bg-input pl-[38px] pr-3.5 font-mono text-[13px] text-fg outline-none transition-[border-color,box-shadow] placeholder:text-fg-low focus:border-accent focus:ring-[3px] focus:ring-accent-weak"
           />
         </div>
-        <Button type="submit" variant="primary" size="md" className="h-11 rounded-[11px] px-5">
+        <Button type="submit" variant="primary" size="md" loading={busy} className="h-11 rounded-[11px] px-5">
           Fetch repos
         </Button>
       </form>
+      <div className="mt-2.5 flex items-center justify-center gap-2 text-center font-mono text-[10px] text-fg-low">
+        {connected ? (
+          <button type="button" onClick={onUseAccount} disabled={busy} className="text-accent-text underline-offset-2 hover:underline disabled:opacity-50">
+            Use my connected account
+          </button>
+        ) : (
+          <span>
+            Add a token in{" "}
+            <Link to="/settings" className="text-accent-text underline-offset-2 hover:underline">
+              Settings
+            </Link>{" "}
+            to include private repositories.
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-/* ── Preview-state switcher (matches Home) ──────────────────────── */
-function StateSwitcher({ state, onPick }: { state: GhState; onPick: (s: GhState) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = STATE_OPTIONS.find((o) => o.value === state)!;
+/* ── Inline state for the saved-repos list ──────────────────────────── */
+function SavedError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2.5 rounded-[10px] border border-border-strong bg-surface px-3 py-2 transition-colors hover:border-accent"
-      >
-        <StatDot tone="accent" glow size={7} />
-        <span className="text-left leading-tight">
-          <span className="block font-mono text-[8.5px] tracking-[0.7px] text-fg-low">PREVIEW STATE</span>
-          <span className="mt-px block text-[12.5px] font-semibold text-fg">{current.label}</span>
-        </span>
-        <ChevronDown size={15} className="text-fg-mid" />
-      </button>
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div
-            className="absolute right-0 top-[calc(100%+8px)] z-40 w-[290px] rounded-[13px] border border-border-strong bg-surface-3 p-1.5 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
-            style={{ animation: "cll-menu .16s ease" }}
-          >
-            {STATE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => {
-                  onPick(o.value);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-semibold text-fg">{o.label}</div>
-                  <div className="mt-px text-[11px] text-fg-mid">{o.desc}</div>
-                </div>
-                {o.value === state ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
+    <div className="flex items-center justify-between gap-3 rounded-[13px] border border-border bg-danger-weak px-4 py-3">
+      <span className="flex items-center gap-2 text-[12px] text-danger">
+        <AlertTriangle size={14} />
+        {message}
+      </span>
+      <Button variant="outline" size="xs" onClick={onRetry}>
+        <RotateCw size={12} /> Retry
+      </Button>
     </div>
   );
 }
 
-/* ── Page ───────────────────────────────────────────────────────── */
+/* ── Page ───────────────────────────────────────────────────────────── */
 export function Github() {
-  const [state, setState] = useState<GhState>("results");
-  const [user, setUser] = useState("jrivera");
-  const [profileIds, setProfileIds] = useState<string[]>(DEFAULT_PROFILE_IDS);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const status = useAsync(githubStatus);
+  const saved = useAsync(listSavedRepos);
 
-  // Keep the connect input in sync with the previewed state.
+  const [phase, setPhase] = useState<Phase>("connect");
+  const [username, setUsername] = useState("");
+  const [profile, setProfile] = useState<GithubProfile | null>(null);
+  const [fetchedRepos, setFetchedRepos] = useState<GithubRepo[]>([]);
+  const [analysis, setAnalysis] = useState<{ repos: GithubRepo[]; skills: ScoredSkill[] } | null>(null);
+  const [progress, setProgress] = useState(0);
+
+  const [selected, setSelected] = useState<GithubRepo | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [savingName, setSavingName] = useState<string | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<GithubRepo | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  const savedRepos = saved.data ?? [];
+  const savedByName = useMemo(() => new Map(savedRepos.map((r) => [r.repo_name, r])), [savedRepos]);
+  const isInProfile = useCallback((repo: GithubRepo) => savedByName.has(repo.repo_name), [savedByName]);
+
+  const availableRepos = useMemo(
+    () => (analysis?.repos ?? []).filter((r) => !savedByName.has(r.repo_name)),
+    [analysis, savedByName],
+  );
+
+  // Animate the analyze progress bar while the (single, blocking) analyze call runs.
   useEffect(() => {
-    setUser(state === "connect" ? "" : "jrivera");
-  }, [state]);
+    if (phase !== "analyzing") return;
+    setProgress(6);
+    const id = window.setInterval(() => {
+      setProgress((p) => (p >= 92 ? p : p + Math.max(0.5, (92 - p) * 0.06)));
+    }, 350);
+    return () => window.clearInterval(id);
+  }, [phase]);
 
-  const inProfile = (id: string) => profileIds.includes(id);
-  const toggleProfile = (id: string) =>
-    setProfileIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  // Skills relevant to the repos being saved (fall back to the full detected set).
+  const skillsForRepos = useCallback(
+    (repos: GithubRepo[]): ScoredSkill[] => {
+      if (!analysis) return [];
+      const tech = new Set(repos.flatMap((r) => (r.technologies ?? []).map((t) => t.toLowerCase())));
+      const matched = analysis.skills.filter((s) => tech.has(s.name.toLowerCase()));
+      return matched.length > 0 ? matched : analysis.skills;
+    },
+    [analysis],
+  );
 
-  const handleFetch = () => {
-    if (state === "connect" && user.trim()) setState("analyzing");
+  const runFetchAnalyze = useCallback(async (target: { username: string | null; useAccount: boolean }) => {
+    setFetching(true);
+    try {
+      const fetched = await fetchRepos(target.username, target.useAccount);
+      setProfile(fetched.profile);
+      setFetchedRepos(fetched.repos);
+      setFetching(false);
+
+      if (fetched.repos.length === 0) {
+        toast.warning("No public repositories", "This account has no public repos to analyze.");
+        return;
+      }
+
+      const login = fetched.profile.login ?? target.username ?? "";
+      setAnalysis(null);
+      setPhase("analyzing");
+      try {
+        const result = await analyzeRepos(login, fetched.repos);
+        setAnalysis(result);
+        setProgress(100);
+        setPhase("results");
+        toast.success(
+          "Analysis complete",
+          `Analyzed ${plural(result.repos.length, "repository", "repositories")} · ${plural(result.skills.length, "skill")} detected.`,
+        );
+      } catch (err) {
+        toast.danger("Analysis failed", errorMessage(err));
+        setPhase("connect");
+      }
+    } catch (err) {
+      toast.danger("Couldn't fetch repositories", errorMessage(err));
+      setFetching(false);
+    }
+  }, []);
+
+  const onFetch = () => {
+    const value = username.trim();
+    if (!value) {
+      toast.warning("Enter a username", "Type a GitHub username or profile URL first.");
+      return;
+    }
+    void runFetchAnalyze({ username: value, useAccount: false });
   };
 
-  const selected = selectedId ? REPOS.find((r) => r.id === selectedId) ?? null : null;
-  const profileRepos = REPOS.filter((r) => inProfile(r.id));
-  const availableRepos = REPOS.filter((r) => !inProfile(r.id));
+  const onUseAccount = () => {
+    void runFetchAnalyze({ username: null, useAccount: true });
+  };
+
+  const addRepos = useCallback(
+    async (repos: GithubRepo[], setBusy: (v: boolean) => void) => {
+      setBusy(true);
+      try {
+        const res = await saveRepos(repos, skillsForRepos(repos));
+        saved.reload();
+        const label = repos.length === 1 ? repos[0].repo_name : plural(res.saved_repos, "repo");
+        toast.success("Added to profile", `${label} · ${plural(res.added_skills, "skill")} added.`);
+      } catch (err) {
+        toast.danger("Couldn't add to profile", errorMessage(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [saved, skillsForRepos],
+  );
+
+  const handleAdd = (repo: GithubRepo) => void addRepos([repo], (v) => setSavingName(v ? repo.repo_name : null));
+  const handleAddAll = () => void addRepos(availableRepos, setSavingAll);
+
+  const confirmRemove = async () => {
+    if (!pendingRemove) return;
+    const id = savedByName.get(pendingRemove.repo_name)?.id;
+    if (id == null) {
+      toast.danger("Couldn't remove", "This repository is not linked to a saved record.");
+      setPendingRemove(null);
+      return;
+    }
+    setRemoving(true);
+    try {
+      await deleteSavedRepo(id);
+      saved.reload();
+      toast.success("Removed from profile", `${pendingRemove.repo_name} was removed.`);
+      setPendingRemove(null);
+    } catch (err) {
+      toast.danger("Couldn't remove", errorMessage(err));
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const busy = fetching || phase === "analyzing";
+
+  /* Saved-repos section, reused on the connect + results screens. */
+  const profileSection = (
+    <section>
+      <SectionHead
+        label="IN YOUR PROFILE"
+        count={savedRepos.length}
+        tone="success"
+        right={<span className="font-mono text-[10px] text-fg-low">click a repo to view its analysis</span>}
+      />
+      {saved.error ? (
+        <SavedError message={saved.error} onRetry={saved.reload} />
+      ) : saved.loading && savedRepos.length === 0 ? (
+        <div className="flex items-center justify-center py-8 text-fg-mid">
+          <Spinner size={18} />
+        </div>
+      ) : savedRepos.length === 0 ? (
+        <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
+          No repos in your profile yet — fetch an account and add one below.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          {savedRepos.map((r) => (
+            <RepoCard key={r.id ?? r.repo_name} repo={r} inProfile onOpen={() => setSelected(r)} onRemove={() => setPendingRemove(r)} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <Page
@@ -606,119 +666,139 @@ export function Github() {
           GitHub Import
         </span>
       }
-      actions={
-        <>
-          <AccountChip connected={state !== "connect"} />
-          <StateSwitcher state={state} onPick={setState} />
-        </>
-      }
+      actions={<AccountChip connected={status.data?.account_connected ?? false} profile={profile} />}
       bodyClassName="px-7 py-6"
     >
-      <div className="flex flex-col">
-        <ConnectRow user={user} onUser={setUser} onFetch={handleFetch} />
-
-        {state === "connect" ? (
-          <div className="cll-fade">
-            <EmptyState
-              icon={<GithubMark size={26} />}
-              title="Connect a GitHub account"
-              description="Enter a username above and we'll pull the public repositories, then analyze them into skills and projects — the account name is all that leaves your device."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setUser("jrivera");
-                    setState("analyzing");
-                  }}
-                >
-                  Try a sample account
-                </Button>
-              }
-            />
+      <AsyncBoundary
+        state={status}
+        skeleton={
+          <div className="flex items-center justify-center py-24 text-fg-mid">
+            <Spinner size={22} />
           </div>
-        ) : null}
+        }
+      >
+        {(st) => (
+          <div className="flex flex-col">
+            <ConnectRow
+              username={username}
+              onUsername={setUsername}
+              onFetch={onFetch}
+              onUseAccount={onUseAccount}
+              connected={st.account_connected}
+              busy={busy}
+            />
 
-        {state === "analyzing" ? (
-          <div className="flex flex-col gap-3.5">
-            <div className="cll-fade flex items-center gap-3 rounded-[14px] border border-border bg-surface px-5 py-4">
-              <Loader2 size={18} className="shrink-0 animate-spin text-accent-text" />
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold text-fg">Analyzing repositories…</div>
-                <div className="mt-2">
-                  <ProgressBar value={62} />
+            {phase === "connect" ? (
+              <div className="cll-fade">
+                {savedRepos.length > 0 || saved.loading || saved.error ? (
+                  profileSection
+                ) : (
+                  <EmptyState
+                    icon={<GithubMark size={26} />}
+                    title="Connect a GitHub account"
+                    description="Enter a username above and we'll pull the public repositories, then analyze them into skills and projects — the account name is all that leaves your device."
+                    action={
+                      st.account_connected ? (
+                        <Button variant="outline" size="sm" onClick={onUseAccount} loading={busy}>
+                          Use my connected account
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )}
+              </div>
+            ) : null}
+
+            {phase === "analyzing" ? (
+              <div className="flex flex-col gap-3.5">
+                <div className="cll-fade flex items-center gap-3 rounded-[14px] border border-border bg-surface px-5 py-4">
+                  <Loader2 size={18} className="shrink-0 animate-spin text-accent-text" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-fg">Analyzing repositories…</div>
+                    <div className="mt-2">
+                      <ProgressBar value={progress} />
+                    </div>
+                  </div>
+                  <span className="shrink-0 font-mono text-[11px] text-fg-mid">{plural(fetchedRepos.length, "repo")}</span>
+                </div>
+
+                <SectionHead label="READING FROM GITHUB" count={fetchedRepos.length} tone="low" />
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {fetchedRepos.map((r) => (
+                    <RepoCard key={r.id ?? r.repo_name} repo={r} inProfile={false} analyzing />
+                  ))}
                 </div>
               </div>
-              <span className="shrink-0 font-mono text-[11px] text-fg-mid">5 of {REPOS.length}</span>
-            </div>
+            ) : null}
 
-            <SectionHead label="READING FROM GITHUB" count={REPOS.length} tone="low" />
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-              {REPOS.map((r, i) => (
-                <RepoCard key={r.id} repo={r} inProfile={false} analyzing={i < 5} queued={i >= 5} onOpen={() => setSelectedId(r.id)} />
-              ))}
-            </div>
+            {phase === "results" ? (
+              <div className="flex flex-col gap-3.5">
+                {profileSection}
+
+                <section>
+                  <SectionHead
+                    label="AVAILABLE ON GITHUB"
+                    count={availableRepos.length}
+                    tone="low"
+                    right={
+                      availableRepos.length > 0 ? (
+                        <Button variant="primary" size="sm" className="rounded-[9px]" loading={savingAll} onClick={handleAddAll}>
+                          <Sparkles size={13} />
+                          Add all to profile
+                        </Button>
+                      ) : null
+                    }
+                  />
+                  {availableRepos.length === 0 ? (
+                    <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
+                      Every analyzed repository has been added to your profile.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                      {availableRepos.map((r) => (
+                        <RepoCard key={r.id ?? r.repo_name} repo={r} inProfile={false} onOpen={() => setSelected(r)} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <SkillsCard skills={analysis?.skills ?? []} repoCount={analysis?.repos.length ?? 0} />
+                <OpenSourceBanner />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-
-        {state === "results" ? (
-          <div className="flex flex-col gap-3.5">
-            <section>
-              <SectionHead
-                label="IN YOUR PROFILE"
-                count={profileRepos.length}
-                tone="success"
-                right={<span className="font-mono text-[10px] text-fg-low">click a repo to view its analysis</span>}
-              />
-              {profileRepos.length === 0 ? (
-                <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
-                  No repos in your profile yet — open one below and add it.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {profileRepos.map((r) => (
-                    <RepoCard key={r.id} repo={r} inProfile onOpen={() => setSelectedId(r.id)} onRemove={() => toggleProfile(r.id)} />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <SectionHead
-                label="AVAILABLE ON GITHUB"
-                count={availableRepos.length}
-                tone="low"
-                right={
-                  availableRepos.length > 0 ? (
-                    <Button variant="primary" size="sm" className="rounded-[9px]" onClick={() => setProfileIds(REPOS.map((r) => r.id))}>
-                      <Sparkles size={13} />
-                      Analyze all
-                    </Button>
-                  ) : null
-                }
-              />
-              {availableRepos.length === 0 ? (
-                <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
-                  Every repository has been analyzed and added to your profile.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {availableRepos.map((r) => (
-                    <RepoCard key={r.id} repo={r} inProfile={false} onOpen={() => setSelectedId(r.id)} />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <SkillsCard repos={profileRepos} />
-            <OpenSourceBanner />
-          </div>
-        ) : null}
-      </div>
+        )}
+      </AsyncBoundary>
 
       {selected ? (
-        <RepoDetail repo={selected} inProfile={inProfile(selected.id)} onClose={() => setSelectedId(null)} onToggle={toggleProfile} />
+        <RepoDetail
+          repo={savedByName.get(selected.repo_name) ?? selected}
+          inProfile={isInProfile(selected)}
+          saving={savingName === selected.repo_name}
+          onClose={() => setSelected(null)}
+          onAdd={() => handleAdd(selected)}
+          onRemove={() => {
+            setPendingRemove(selected);
+            setSelected(null);
+          }}
+        />
       ) : null}
+
+      <ConfirmDialog
+        open={!!pendingRemove}
+        onOpenChange={(o) => !o && setPendingRemove(null)}
+        tone="danger"
+        icon={<Trash2 size={20} />}
+        title="Remove from profile?"
+        description={
+          pendingRemove
+            ? `“${pendingRemove.repo_name}” and its imported skills will be removed from your profile. This won't touch anything on GitHub.`
+            : undefined
+        }
+        confirmLabel="Remove"
+        loading={removing}
+        onConfirm={confirmRemove}
+      />
     </Page>
   );
 }
