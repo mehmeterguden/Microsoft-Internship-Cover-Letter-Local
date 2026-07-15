@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterator
 from typing import Any
 
 from core import llm
@@ -42,23 +43,33 @@ def _clamp_rating(value: object) -> int | None:
     return max(1, min(5, n))
 
 
-def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
-    """Analyze repos in batches; return enriched repos + a deduplicated skill list."""
+def analyze_stream(repos: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Analyze repos batch by batch, yielding real progress as each batch finishes.
+
+    Yields ``{"type": "progress", "percent": int, "label": str}`` per batch and a
+    final ``{"type": "result", "result": {...}}`` with enriched repos + skills.
+    Raises only if *every* batch failed (so nothing useful came back).
+    """
     analyses: dict[str, dict] = {}
     skill_display: dict[str, str] = {}   # key → first-seen display name
     skill_score: dict[str, int] = {}     # key → best score
     last_error: Exception | None = None
 
-    for start in range(0, len(repos), CHUNK):
+    starts = list(range(0, len(repos), CHUNK))
+    total = max(1, len(starts))
+    for idx, start in enumerate(starts):
         chunk = [
             {**r, "readme": (r.get("readme") or "")[:README_CAP]}
             for r in repos[start : start + CHUNK]
         ]
+        names = ", ".join(str(r.get("repo_name") or "") for r in chunk if r.get("repo_name"))
         try:
             raw = _complete_with_retry(build_messages(chunk))
             data = json.loads(_extract_json(raw))
         except Exception as exc:  # noqa: BLE001 — remember it; skip the batch, keep the rest
             last_error = exc
+            yield {"type": "progress", "percent": round((idx + 1) / total * 100),
+                   "label": f"Batch {idx + 1}/{total} skipped (retrying later)"}
             continue
         for item in data.get("repos", []):
             if item.get("repo_name"):
@@ -72,6 +83,8 @@ def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
             key = name.lower()
             skill_display.setdefault(key, name)
             skill_score[key] = max(skill_score.get(key, 0), score)
+        yield {"type": "progress", "percent": round((idx + 1) / total * 100),
+               "label": f"Analyzed {names}" if names else f"Batch {idx + 1}/{total}"}
 
     # If every batch failed (e.g. quota exhausted), surface the error instead of
     # silently returning repos with no analysis.
@@ -100,4 +113,16 @@ def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
         {"name": skill_display[k], "score": skill_score[k]}
         for k in sorted(skill_score, key=lambda k: -skill_score[k])
     ]
-    return {"repos": enriched, "skills": skills}
+    yield {"type": "result", "result": {"repos": enriched, "skills": skills}}
+
+
+def analyze(repos: list[dict[str, Any]]) -> dict[str, Any]:
+    """Analyze repos in batches; return enriched repos + a deduplicated skill list.
+
+    Non-streaming convenience wrapper — drains :func:`analyze_stream`.
+    """
+    result: dict[str, Any] = {"repos": [], "skills": []}
+    for event in analyze_stream(repos):
+        if event["type"] == "result":
+            result = event["result"]
+    return result

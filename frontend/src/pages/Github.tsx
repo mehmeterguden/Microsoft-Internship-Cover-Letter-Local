@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Check, ChevronRight, ExternalLink, Loader2, RotateCw, Sparkles, Trash2 } from "lucide-react";
 import { Page } from "@/components/common/Page";
@@ -499,6 +499,7 @@ export function Github() {
   const [fetchedRepos, setFetchedRepos] = useState<GithubRepo[]>([]);
   const [analysis, setAnalysis] = useState<{ repos: GithubRepo[]; skills: ScoredSkill[] } | null>(null);
   const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("");
 
   const [selected, setSelected] = useState<GithubRepo | null>(null);
   const [fetching, setFetching] = useState(false);
@@ -515,16 +516,6 @@ export function Github() {
     () => (analysis?.repos ?? []).filter((r) => !savedByName.has(r.repo_name)),
     [analysis, savedByName],
   );
-
-  // Animate the analyze progress bar while the (single, blocking) analyze call runs.
-  useEffect(() => {
-    if (phase !== "analyzing") return;
-    setProgress(6);
-    const id = window.setInterval(() => {
-      setProgress((p) => (p >= 92 ? p : p + Math.max(0.5, (92 - p) * 0.06)));
-    }, 350);
-    return () => window.clearInterval(id);
-  }, [phase]);
 
   // Skills relevant to the repos being saved (fall back to the full detected set).
   const skillsForRepos = useCallback(
@@ -552,9 +543,14 @@ export function Github() {
 
       const login = fetched.profile.login ?? target.username ?? "";
       setAnalysis(null);
+      setProgress(0);
+      setProgressLabel("Starting…");
       setPhase("analyzing");
       try {
-        const result = await analyzeRepos(login, fetched.repos);
+        const result = await analyzeRepos(login, fetched.repos, (p) => {
+          setProgress(p.percent);
+          setProgressLabel(p.label);
+        });
         setAnalysis(result);
         setProgress(100);
         setPhase("results");
@@ -714,7 +710,12 @@ export function Github() {
                 <div className="cll-fade flex items-center gap-3 rounded-[14px] border border-border bg-surface px-5 py-4">
                   <Loader2 size={18} className="shrink-0 animate-spin text-accent-text" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-semibold text-fg">Analyzing repositories…</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="truncate text-[13px] font-semibold text-fg">
+                        {progressLabel || "Analyzing repositories…"}
+                      </div>
+                      <span className="shrink-0 font-mono text-[11px] text-accent-text">{Math.round(progress)}%</span>
+                    </div>
                     <div className="mt-2">
                       <ProgressBar value={progress} />
                     </div>

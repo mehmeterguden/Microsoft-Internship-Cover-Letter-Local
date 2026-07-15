@@ -5,7 +5,7 @@ import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/field";
-import { Pill, StatDot } from "@/components/ui/feedback";
+import { Pill, ProgressBar, StatDot } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
@@ -495,7 +495,7 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
 }
 
 /* ── Learning state — analysis in progress ───────────────────────── */
-function LearningBody({ letters }: { letters: PastCoverLetter[] }) {
+function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]; progress: number; label: string }) {
   const facets = ["Tone & register", "Structure & rhetoric", "Signature phrasing", "Vocabulary & avoid-list"];
   return (
     <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
@@ -524,9 +524,11 @@ function LearningBody({ letters }: { letters: PastCoverLetter[] }) {
           <div className="relative flex items-center gap-2">
             <div className="text-[15px] text-fg" style={{ fontWeight: 650 }}>Analyzing your voice</div>
             <StatDot tone="accent" pulse size={7} />
+            <span className="ml-auto font-mono text-[11px] text-accent-text">{Math.round(progress)}%</span>
           </div>
-          <div className="relative mt-2 h-[5px] overflow-hidden rounded-[3px] bg-input">
-            <div className="h-full w-2/5 rounded-[3px]" style={{ background: "var(--accent-grad)", animation: "cll-pulse 1.6s ease-in-out infinite" }} />
+          <div className="relative mt-1.5 text-[12px] text-fg-mid">{label || "Working…"}</div>
+          <div className="relative mt-2">
+            <ProgressBar value={progress} />
           </div>
 
           <div className="relative mt-5 flex flex-col gap-[13px]">
@@ -649,6 +651,8 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   const [letters, setLetters] = useState<PastCoverLetter[]>(initial.letters);
   const [profile, setProfile] = useState<VoiceProfile | null>(initial.style.style_profile);
   const [analyzing, setAnalyzing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [reader, setReader] = useState<PastCoverLetter | null>(null);
   const [toDelete, setToDelete] = useState<PastCoverLetter | null>(null);
@@ -656,9 +660,14 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
 
   // (Re)analyze the whole corpus into a fresh voice fingerprint.
   const runLearn = useCallback(async () => {
+    setProgress(0);
+    setProgressLabel("Starting…");
     setAnalyzing(true);
     try {
-      const res = await learnVoice();
+      const res = await learnVoice((p) => {
+        setProgress(p.percent);
+        setProgressLabel(p.label);
+      });
       setProfile(res.style_profile);
       if (res.analysis_failed) {
         toast.warning(
@@ -736,7 +745,7 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   return (
     <Page eyebrow={EYEBROW} title={TITLE} actions={actions} bodyClassName="p-0">
       {view === "learning" ? (
-        <LearningBody letters={letters} />
+        <LearningBody letters={letters} progress={progress} label={progressLabel} />
       ) : view === "empty" ? (
         <EmptyBody onAdd={() => setAddOpen(true)} />
       ) : (

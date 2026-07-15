@@ -1,5 +1,12 @@
 import { client } from "./client";
+import { streamSSE } from "./sse";
 import type { GithubRepo, ScoredSkill } from "./types";
+
+/** A live progress tick from a streaming operation. */
+export interface Progress {
+  percent: number;
+  label: string;
+}
 
 export async function githubStatus(): Promise<{ account_connected: boolean }> {
   const { data } = await client.get("/github/status");
@@ -35,9 +42,32 @@ export interface AnalyzeResult {
   skills: ScoredSkill[];
 }
 
-export async function analyzeRepos(login: string, repos: GithubRepo[]): Promise<AnalyzeResult> {
-  const { data } = await client.post<AnalyzeResult>("/github/analyze", { login, repos });
-  return data;
+type AnalyzeEvent =
+  | { type: "progress"; percent: number; label: string }
+  | { type: "done"; result: AnalyzeResult }
+  | { type: "fatal"; error: string };
+
+/**
+ * Analyze repos with live progress over SSE. `onProgress` fires as READMEs are
+ * read (first ~40%) and each analysis batch completes (the rest). Resolves with
+ * the final result; throws on a fatal stream error.
+ */
+export async function analyzeRepos(
+  login: string,
+  repos: GithubRepo[],
+  onProgress?: (p: Progress) => void,
+  signal?: AbortSignal,
+): Promise<AnalyzeResult> {
+  let result: AnalyzeResult | null = null;
+  let fatal: string | null = null;
+  await streamSSE<AnalyzeEvent>("/github/analyze", { login, repos }, (event) => {
+    if (event.type === "progress") onProgress?.({ percent: event.percent, label: event.label });
+    else if (event.type === "done") result = event.result;
+    else if (event.type === "fatal") fatal = event.error;
+  }, signal);
+  if (fatal) throw new Error(fatal);
+  if (!result) throw new Error("Analysis produced no result");
+  return result;
 }
 
 export interface SaveResult {
