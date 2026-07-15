@@ -110,16 +110,14 @@ export function Sidebar() {
 
       {/* logo */}
       <div className="relative flex items-center gap-[11px] px-1.5">
-        <div
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px]"
-          style={{ background: "var(--accent-grad)", boxShadow: "0 6px 16px -8px var(--accent-shadow)" }}
-        >
-          <div className="absolute inset-0" style={{ background: "linear-gradient(140deg, rgba(255,255,255,.32), transparent 52%)" }} />
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="relative">
-            <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
-            <path d="M3.5 7l8.5 6 8.5-6" />
-          </svg>
-        </div>
+        <img
+          src="/favicon.svg"
+          alt="Cover Letter Local"
+          width={36}
+          height={36}
+          className="h-9 w-9 shrink-0 rounded-[11px]"
+          style={{ boxShadow: "0 6px 16px -8px var(--accent-shadow)" }}
+        />
         <div className="min-w-0 leading-tight">
           <div className="text-[14px] font-bold tracking-[-0.2px] text-fg">Cover Letter Local</div>
           <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 py-[3px] pl-[7px] pr-[9px]">
