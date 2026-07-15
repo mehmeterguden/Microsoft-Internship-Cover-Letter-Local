@@ -4,7 +4,6 @@ import { RouteError } from "@/components/common/RouteError";
 import { Home } from "@/pages/Home";
 import { Onboarding } from "@/pages/Onboarding";
 import { Profile } from "@/pages/Profile";
-import { ProfileComplete } from "@/pages/ProfileComplete";
 import { Github } from "@/pages/Github";
 import { Voice } from "@/pages/Voice";
 import { Research } from "@/pages/Research";
@@ -24,7 +23,6 @@ export const router = createBrowserRouter([
       { path: "research", element: <Research /> },
       { path: "cover-letters", element: <CoverLetters /> },
       { path: "profile", element: <Profile /> },
-      { path: "profile/complete", element: <ProfileComplete /> },
       { path: "onboarding", element: <Onboarding /> },
       { path: "voice", element: <Voice /> },
       { path: "github", element: <Github /> },

@@ -1,20 +1,22 @@
 import { Link } from "react-router-dom";
-import { PageHeader } from "@/components/common/PageHeader";
+import { FileQuestion } from "lucide-react";
+import { Page } from "@/components/common/Page";
+import { EmptyState } from "@/components/ui/feedback";
+import { Button } from "@/components/ui/button";
 
 export function NotFound() {
   return (
-    <>
-      <PageHeader
-        eyebrow="404"
-        title="Page not found"
-        description="That route doesn't exist yet."
+    <Page eyebrow="ERROR / 404" title="Page not found">
+      <EmptyState
+        icon={<FileQuestion size={24} />}
+        title="This page doesn't exist"
+        description="The route you followed isn't part of the app. Head back and pick up where you left off."
+        action={
+          <Button asChild>
+            <Link to="/">Back to Home</Link>
+          </Button>
+        }
       />
-      <Link
-        to="/"
-        className="inline-flex items-center rounded-[10px] bg-accent px-4 py-2 text-[13.5px] font-bold text-on-accent transition-transform hover:-translate-y-0.5"
-      >
-        Back home
-      </Link>
-    </>
+    </Page>
   );
 }
