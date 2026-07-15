@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Mail, Phone, Github, Linkedin } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
@@ -126,8 +126,6 @@ const SOURCE_META: Record<Source, { label: string; className?: string; style?: R
   manual: { label: "Manual", className: "bg-surface-2 text-fg-mid", dot: "var(--text-low)" },
 };
 
-const srcOf = (it: { source?: Source }): Source => it.source ?? "manual";
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function fmtDate(iso?: string | null): string {
@@ -156,44 +154,36 @@ function fmtPeriod(start?: string | null, end?: string | null, current?: boolean
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-/** Provenance badge — where an item/field came from (source + when). */
-function SourceBadge({
-  source,
-  at,
-  detail,
-  className,
-}: {
-  source: Source;
-  at?: string | null;
-  detail?: string | null;
-  className?: string;
-}) {
-  const m = SOURCE_META[source];
-  const title = [m.label, detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
-  return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] leading-none",
-        m.className,
-        className,
-      )}
-      style={m.style}
-    >
-      <span className="h-1 w-1 rounded-full" style={{ background: m.dot }} />
-      {m.label}
-    </span>
-  );
+/** Strip protocol + leading www + trailing slash → a short, readable label. */
+function shortUrl(url: string): string {
+  return url
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
 }
 
-/** "Where it came from" line for detail modals. */
-function ProvenanceLine({ source, at, detail }: { source: Source; at?: string | null; detail?: string | null }) {
-  const parts = [detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
+/** Normalise a bare URL into an absolute href. */
+function ensureHref(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+/** True when a source is worth surfacing (external, or manual with a detail). */
+function hasProvenance(source?: Source, detail?: string | null): boolean {
+  return Boolean(source && (source !== "manual" || detail));
+}
+
+/** "Where it came from" line for detail / edit modals. Omitted when trivial. */
+function SourceRow({ source, at, detail }: { source?: Source; at?: string | null; detail?: string | null }) {
+  if (!hasProvenance(source, detail)) return null;
+  const label = SOURCE_META[source ?? "manual"].label;
+  const extra = [detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
   return (
-    <div className="mt-3.5 flex items-center gap-2 border-t border-border pt-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
-      <span>Source</span>
-      <SourceBadge source={source} at={at} detail={detail} />
-      {parts ? <span className="truncate">{parts}</span> : null}
+    <div className="mt-3.5 flex items-center gap-1.5 border-t border-border pt-3 text-[11px]">
+      <span className="font-semibold tracking-[0.01em] text-fg-low">Source</span>
+      <span className="text-fg-low">·</span>
+      <span className="font-medium text-fg-mid">{label}</span>
+      {extra ? <span className="truncate text-fg-low">— {extra}</span> : null}
     </div>
   );
 }
@@ -202,13 +192,6 @@ function ProvenanceLine({ source, at, detail }: { source: Source; at?: string | 
 function displayName(p: ProfileModel): string {
   const n = [p.name, p.surname].filter(Boolean).join(" ").trim();
   return n || "Your name";
-}
-
-function initialsOf(p: ProfileModel): string {
-  const a = (p.name ?? "").trim();
-  const b = (p.surname ?? "").trim();
-  const chars = `${a.charAt(0)}${b.charAt(0)}`.trim();
-  return (chars || a.charAt(0) || "?").toUpperCase();
 }
 
 /** A subline from the current/most-recent experience, else a gentle prompt. */
@@ -280,8 +263,6 @@ const SKILL_CHIP: Record<SkillWeight, { className: string; style?: React.CSSProp
 const LEVEL_LABEL: Record<number, string> = { 5: "Expert", 4: "Advanced", 3: "Intermediate", 2: "Basic", 1: "Beginner" };
 const ratingLabel = (r?: number | null): string => (r ? LEVEL_LABEL[r] ?? `Level ${r}` : "Unrated");
 
-const LANG_PCT: Record<LanguageLevel, number> = { native: 100, fluent: 90, professional: 75, intermediate: 55, basic: 30 };
-const langPct = (p?: LanguageLevel | null): number => (p ? LANG_PCT[p] : 20);
 const titleCase = (s: string): string => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const langLabel = (p?: LanguageLevel | null): string => (p ? titleCase(p) : "—");
 
@@ -549,7 +530,7 @@ export function Profile() {
     >
       <AsyncBoundary state={state} skeleton={<ProfileSkeleton />}>
         {(b) => (
-          <div className="flex flex-col gap-4">
+          <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4">
             <IdentityCard profile={b.profile} experiences={b.experiences} onEdit={() => setEditIdentity(true)} />
 
             <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
@@ -702,7 +683,7 @@ export function Profile() {
 
 function ProfileSkeleton() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4">
       <div className="h-[104px] animate-pulse rounded-[12px] border border-border bg-surface" />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="h-[220px] animate-pulse rounded-[12px] border border-border bg-surface" />
@@ -794,49 +775,38 @@ function IdentityCard({
 }) {
   const { email, phone, linkedin, github } = profile;
   const noContact = !email && !phone && !linkedin && !github;
-  const prov = fieldSrc(profile, "name") ?? fieldSrc(profile, "email");
-  const contactTitle = (key: string): string | undefined => {
-    const s = fieldSrc(profile, key);
-    return s ? [SOURCE_META[s.source ?? "manual"].label, s.detail, s.at ? fmtDate(s.at) : null].filter(Boolean).join(" · ") : undefined;
-  };
+  const contactClass = "flex items-center gap-1.5 text-fg-mid transition-colors hover:text-accent-text";
   return (
-    <div className="cll-fade flex items-center gap-5 rounded-[12px] border border-border bg-surface px-5 py-[18px]">
-      <div
-        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[16px] text-[22px] font-bold text-white"
-        style={{ background: "var(--accent-grad)", boxShadow: "0 8px 24px -8px var(--accent-shadow)" }}
-      >
-        {initialsOf(profile)}
-      </div>
+    <div className="cll-fade flex items-start justify-between gap-5 rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <div className="text-[19px] font-bold text-fg">{displayName(profile)}</div>
-          {prov && prov.source && prov.source !== "manual" ? (
-            <SourceBadge source={prov.source} at={prov.at} detail={prov.detail} />
-          ) : null}
-        </div>
+        <div className="text-[19px] font-bold text-fg">{displayName(profile)}</div>
         <div className="mt-1 text-[13px] text-fg-mid">{sublineOf(experiences)}</div>
-        <div className="mt-[11px] flex flex-wrap gap-x-[18px] gap-y-2 text-[12px] text-fg-mid">
+        <div className="mt-[13px] flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12px]">
           {email ? (
-            <span className="flex items-center gap-1.5" title={contactTitle("email")}>
-              <MailIcon size={13} strokeWidth={1.4} /> {email}
-            </span>
+            <a href={`mailto:${email}`} className={cn(contactClass, "min-w-0")}>
+              <Mail size={13} strokeWidth={1.6} className="shrink-0" />
+              <span className="truncate">{email}</span>
+            </a>
           ) : null}
           {phone ? (
-            <span className="flex items-center gap-1.5" title={contactTitle("phone")}>
-              <PhoneIcon size={13} strokeWidth={1.4} /> {phone}
-            </span>
+            <a href={`tel:${phone}`} className={contactClass}>
+              <Phone size={13} strokeWidth={1.6} className="shrink-0" />
+              {phone}
+            </a>
           ) : null}
           {linkedin ? (
-            <span className="flex items-center gap-1.5" style={{ color: "#93c5fd" }} title={contactTitle("linkedin")}>
-              <LinkedinIcon size={13} strokeWidth={1.4} /> {linkedin}
-            </span>
+            <a href={ensureHref(linkedin)} target="_blank" rel="noreferrer" className={cn(contactClass, "min-w-0")}>
+              <Linkedin size={13} strokeWidth={1.6} className="shrink-0" />
+              <span className="truncate">{shortUrl(linkedin)}</span>
+            </a>
           ) : null}
           {github ? (
-            <span className="flex items-center gap-1.5" style={{ color: "#c4b5fd" }} title={contactTitle("github")}>
-              <GithubIcon size={13} strokeWidth={1.4} /> {github}
-            </span>
+            <a href={ensureHref(github)} target="_blank" rel="noreferrer" className={cn(contactClass, "min-w-0")}>
+              <Github size={13} strokeWidth={1.6} className="shrink-0" />
+              <span className="truncate">{shortUrl(github)}</span>
+            </a>
           ) : null}
-          {noContact ? <span className="text-[12px] text-fg-low">No contact details yet</span> : null}
+          {noContact ? <span className="text-fg-low">No contact details yet</span> : null}
         </div>
       </div>
       <button
@@ -853,7 +823,36 @@ function IdentityCard({
 /* ══════════════════════════════════════════════════════════════════
    Skills
    ══════════════════════════════════════════════════════════════════ */
+function SkillPill({ skill, onOpen }: { skill: Skill; onOpen: (s: Skill) => void }) {
+  const chip = SKILL_CHIP[skillWeight(skill.self_rating)];
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(skill)}
+      className={cn("transition-transform hover:-translate-y-0.5", chip.className)}
+      style={chip.style}
+    >
+      {skill.name}
+    </button>
+  );
+}
+
+/** Group skills by category — but only when categories are meaningfully populated. */
+function groupSkills(skills: Skill[]): { label: string; items: Skill[] }[] | null {
+  const withCat = skills.filter((s) => (s.category ?? "").trim());
+  if (withCat.length < Math.max(2, skills.length * 0.5)) return null;
+  const map = new Map<string, Skill[]>();
+  for (const s of skills) {
+    const key = (s.category ?? "").trim() || "Other";
+    const list = map.get(key) ?? [];
+    list.push(s);
+    map.set(key, list);
+  }
+  return [...map.entries()].map(([label, items]) => ({ label, items }));
+}
+
 function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Skill) => void; onAdd: () => void }) {
+  const groups = groupSkills(skills);
   return (
     <SectionCard title="Skills" meta={`${skills.length} tracked`} addLabel="Add skill" onAdd={onAdd} className="flex flex-col">
       {skills.length === 0 ? (
@@ -861,40 +860,46 @@ function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Sk
           No skills yet — <span className="font-semibold text-accent-text">add one</span> or let AI infer them from your CV.
         </EmptyPrompt>
       ) : (
-        <div
-          className="flex max-h-[340px] flex-col gap-4 overflow-auto pr-1.5"
-          style={{
-            WebkitMaskImage: "linear-gradient(180deg,#000 93%,transparent)",
-            maskImage: "linear-gradient(180deg,#000 93%,transparent)",
-          }}
-        >
-          <div className="flex flex-wrap items-center gap-[7px]">
-            {skills.map((sk) => {
-              const chip = SKILL_CHIP[skillWeight(sk.self_rating)];
-              return (
-                <button
-                  key={sk.id ?? sk.name}
-                  type="button"
-                  onClick={() => onOpen(sk)}
-                  className={cn("transition-transform hover:-translate-y-0.5", chip.className)}
-                  style={chip.style}
-                >
-                  {sk.name}
-                </button>
-              );
-            })}
+        <>
+          <div
+            className="max-h-[300px] overflow-auto pr-1.5"
+            style={{
+              WebkitMaskImage: "linear-gradient(180deg,#000 94%,transparent)",
+              maskImage: "linear-gradient(180deg,#000 94%,transparent)",
+            }}
+          >
+            {groups ? (
+              <div className="flex flex-col gap-3.5">
+                {groups.map((g) => (
+                  <div key={g.label}>
+                    <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-fg-low">{g.label}</div>
+                    <div className="flex flex-wrap items-center gap-[7px]">
+                      {g.items.map((sk) => (
+                        <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-[7px]">
+                {skills.map((sk) => (
+                  <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
+                ))}
+              </div>
+            )}
           </div>
-          <div className="mt-4 flex gap-3.5 font-mono text-[9px] text-fg-low">
+          <div className="mt-3.5 flex items-center justify-end gap-4 border-t border-border pt-3 text-[11px] text-fg-mid">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-[3px] bg-accent" />
-              strong
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--accent)" }} />
+              Strong
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-[3px] border border-dashed border-border-strong" />
-              learning
+              <span className="h-2.5 w-2.5 rounded-full border border-border-strong bg-transparent" />
+              Learning
             </span>
           </div>
-        </div>
+        </>
       )}
     </SectionCard>
   );
@@ -954,14 +959,15 @@ function ExperienceCard({
                     </span>
                   </div>
                   <div className="mt-1 text-[12px] text-accent-text">{x.company}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {tags.map((t) => (
-                      <span key={t} className="rounded-[6px] border border-border bg-input px-2 py-0.5 text-[10px] text-fg-mid">
-                        {t}
-                      </span>
-                    ))}
-                    <SourceBadge source={srcOf(x)} at={x.source_at} detail={x.source_detail} />
-                  </div>
+                  {tags.length ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {tags.map((t) => (
+                        <span key={t} className="rounded-[6px] border border-border bg-input px-2 py-0.5 text-[10px] text-fg-mid">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {x.description ? (
                     <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{x.description}</div>
                   ) : null}
@@ -989,7 +995,6 @@ function SummaryCard({
 }) {
   const summary = profile.summary?.trim() ?? "";
   const words = summary ? summary.split(/\s+/).length : 0;
-  const prov = fieldSrc(profile, "summary");
   return (
     <div className="cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div className="mb-1.5 flex items-center justify-between">
@@ -1010,10 +1015,9 @@ function SummaryCard({
       </div>
       {summary ? (
         <>
-          <div className="mt-3 text-[13.5px] leading-[1.85] text-fg-mid">{summary}</div>
+          <div className="mt-3 max-w-[68ch] text-[13.5px] leading-[1.85] text-fg-mid">{summary}</div>
           <div className="mt-3 flex items-center gap-1.5">
             <span className="rounded-[6px] bg-input px-2 py-0.5 font-mono text-[9px] text-fg-low">{words} words</span>
-            {prov ? <SourceBadge source={prov.source ?? "manual"} at={prov.at} detail={prov.detail} /> : null}
           </div>
         </>
       ) : (
@@ -1075,11 +1079,10 @@ function EducationCard({
                 <CapIcon size={17} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-semibold text-fg">{ed.degree || ed.field || "Studies"}</span>
-                  <SourceBadge source={srcOf(ed)} at={ed.source_at} detail={ed.source_detail} />
+                <div className="truncate text-[13px] font-semibold text-fg">
+                  {[ed.degree, ed.field].filter(Boolean).join(" · ") || "Studies"}
                 </div>
-                <div className="mt-0.5 text-[12px] text-fg-mid">{ed.institution}</div>
+                <div className="mt-0.5 truncate text-[12px] text-fg-mid">{ed.institution}</div>
                 {eduMeta(ed) ? <div className="mt-1 font-mono text-[11px] text-fg-low">{eduMeta(ed)}</div> : null}
                 {ed.courses && ed.courses.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1118,24 +1121,16 @@ function LanguagesCard({
           No languages yet — <span className="font-semibold text-accent-text">add one</span>.
         </EmptyPrompt>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-0.5">
           {languages.map((lg, i) => (
             <button
               key={lg.id ?? i}
               type="button"
               onClick={() => onOpen(lg)}
-              className="-mx-2 rounded-[9px] p-2 text-left transition-colors hover:bg-surface-2"
+              className="-mx-2 flex items-center justify-between gap-3 rounded-[9px] px-2 py-2.5 text-left transition-colors hover:bg-surface-2"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] text-fg">{lg.name}</span>
-                <span className="font-mono text-[10px] text-accent-text">{langLabel(lg.proficiency)}</span>
-              </div>
-              <div className="mt-2 h-[5px] overflow-hidden rounded-[3px] bg-input">
-                <div
-                  className="h-full rounded-[3px]"
-                  style={{ width: `${langPct(lg.proficiency)}%`, background: "var(--accent-grad)" }}
-                />
-              </div>
+              <span className="min-w-0 truncate text-[13px] text-fg">{lg.name}</span>
+              <span className="shrink-0 text-[12px] font-medium text-accent-text">{langLabel(lg.proficiency)}</span>
             </button>
           ))}
         </div>
@@ -1173,47 +1168,56 @@ function ProjectsCard({
         </button>
       }
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {projects.map((p, i) => (
-          <button
-            key={p.id ?? i}
-            type="button"
-            onClick={() => onOpen(p)}
-            className="rounded-[11px] border border-border bg-surface-2 p-3.5 text-left transition-colors hover:border-accent"
-          >
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-accent-text">
-                <BranchIcon size={14} strokeWidth={1.5} />
-              </span>
-              <span className="truncate text-[13px] font-semibold text-fg">{p.name}</span>
-              <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                {typeof p.stars === "number" ? (
-                  <span className="flex items-center gap-0.5 font-mono text-[10px] text-warning" title={`${p.stars} stars`}>
-                    <StarIcon size={11} strokeWidth={1.6} />
-                    {p.stars}
-                  </span>
-                ) : null}
-                {p.role ? (
-                  <span className="rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">
-                    {p.role}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-            {p.description ? (
-              <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{p.description}</div>
-            ) : null}
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {(p.technologies ?? []).map((t) => (
-                <span key={t} className="flex items-center gap-1.5 rounded-[6px] bg-input px-2 py-[3px] font-mono text-[9px] text-fg-mid">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                  {t}
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+        {projects.map((p, i) => {
+          const period = fmtPeriod(p.start_date, p.end_date);
+          const tech = p.technologies ?? [];
+          return (
+            <button
+              key={p.id ?? i}
+              type="button"
+              onClick={() => onOpen(p)}
+              className="flex flex-col rounded-[11px] border border-border bg-surface-2 p-3.5 text-left transition-colors hover:border-accent"
+            >
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-accent-text">
+                  <BranchIcon size={14} strokeWidth={1.5} />
                 </span>
-              ))}
-              <SourceBadge source={srcOf(p)} at={p.source_at} detail={p.source_detail} />
-            </div>
-          </button>
-        ))}
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg">{p.name}</span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {typeof p.stars === "number" ? (
+                    <span className="flex items-center gap-0.5 font-mono text-[10px] text-warning" title={`${p.stars} stars`}>
+                      <StarIcon size={11} strokeWidth={1.6} />
+                      {p.stars}
+                    </span>
+                  ) : null}
+                  {p.role ? (
+                    <span className="max-w-[120px] truncate rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">
+                      {p.role}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              {period ? <div className="mt-1 font-mono text-[10px] text-fg-low">{period}</div> : null}
+              {p.description ? (
+                <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{p.description}</div>
+              ) : null}
+              {tech.length ? (
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                  {tech.map((t) => (
+                    <span
+                      key={t}
+                      className="flex max-w-full items-center gap-1.5 rounded-[6px] bg-input px-2 py-[3px] font-mono text-[9px] text-fg-mid"
+                    >
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                      <span className="truncate">{t}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </button>
+          );
+        })}
         <button
           type="button"
           onClick={onAdd}
@@ -1258,8 +1262,10 @@ function CertificatesCard({
                 <AwardIcon size={15} />
               </span>
               <span className="min-w-0 flex-1 truncate text-fg">{ct.name}</span>
-              <SourceBadge source={srcOf(ct)} at={ct.source_at} detail={ct.source_detail} />
-              {ct.issuer ? <span className="shrink-0 font-mono text-[10px] text-fg-low">{ct.issuer}</span> : null}
+              {ct.issuer ? <span className="shrink-0 truncate font-mono text-[10px] text-fg-low">{ct.issuer}</span> : null}
+              {ct.issue_date ? (
+                <span className="shrink-0 font-mono text-[10px] text-fg-low">{fmtDate(ct.issue_date)}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -1307,7 +1313,6 @@ function TrainingsCard({
                 <div className="truncate text-[12.5px] text-fg">{tr.name}</div>
                 {tr.provider ? <div className="truncate font-mono text-[11px] text-fg-low">{tr.provider}</div> : null}
               </div>
-              <SourceBadge source={srcOf(tr)} at={tr.source_at} detail={tr.source_detail} />
               {tr.completion_date ? (
                 <span className="shrink-0 font-mono text-[10px] text-fg-low">{fmtDate(tr.completion_date)}</span>
               ) : null}
@@ -1342,10 +1347,9 @@ function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) 
                 <LinkIcon size={14} strokeWidth={1.6} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-[12.5px] text-fg">{ln.label}</div>
-                <div className="truncate font-mono text-[11px] text-accent-text">{ln.url}</div>
+                <div className="truncate text-[12.5px] text-fg">{ln.label}</div>
+                <div className="truncate font-mono text-[11px] text-accent-text">{shortUrl(ln.url)}</div>
               </div>
-              <SourceBadge source={srcOf(ln)} at={ln.source_at} detail={ln.source_detail} />
             </button>
           ))}
         </div>
@@ -1464,7 +1468,7 @@ function DetailModal({
 
 function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
   const prov = (it: { source?: Source; source_at?: string | null; source_detail?: string | null }) => (
-    <ProvenanceLine source={srcOf(it)} at={it.source_at} detail={it.source_detail} />
+    <SourceRow source={it.source} at={it.source_at} detail={it.source_detail} />
   );
   switch (kind) {
     case "skill": {
@@ -1591,18 +1595,11 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
     }
     case "language": {
       const lg = item as Language;
-      const pct = langPct(lg.proficiency);
       return (
         <>
-          <div className="mb-3 flex items-center gap-2">
-            <span className="text-[12.5px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
-          </div>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
             <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
-            <span className="font-mono text-[11px] text-accent-text">{pct}%</span>
-          </div>
-          <div className="h-[6px] overflow-hidden rounded-[3px] bg-input">
-            <div className="h-full rounded-[3px]" style={{ width: `${pct}%`, background: "var(--accent-grad)" }} />
+            <span className="text-[13px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
           </div>
           {prov(lg)}
         </>
@@ -1865,6 +1862,7 @@ function IdentityFormModal({
 }) {
   const [values, setValues] = useState<FormValues>(() => prefill(IDENTITY_FIELDS, profile as unknown as Record<string, unknown>));
   const [saving, setSaving] = useState(false);
+  const identitySrc = fieldSrc(profile, "name") ?? fieldSrc(profile, "email");
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -1895,6 +1893,7 @@ function IdentityFormModal({
         <ModalHeader icon={<PencilIcon size={17} />} kicker="Edit · Identity" title="Your details" />
         <div className="max-h-[62vh] overflow-y-auto p-4">
           <FormGrid fields={IDENTITY_FIELDS} values={values} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} />
+          <SourceRow source={identitySrc?.source} at={identitySrc?.at} detail={identitySrc?.detail} />
         </div>
         <ModalFooter onCancel={onClose} saving={saving} submitLabel="Save changes" />
       </form>
@@ -1913,6 +1912,7 @@ function SummaryFormModal({
 }) {
   const [text, setText] = useState(profile.summary ?? "");
   const [saving, setSaving] = useState(false);
+  const summarySrc = fieldSrc(profile, "summary");
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -1938,6 +1938,7 @@ function SummaryFormModal({
           <Field label="Summary" hint="A short professional summary, grounded in your experience.">
             <Textarea value={text} onChange={(e) => setText(e.target.value)} className="min-h-[140px]" />
           </Field>
+          <SourceRow source={summarySrc?.source} at={summarySrc?.at} detail={summarySrc?.detail} />
         </div>
         <ModalFooter onCancel={onClose} saving={saving} submitLabel="Save changes" />
       </form>
@@ -2508,36 +2509,6 @@ function SparkleIcon(p: IconProps) {
   return (
     <Svg {...p}>
       <path d="M10 3l1.5 4L16 8l-4.5 1L10 13l-1.5-4L4 8l4.5-1z" />
-    </Svg>
-  );
-}
-function MailIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <rect x="3" y="5" width="14" height="10" rx="1.5" />
-      <path d="M3 6l7 5 7-5" />
-    </Svg>
-  );
-}
-function PhoneIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <path d="M5 4h3l1 4-2 1a9 9 0 0 0 4 4l1-2 4 1v3a2 2 0 0 1-2 2A13 13 0 0 1 3 6a2 2 0 0 1 2-2z" />
-    </Svg>
-  );
-}
-function LinkedinIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <rect x="3" y="3" width="14" height="14" rx="2" />
-      <path d="M6 8v6M6 6v.5M10 14v-4M14 14v-2.5a1.5 1.5 0 0 0-3 0" />
-    </Svg>
-  );
-}
-function GithubIcon(p: IconProps) {
-  return (
-    <Svg {...p}>
-      <circle cx="10" cy="10" r="7" />
     </Svg>
   );
 }
