@@ -1,270 +1,531 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Trash2 } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
-import { StatDot } from "@/components/ui/feedback";
+import { Field, Input, Textarea } from "@/components/ui/field";
+import { Toggle } from "@/components/ui/controls";
+import { Pill, Spinner, StatDot, type Tone } from "@/components/ui/feedback";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { AsyncBoundary } from "@/components/common/AsyncBoundary";
+import { useAsync } from "@/lib/useAsync";
+import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
+import { errorMessage } from "@/api/client";
+import {
+  certificatesApi,
+  educationApi,
+  experiencesApi,
+  getProfile,
+  languagesApi,
+  linksApi,
+  projectsApi,
+  saveProfile,
+  skillsApi,
+  trainingsApi,
+} from "@/api/profile";
+import {
+  applyCompletion,
+  getCompletionPlan,
+  streamDraft,
+  streamRefine,
+  streamSuggestions,
+  type ApplyPayload,
+  type CompletionStep,
+  type DraftEvent,
+  type SuggestionEvent,
+} from "@/api/profileCompletion";
+import type {
+  Certificate,
+  Education,
+  Experience,
+  FieldSource,
+  Language,
+  LanguageLevel,
+  Link,
+  Profile as ProfileModel,
+  Project,
+  Skill,
+  Source,
+  Training,
+} from "@/api/types";
 
 /* ══════════════════════════════════════════════════════════════════
-   Profile & Skills
-   Faithful translation of the "02-profile" screen, folding in the
-   detail/modal explorations from ProfileSectionDesigns.
+   Profile & Skills — wired to the real backend.
 
-   Backend wiring is deferred. Everything is local state:
-     • preview data-state tabs (the design's "PREVIEW · DATA STATE"
-       bar) switch how full the profile is — driving every section's
-       empty ⇄ full state.
-     • clicking any item card opens an item detail modal.
-     • the header "AI complete empty fields" button opens the AI panel.
-     • the empty summary "Generate" button opens the AI summary studio.
+   • LOAD    getProfile() + the 8 entity list apis (Promise.all), rendered
+             through useAsync/AsyncBoundary with real provenance badges.
+   • CRUD    each section's "+" / empty prompt → add form (Dialog) → create;
+             item click → detail (Dialog) → edit form / delete (ConfirmDialog).
+             Identity + summary edit → saveProfile. Toast + reload on mutation.
+   • AI      the header CTA opens a modal that runs getCompletionPlan() then
+             streamSuggestions(...) field-by-field, then applyCompletion(...).
+   The design is preserved; the "DATA STATE" preview switcher is replaced by a
+   real sync-status indicator derived from the loaded provenance.
    ══════════════════════════════════════════════════════════════════ */
 
-/* ── Domain types ─────────────────────────────────────────────────── */
-type Source = "manual" | "cv" | "github" | "linkedin";
-type SkillWeight = "primary" | "strong" | "normal" | "learning";
+/* ── Domain ───────────────────────────────────────────────────────── */
+type Kind = "skill" | "experience" | "education" | "project" | "certificate" | "training" | "language" | "link";
+type EntityItem = Skill | Experience | Education | Project | Certificate | Training | Language | Link;
 
-type Identity = {
-  initials: string;
-  name: string;
-  subline: string;
-  email?: string;
-  phone?: string;
-  linkedin?: string;
-  github?: string;
-};
-type Summary = { text: string; words: number; keywords: number; source: Source };
-type Skill = { id: string; name: string; category: string; level: number; weight: SkillWeight; source: Source };
-type Experience = {
-  id: string;
-  title: string;
-  company: string;
-  period: string;
-  tags: string[];
-  description: string;
-  source: Source;
-  current?: boolean;
-};
-type Education = { id: string; degree: string; school: string; meta: string; courses: string[]; source: Source };
-type Language = { id: string; name: string; level: string; pct: number; source: Source };
-type Project = { id: string; name: string; role: string; desc: string; tags: string[]; url?: string; stars?: number; source: Source };
-type Certificate = { id: string; name: string; issuer: string; source: Source };
-type Training = { id: string; name: string; provider: string; completed: string; url?: string; source: Source };
-type LinkItem = { id: string; label: string; url: string; source: Source };
-
-type ProfileData = {
-  identity: Identity;
-  summary?: Summary;
+type Bundle = {
+  profile: ProfileModel;
   skills: Skill[];
-  experience: Experience[];
+  experiences: Experience[];
   education: Education[];
   languages: Language[];
   projects: Project[];
   certificates: Certificate[];
   trainings: Training[];
-  links: LinkItem[];
+  links: Link[];
 };
 
-/* ── Placeholder data (verbatim from the design) ──────────────────── */
-const FULL: ProfileData = {
-  identity: {
-    initials: "JR",
-    name: "Jordan Rivera",
-    subline: "Senior ML Engineer · Latent Labs",
-    email: "jordan.rivera@example.com",
-    phone: "+1 (555) 019-2834",
-    linkedin: "in/jordanrivera",
-    github: "jrivera",
+async function loadBundle(): Promise<Bundle> {
+  const [profile, skills, experiences, education, languages, projects, certificates, trainings, links] =
+    await Promise.all([
+      getProfile(),
+      skillsApi.list(),
+      experiencesApi.list(),
+      educationApi.list(),
+      languagesApi.list(),
+      projectsApi.list(),
+      certificatesApi.list(),
+      trainingsApi.list(),
+      linksApi.list(),
+    ]);
+  return { profile, skills, experiences, education, languages, projects, certificates, trainings, links };
+}
+
+const KIND_LABEL: Record<Kind, string> = {
+  skill: "Skill",
+  experience: "Experience",
+  education: "Education",
+  project: "Project",
+  certificate: "Certificate",
+  training: "Training",
+  language: "Language",
+  link: "Link",
+};
+
+const REMOVE_BY_KIND: Record<Kind, (id: number) => Promise<void>> = {
+  skill: skillsApi.remove,
+  experience: experiencesApi.remove,
+  education: educationApi.remove,
+  project: projectsApi.remove,
+  certificate: certificatesApi.remove,
+  training: trainingsApi.remove,
+  language: languagesApi.remove,
+  link: linksApi.remove,
+};
+
+/* ── Provenance ───────────────────────────────────────────────────── */
+const SOURCE_META: Record<Source, { label: string; className?: string; style?: React.CSSProperties; dot: string }> = {
+  cv: { label: "CV", className: "bg-accent-weak text-accent-text", dot: "var(--accent)" },
+  github: { label: "GitHub", style: { background: "rgba(196,181,253,.14)", color: "#c4b5fd" }, dot: "#c4b5fd" },
+  linkedin: { label: "LinkedIn", style: { background: "rgba(147,197,253,.14)", color: "#93c5fd" }, dot: "#93c5fd" },
+  manual: { label: "Manual", className: "bg-surface-2 text-fg-mid", dot: "var(--text-low)" },
+};
+
+const srcOf = (it: { source?: Source }): Source => it.source ?? "manual";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function fmtDate(iso?: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})(?:-(\d{2}))?/.exec(iso);
+  if (!m) return iso;
+  const year = m[1];
+  const mon = m[2];
+  if (!mon) return year;
+  const mi = Number(mon) - 1;
+  return mi >= 0 && mi < 12 ? `${MONTHS[mi]} ${year}` : year;
+}
+
+function fmtYear(iso?: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})/.exec(iso);
+  return m ? m[1] : iso;
+}
+
+function fmtPeriod(start?: string | null, end?: string | null, current?: boolean): string {
+  const s = fmtYear(start);
+  const e = current ? "Now" : fmtYear(end);
+  if (!s && !e) return "";
+  return `${s || "?"} — ${e || "?"}`;
+}
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** Provenance badge — where an item/field came from (source + when). */
+function SourceBadge({
+  source,
+  at,
+  detail,
+  className,
+}: {
+  source: Source;
+  at?: string | null;
+  detail?: string | null;
+  className?: string;
+}) {
+  const m = SOURCE_META[source];
+  const title = [m.label, detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] leading-none",
+        m.className,
+        className,
+      )}
+      style={m.style}
+    >
+      <span className="h-1 w-1 rounded-full" style={{ background: m.dot }} />
+      {m.label}
+    </span>
+  );
+}
+
+/** "Where it came from" line for detail modals. */
+function ProvenanceLine({ source, at, detail }: { source: Source; at?: string | null; detail?: string | null }) {
+  const parts = [detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
+  return (
+    <div className="mt-3.5 flex items-center gap-2 border-t border-border pt-3 font-mono text-[10px] text-fg-low">
+      <span>SOURCE</span>
+      <SourceBadge source={source} at={at} detail={detail} />
+      {parts ? <span className="truncate">{parts}</span> : null}
+    </div>
+  );
+}
+
+/* ── Derivations for the identity / summary cards ─────────────────── */
+function displayName(p: ProfileModel): string {
+  const n = [p.name, p.surname].filter(Boolean).join(" ").trim();
+  return n || "Your name";
+}
+
+function initialsOf(p: ProfileModel): string {
+  const a = (p.name ?? "").trim();
+  const b = (p.surname ?? "").trim();
+  const chars = `${a.charAt(0)}${b.charAt(0)}`.trim();
+  return (chars || a.charAt(0) || "?").toUpperCase();
+}
+
+/** A subline from the current/most-recent experience, else a gentle prompt. */
+function sublineOf(experiences: Experience[]): string {
+  const current = experiences.find((x) => x.is_current) ?? experiences[0];
+  if (!current) return "Add your experience to build your headline";
+  return [current.title, current.company].filter(Boolean).join(" · ");
+}
+
+function fieldSrc(p: ProfileModel, key: string): FieldSource | undefined {
+  return p.field_sources?.[key];
+}
+
+/** Overall "synced from" status shown in the header, from real provenance. */
+function sourceSummary(b: Bundle): { tone: Tone; text: string } {
+  const total =
+    b.skills.length +
+    b.experiences.length +
+    b.education.length +
+    b.languages.length +
+    b.projects.length +
+    b.certificates.length +
+    b.trainings.length +
+    b.links.length;
+  const hasIdentity = Boolean(b.profile.name || b.profile.email || b.profile.summary);
+  if (total === 0 && !hasIdentity) return { tone: "neutral", text: "Nothing yet — import a CV or let AI infer it" };
+
+  const found = new Set<Source>();
+  const lists: { source?: Source }[][] = [
+    b.skills,
+    b.experiences,
+    b.education,
+    b.languages,
+    b.projects,
+    b.certificates,
+    b.trainings,
+    b.links,
+  ];
+  for (const list of lists) for (const it of list) if (it.source && it.source !== "manual") found.add(it.source);
+  for (const fs of Object.values(b.profile.field_sources ?? {})) if (fs.source && fs.source !== "manual") found.add(fs.source);
+
+  if (found.size === 0) return { tone: "warning", text: "Manual entries only" };
+  const names = [...found].map((s) => SOURCE_META[s].label);
+  return { tone: "success", text: `Synced from ${names.join(" & ")}` };
+}
+
+/* ── Skill / language display maps ────────────────────────────────── */
+type SkillWeight = "primary" | "strong" | "normal" | "learning";
+function skillWeight(rating?: number | null): SkillWeight {
+  if (!rating) return "learning";
+  if (rating >= 5) return "primary";
+  if (rating >= 4) return "strong";
+  if (rating >= 3) return "normal";
+  return "learning";
+}
+const SKILL_CHIP: Record<SkillWeight, { className: string; style?: React.CSSProperties }> = {
+  primary: {
+    className: "rounded-[9px] px-[13px] py-2 text-[14px] font-semibold text-white",
+    style: { background: "var(--accent-grad)", boxShadow: "0 6px 16px -8px var(--accent-shadow)" },
   },
-  summary: {
-    text:
-      "ML engineer focused on evaluation and reliability — I build measurement tooling that turns model quality into something teams can see and trust, and I ship it end to end.",
-    words: 42,
-    keywords: 3,
-    source: "cv",
+  strong: {
+    className: "rounded-[9px] border border-border-strong bg-accent-weak px-3 py-[7px] text-[13px] font-semibold text-accent-text",
   },
-  skills: [
-    { id: "sk-pytorch", name: "PyTorch", category: "Machine Learning", level: 5, weight: "primary", source: "cv" },
-    { id: "sk-eval", name: "Evaluation", category: "Machine Learning", level: 5, weight: "strong", source: "cv" },
-    { id: "sk-python", name: "Python", category: "Languages", level: 4, weight: "normal", source: "cv" },
-    { id: "sk-rust", name: "Rust", category: "Languages", level: 4, weight: "normal", source: "github" },
-    { id: "sk-dist", name: "Distributed training", category: "Machine Learning", level: 4, weight: "normal", source: "cv" },
-    { id: "sk-rlhf", name: "RLHF", category: "Machine Learning", level: 2, weight: "learning", source: "manual" },
-    { id: "sk-triton", name: "Triton", category: "Infrastructure", level: 2, weight: "learning", source: "github" },
-    { id: "sk-cuda", name: "CUDA", category: "Infrastructure", level: 2, weight: "learning", source: "github" },
-    { id: "sk-docker", name: "Docker", category: "Infrastructure", level: 2, weight: "learning", source: "manual" },
+  normal: { className: "rounded-[8px] border border-border bg-surface-2 px-[11px] py-1.5 text-[12px] text-fg" },
+  learning: {
+    className: "rounded-[8px] border border-dashed border-border-strong bg-transparent px-2.5 py-[5px] text-[11.5px] text-fg-mid",
+  },
+};
+const LEVEL_LABEL: Record<number, string> = { 5: "Expert", 4: "Advanced", 3: "Intermediate", 2: "Basic", 1: "Beginner" };
+const ratingLabel = (r?: number | null): string => (r ? LEVEL_LABEL[r] ?? `Level ${r}` : "Unrated");
+
+const LANG_PCT: Record<LanguageLevel, number> = { native: 100, fluent: 90, professional: 75, intermediate: 55, basic: 30 };
+const langPct = (p?: LanguageLevel | null): number => (p ? LANG_PCT[p] : 20);
+const titleCase = (s: string): string => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const langLabel = (p?: LanguageLevel | null): string => (p ? titleCase(p) : "—");
+
+/* ══════════════════════════════════════════════════════════════════
+   Forms — descriptor-driven so the 8 entities share one renderer.
+   ══════════════════════════════════════════════════════════════════ */
+type FieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "tags";
+type FieldDesc = {
+  name: string;
+  label: string;
+  type: FieldType;
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  required?: boolean;
+  full?: boolean;
+};
+type FormValues = Record<string, string | boolean>;
+const sv = (x: string | boolean | undefined): string => (typeof x === "string" ? x : "");
+
+const enumOptions = (values: readonly string[]) => values.map((v) => ({ value: v, label: titleCase(v) }));
+const EMPLOYMENT_OPTIONS = enumOptions(["full_time", "part_time", "internship", "freelance", "volunteer", "other"]);
+const CERT_OPTIONS = enumOptions(["professional", "course", "exam", "language", "award", "bootcamp", "other"]);
+const LANG_OPTIONS = enumOptions(["native", "fluent", "professional", "intermediate", "basic"]);
+const RATING_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} · ${LEVEL_LABEL[n]}` }));
+
+const DATE_HINT = "YYYY-MM";
+const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
+  skill: [
+    { name: "name", label: "Skill", type: "text", required: true },
+    { name: "category", label: "Category", type: "text", placeholder: "e.g. Languages" },
+    { name: "self_rating", label: "Proficiency", type: "select", options: RATING_OPTIONS },
+    { name: "years_experience", label: "Years", type: "number" },
+    { name: "note", label: "Note", type: "textarea", full: true },
   ],
   experience: [
-    {
-      id: "xp-latent",
-      title: "Senior ML Engineer",
-      company: "Latent Labs",
-      period: "2023 — Now",
-      tags: ["Full-time", "Remote"],
-      description: "Owned the on-device eval harness; cut model regression detection from days to minutes.",
-      source: "cv",
-      current: true,
-    },
-    {
-      id: "xp-corevance",
-      title: "ML Engineer",
-      company: "Corevance",
-      period: "2021 — 23",
-      tags: ["Full-time"],
-      description: "Built distributed training pipelines used by 60+ engineers across the org.",
-      source: "cv",
-    },
-    {
-      id: "xp-berkeley",
-      title: "Research Assistant",
-      company: "UC Berkeley",
-      period: "2019 — 21",
-      tags: ["Part-time"],
-      description: "Researched evaluation methods for reinforcement learning from human feedback.",
-      source: "manual",
-    },
+    { name: "title", label: "Title", type: "text", required: true },
+    { name: "company", label: "Company", type: "text", required: true },
+    { name: "employment_type", label: "Employment type", type: "select", options: EMPLOYMENT_OPTIONS },
+    { name: "location", label: "Location", type: "text" },
+    { name: "start_date", label: "Start", type: "text", placeholder: DATE_HINT },
+    { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
+    { name: "is_current", label: "Current role", type: "checkbox" },
+    { name: "description", label: "What I did", type: "textarea", full: true },
   ],
   education: [
-    {
-      id: "ed-berkeley",
-      degree: "B.S. Computer Science",
-      school: "UC Berkeley",
-      meta: "2018 — 2022 · GPA 3.8",
-      courses: ["Machine Learning", "Distributed Systems", "Algorithms"],
-      source: "cv",
-    },
+    { name: "institution", label: "Institution", type: "text", required: true },
+    { name: "degree", label: "Degree", type: "text" },
+    { name: "field", label: "Field of study", type: "text" },
+    { name: "location", label: "Location", type: "text" },
+    { name: "start_date", label: "Start", type: "text", placeholder: DATE_HINT },
+    { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
+    { name: "is_current", label: "Currently studying", type: "checkbox" },
+    { name: "gpa", label: "GPA", type: "text" },
   ],
-  languages: [
-    { id: "lg-en", name: "English", level: "Native", pct: 100, source: "manual" },
-    { id: "lg-es", name: "Spanish", level: "Professional", pct: 75, source: "manual" },
-    { id: "lg-fr", name: "French", level: "Basic", pct: 35, source: "manual" },
+  project: [
+    { name: "name", label: "Project", type: "text", required: true },
+    { name: "role", label: "Your role", type: "text" },
+    { name: "technologies", label: "Technologies (comma-separated)", type: "tags", full: true },
+    { name: "url", label: "URL", type: "text", full: true },
+    { name: "start_date", label: "Start", type: "text", placeholder: DATE_HINT },
+    { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
+    { name: "description", label: "Description", type: "textarea", full: true },
   ],
-  projects: [
-    {
-      id: "pr-evalkit",
-      name: "eval-kit",
-      role: "Owner",
-      desc: "On-device model evaluation harness with per-commit regression tracking.",
-      tags: ["Python", "Rust"],
-      url: "github.com/jrivera/eval-kit",
-      stars: 214,
-      source: "github",
-    },
-    {
-      id: "pr-stream",
-      name: "stream-parse",
-      role: "Author",
-      desc: "Streaming JSON parser for token-by-token LLM output.",
-      tags: ["TypeScript"],
-      url: "github.com/jrivera/stream-parse",
-      stars: 96,
-      source: "github",
-    },
-    {
-      id: "pr-triton",
-      name: "tiny-triton",
-      role: "Contributor",
-      desc: "Minimal Triton kernels for 4-bit inference.",
-      tags: ["CUDA"],
-      url: "github.com/jrivera/tiny-triton",
-      source: "github",
-    },
+  certificate: [
+    { name: "name", label: "Certificate", type: "text", required: true },
+    { name: "issuer", label: "Issuer", type: "text" },
+    { name: "cert_type", label: "Type", type: "select", options: CERT_OPTIONS },
+    { name: "issue_date", label: "Issued", type: "text", placeholder: DATE_HINT },
+    { name: "expiry_date", label: "Expires", type: "text", placeholder: DATE_HINT },
+    { name: "credential_id", label: "Credential ID", type: "text" },
+    { name: "url", label: "URL", type: "text", full: true },
   ],
-  certificates: [
-    { id: "ct-dl", name: "Deep Learning Specialization", issuer: "Coursera", source: "cv" },
-    { id: "ct-aws", name: "AWS Machine Learning — Specialty", issuer: "AWS", source: "manual" },
-    { id: "ct-tf", name: "TensorFlow Developer", issuer: "Google", source: "manual" },
+  training: [
+    { name: "name", label: "Training", type: "text", required: true },
+    { name: "provider", label: "Provider", type: "text" },
+    { name: "completion_date", label: "Completed", type: "text", placeholder: DATE_HINT },
+    { name: "url", label: "URL", type: "text", full: true },
+    { name: "description", label: "Description", type: "textarea", full: true },
   ],
-  trainings: [
-    { id: "tr-mlops", name: "MLOps Specialization", provider: "DeepLearning.AI", completed: "2023", url: "coursera.org/learn/mlops", source: "cv" },
-    { id: "tr-llm", name: "Full Stack LLM Bootcamp", provider: "The Full Stack", completed: "2023", source: "linkedin" },
-    { id: "tr-kube", name: "Kubernetes for ML Workloads", provider: "Linux Foundation", completed: "2022", source: "manual" },
+  language: [
+    { name: "name", label: "Language", type: "text", required: true },
+    { name: "proficiency", label: "Proficiency", type: "select", options: LANG_OPTIONS },
   ],
-  links: [
-    { id: "ln-site", label: "Portfolio", url: "jordanrivera.dev", source: "manual" },
-    { id: "ln-gh", label: "GitHub", url: "github.com/jrivera", source: "github" },
-    { id: "ln-li", label: "LinkedIn", url: "linkedin.com/in/jordanrivera", source: "linkedin" },
+  link: [
+    { name: "label", label: "Label", type: "text", required: true },
+    { name: "url", label: "URL", type: "text", required: true, full: true },
+    { name: "description", label: "Note", type: "textarea", full: true },
   ],
 };
 
-/* Derived preview states — same shape, trimmed to exercise empty views. */
-const CV_ONLY: ProfileData = { ...FULL, projects: [], links: [] };
-
-const SPARSE: ProfileData = {
-  identity: { initials: "AC", name: "Alex Chen", subline: "Software Engineer", email: "alex.chen@example.com" },
-  skills: [
-    { id: "sp-py", name: "Python", category: "Languages", level: 4, weight: "strong", source: "manual" },
-    { id: "sp-react", name: "React", category: "Frontend", level: 2, weight: "learning", source: "manual" },
-  ],
-  experience: [
-    {
-      id: "sp-fe",
-      title: "Frontend Engineer",
-      company: "Northwind",
-      period: "2022 — Now",
-      tags: ["Full-time"],
-      description: "Building the design system and shipping product surfaces.",
-      source: "manual",
-    },
-  ],
-  education: [],
-  languages: [],
-  projects: [],
-  certificates: [],
-  trainings: [],
-  links: [],
-};
-
-const EMPTY: ProfileData = {
-  identity: { initials: "YN", name: "Your name", subline: "Add your title" },
-  skills: [],
-  experience: [],
-  education: [],
-  languages: [],
-  projects: [],
-  certificates: [],
-  trainings: [],
-  links: [],
-};
-
-/* ── Preview data-state switcher (the design's top bar) ───────────── */
-type PreviewState = "full" | "cv" | "sparse" | "empty";
-const PREVIEW_TABS: { value: PreviewState; label: string; count: number; hint: string; sync: string }[] = [
-  { value: "full", label: "Full profile", count: 28, hint: "Complete profile — ready to write.", sync: "Synced from CV & GitHub" },
-  { value: "cv", label: "From CV", count: 22, hint: "Imported from your CV — add projects & links.", sync: "Synced from CV" },
-  { value: "sparse", label: "Sparse", count: 3, hint: "A few fields filled — let AI complete the rest.", sync: "Partially filled" },
-  { value: "empty", label: "Empty", count: 0, hint: "Nothing yet — import a CV or let AI infer it.", sync: "Nothing synced yet" },
+const IDENTITY_FIELDS: FieldDesc[] = [
+  { name: "name", label: "First name", type: "text" },
+  { name: "surname", label: "Last name", type: "text" },
+  { name: "email", label: "Email", type: "text" },
+  { name: "phone", label: "Phone", type: "text" },
+  { name: "linkedin", label: "LinkedIn", type: "text", full: true },
+  { name: "github", label: "GitHub", type: "text", full: true },
 ];
-const DATA_BY_STATE: Record<PreviewState, ProfileData> = { full: FULL, cv: CV_ONLY, sparse: SPARSE, empty: EMPTY };
+
+function blankValues(fields: FieldDesc[]): FormValues {
+  const out: FormValues = {};
+  for (const f of fields) out[f.name] = f.type === "checkbox" ? false : "";
+  return out;
+}
+
+function prefill(fields: FieldDesc[], item: Record<string, unknown>): FormValues {
+  const out: FormValues = {};
+  for (const f of fields) {
+    const raw = item[f.name];
+    if (f.type === "checkbox") out[f.name] = raw === true;
+    else if (f.type === "tags") out[f.name] = Array.isArray(raw) ? raw.join(", ") : "";
+    else if (raw == null) out[f.name] = "";
+    else out[f.name] = String(raw);
+  }
+  return out;
+}
+
+/** Turn form values into a JSON body, preserving hidden fields (id, provenance). */
+function assemble(fields: FieldDesc[], existing: EntityItem | null, v: FormValues): Record<string, unknown> {
+  const out: Record<string, unknown> = existing ? { ...(existing as unknown as Record<string, unknown>) } : {};
+  for (const f of fields) {
+    if (f.type === "checkbox") out[f.name] = v[f.name] === true;
+    else if (f.type === "tags") out[f.name] = sv(v[f.name]).split(",").map((t) => t.trim()).filter(Boolean);
+    else if (f.type === "number") {
+      const s = sv(v[f.name]).trim();
+      const n = Number(s);
+      out[f.name] = s && !Number.isNaN(n) ? n : null;
+    } else {
+      const s = sv(v[f.name]).trim();
+      out[f.name] = s ? s : null;
+    }
+  }
+  return out;
+}
+
+async function persistItem(kind: Kind, existing: EntityItem | null, v: FormValues): Promise<void> {
+  const body = assemble(FORM_FIELDS[kind], existing, v);
+  const id = existing?.id ?? null;
+  switch (kind) {
+    case "skill": {
+      const item = body as unknown as Skill;
+      await (id ? skillsApi.update(id, item) : skillsApi.create(item));
+      break;
+    }
+    case "experience": {
+      const item = body as unknown as Experience;
+      await (id ? experiencesApi.update(id, item) : experiencesApi.create(item));
+      break;
+    }
+    case "education": {
+      const item = body as unknown as Education;
+      await (id ? educationApi.update(id, item) : educationApi.create(item));
+      break;
+    }
+    case "project": {
+      const item = body as unknown as Project;
+      await (id ? projectsApi.update(id, item) : projectsApi.create(item));
+      break;
+    }
+    case "certificate": {
+      const item = body as unknown as Certificate;
+      await (id ? certificatesApi.update(id, item) : certificatesApi.create(item));
+      break;
+    }
+    case "training": {
+      const item = body as unknown as Training;
+      await (id ? trainingsApi.update(id, item) : trainingsApi.create(item));
+      break;
+    }
+    case "language": {
+      const item = body as unknown as Language;
+      await (id ? languagesApi.update(id, item) : languagesApi.create(item));
+      break;
+    }
+    case "link": {
+      const item = body as unknown as Link;
+      await (id ? linksApi.update(id, item) : linksApi.create(item));
+      break;
+    }
+  }
+}
+
+function itemTitle(kind: Kind, item: EntityItem): string {
+  switch (kind) {
+    case "skill":
+      return (item as Skill).name;
+    case "experience":
+      return (item as Experience).title;
+    case "education":
+      return (item as Education).degree || (item as Education).institution;
+    case "project":
+      return (item as Project).name;
+    case "certificate":
+      return (item as Certificate).name;
+    case "training":
+      return (item as Training).name;
+    case "language":
+      return (item as Language).name;
+    case "link":
+      return (item as Link).label;
+  }
+}
 
 /* ══════════════════════════════════════════════════════════════════
    Page
    ══════════════════════════════════════════════════════════════════ */
-type DetailKind = "skill" | "experience" | "education" | "project" | "certificate" | "training" | "link" | "language";
-type Detail = { kind: DetailKind; id: string };
+type DetailRef = { kind: Kind; item: EntityItem };
+type FormRef = { kind: Kind; existing: EntityItem | null };
 
 export function Profile() {
-  const [preview, setPreview] = useState<PreviewState>("full");
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const state = useAsync(loadBundle, []);
+  const reload = state.reload;
+
+  const [detail, setDetail] = useState<DetailRef | null>(null);
+  const [form, setForm] = useState<FormRef | null>(null);
+  const [confirm, setConfirm] = useState<DetailRef | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [editIdentity, setEditIdentity] = useState(false);
+  const [editSummary, setEditSummary] = useState(false);
+  const [genSummary, setGenSummary] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [summaryOpen, setSummaryOpen] = useState(false);
 
-  const data = DATA_BY_STATE[preview];
-  const tab = PREVIEW_TABS.find((t) => t.value === preview)!;
-  const anyOpen = detail !== null || aiOpen || summaryOpen;
+  const bundle = state.data;
+  const status = bundle
+    ? sourceSummary(bundle)
+    : ({ tone: "neutral", text: state.loading ? "Loading profile…" : "" } as { tone: Tone; text: string });
 
-  useEffect(() => {
-    if (!anyOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setDetail(null);
-        setAiOpen(false);
-        setSummaryOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [anyOpen]);
+  const openAdd = (kind: Kind) => setForm({ kind, existing: null });
+  const openDetail = (kind: Kind, item: EntityItem) => setDetail({ kind, item });
 
-  const open = (kind: DetailKind, id: string) => setDetail({ kind, id });
+  const handleDelete = async () => {
+    if (!confirm || confirm.item.id == null) return;
+    setDeleting(true);
+    try {
+      await REMOVE_BY_KIND[confirm.kind](confirm.item.id);
+      toast.success(`${KIND_LABEL[confirm.kind]} removed`, itemTitle(confirm.kind, confirm.item));
+      setConfirm(null);
+      reload();
+    } catch (err) {
+      toast.danger("Couldn't delete", errorMessage(err));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <Page
@@ -272,10 +533,12 @@ export function Profile() {
       title="Profile & Skills"
       actions={
         <>
-          <span className="hidden items-center gap-1.5 text-[11.5px] text-fg-mid sm:flex">
-            <StatDot tone={preview === "empty" ? "neutral" : preview === "sparse" ? "warning" : "success"} glow size={6} />
-            {tab.sync}
-          </span>
+          {status.text ? (
+            <span className="hidden items-center gap-1.5 text-[11.5px] text-fg-mid sm:flex">
+              <StatDot tone={status.tone} glow size={6} />
+              {status.text}
+            </span>
+          ) : null}
           <Button variant="primary" size="md" onClick={() => setAiOpen(true)}>
             <SparkleIcon size={15} /> AI complete empty fields
           </Button>
@@ -283,95 +546,170 @@ export function Profile() {
       }
       bodyClassName="px-7 py-5"
     >
-      {/* preview data-state bar (edge-to-edge under the header) */}
-      <PreviewBar tabs={PREVIEW_TABS} value={preview} hint={tab.hint} onPick={setPreview} />
+      <AsyncBoundary state={state} skeleton={<ProfileSkeleton />}>
+        {(b) => (
+          <div className="flex flex-col gap-4">
+            <IdentityCard profile={b.profile} experiences={b.experiences} onEdit={() => setEditIdentity(true)} />
 
-      <div className="flex flex-col gap-4">
-        {/* Identity */}
-        <IdentityCard identity={data.identity} />
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <SkillsCard skills={b.skills} onOpen={(it) => openDetail("skill", it)} onAdd={() => openAdd("skill")} />
+              <ExperienceCard
+                experiences={b.experiences}
+                onOpen={(it) => openDetail("experience", it)}
+                onAdd={() => openAdd("experience")}
+              />
+            </div>
 
-        {/* Skills · Experience */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <SkillsCard skills={data.skills} onOpen={(id) => open("skill", id)} />
-          <ExperienceCard experience={data.experience} onOpen={(id) => open("experience", id)} />
-        </div>
+            <SummaryCard profile={b.profile} onEdit={() => setEditSummary(true)} onGenerate={() => setGenSummary(true)} />
 
-        {/* Summary */}
-        <SummaryCard summary={data.summary} onGenerate={() => setSummaryOpen(true)} />
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <EducationCard
+                education={b.education}
+                onOpen={(it) => openDetail("education", it)}
+                onAdd={() => openAdd("education")}
+              />
+              <LanguagesCard
+                languages={b.languages}
+                onOpen={(it) => openDetail("language", it)}
+                onAdd={() => openAdd("language")}
+              />
+            </div>
 
-        {/* Education · Languages */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <EducationCard education={data.education} onOpen={(id) => open("education", id)} />
-          <LanguagesCard languages={data.languages} onOpen={(id) => open("language", id)} />
-        </div>
+            <ProjectsCard
+              projects={b.projects}
+              onOpen={(it) => openDetail("project", it)}
+              onAdd={() => openAdd("project")}
+              onGithub={() => setAiOpen(true)}
+            />
 
-        {/* Projects */}
-        <ProjectsCard projects={data.projects} onOpen={(id) => open("project", id)} />
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <CertificatesCard
+                certificates={b.certificates}
+                onOpen={(it) => openDetail("certificate", it)}
+                onAdd={() => openAdd("certificate")}
+              />
+              <LinksCard links={b.links} onOpen={(it) => openDetail("link", it)} onAdd={() => openAdd("link")} />
+            </div>
 
-        {/* Certificates · Links */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <CertificatesCard certificates={data.certificates} onOpen={(id) => open("certificate", id)} />
-          <LinksCard links={data.links} onOpen={(id) => open("link", id)} />
-        </div>
+            <TrainingsCard
+              trainings={b.trainings}
+              onOpen={(it) => openDetail("training", it)}
+              onAdd={() => openAdd("training")}
+            />
+          </div>
+        )}
+      </AsyncBoundary>
 
-        {/* Trainings */}
-        <TrainingsCard trainings={data.trainings} onOpen={(id) => open("training", id)} />
-      </div>
+      {detail ? (
+        <DetailModal
+          kind={detail.kind}
+          item={detail.item}
+          onClose={() => setDetail(null)}
+          onEdit={() => {
+            setForm({ kind: detail.kind, existing: detail.item });
+            setDetail(null);
+          }}
+          onDelete={() => {
+            setConfirm(detail);
+            setDetail(null);
+          }}
+        />
+      ) : null}
 
-      {detail ? <DetailModal data={data} detail={detail} onClose={() => setDetail(null)} /> : null}
-      {aiOpen ? <AiCompleteModal data={data} onClose={() => setAiOpen(false)} /> : null}
-      {summaryOpen ? <SummaryStudioModal onClose={() => setSummaryOpen(false)} /> : null}
+      {form ? (
+        <ItemFormModal
+          kind={form.kind}
+          existing={form.existing}
+          onClose={() => setForm(null)}
+          onSaved={() => {
+            setForm(null);
+            reload();
+          }}
+        />
+      ) : null}
+
+      {bundle && editIdentity ? (
+        <IdentityFormModal
+          profile={bundle.profile}
+          onClose={() => setEditIdentity(false)}
+          onSaved={() => {
+            setEditIdentity(false);
+            reload();
+          }}
+        />
+      ) : null}
+
+      {bundle && editSummary ? (
+        <SummaryFormModal
+          profile={bundle.profile}
+          onClose={() => setEditSummary(false)}
+          onSaved={() => {
+            setEditSummary(false);
+            reload();
+          }}
+        />
+      ) : null}
+
+      {bundle && genSummary ? (
+        <SummaryStudioModal
+          profile={bundle.profile}
+          onClose={() => setGenSummary(false)}
+          onSaved={() => {
+            setGenSummary(false);
+            reload();
+          }}
+          onWriteMyself={() => {
+            setGenSummary(false);
+            setEditSummary(true);
+          }}
+        />
+      ) : null}
+
+      {aiOpen ? (
+        <AiCompleteModal
+          onClose={() => setAiOpen(false)}
+          onApplied={() => {
+            setAiOpen(false);
+            reload();
+          }}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        open={confirm !== null}
+        onOpenChange={(o) => {
+          if (!o) setConfirm(null);
+        }}
+        tone="danger"
+        icon={<Trash2 size={22} />}
+        title={confirm ? `Delete this ${KIND_LABEL[confirm.kind].toLowerCase()}?` : ""}
+        description={
+          confirm ? (
+            <>
+              <span className="font-semibold text-fg">{itemTitle(confirm.kind, confirm.item)}</span> will be permanently
+              removed from your profile. This can't be undone.
+            </>
+          ) : undefined
+        }
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
     </Page>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   Preview bar
-   ══════════════════════════════════════════════════════════════════ */
-function PreviewBar({
-  tabs,
-  value,
-  hint,
-  onPick,
-}: {
-  tabs: typeof PREVIEW_TABS;
-  value: PreviewState;
-  hint: string;
-  onPick: (s: PreviewState) => void;
-}) {
+function ProfileSkeleton() {
   return (
-    <div className="-mx-7 -mt-5 mb-4 flex flex-wrap items-center gap-3.5 border-b border-border bg-surface-2 px-7 py-[11px]">
-      <span className="flex items-center gap-1.5 whitespace-nowrap font-mono text-[9.5px] tracking-[1.2px] text-fg-low">
-        <span className="h-1.5 w-1.5 rounded-[2px] bg-accent" />
-        PREVIEW · DATA STATE
-      </span>
-      <div className="flex gap-1 rounded-[11px] border border-border bg-input p-1">
-        {tabs.map((t) => {
-          const active = t.value === value;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => onPick(t.value)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[11.5px] font-medium transition-colors",
-                active ? "bg-surface text-fg shadow-[0_1px_0_rgba(0,0,0,.3)]" : "text-fg-mid hover:text-fg",
-              )}
-            >
-              {t.label}
-              <span
-                className={cn(
-                  "rounded-full px-1.5 py-px font-mono text-[9px]",
-                  active ? "bg-accent-weak text-accent-text" : "bg-surface-2 text-fg-low",
-                )}
-              >
-                {t.count}
-              </span>
-            </button>
-          );
-        })}
+    <div className="flex flex-col gap-4">
+      <div className="h-[104px] animate-pulse rounded-[12px] border border-border bg-surface" />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="h-[220px] animate-pulse rounded-[12px] border border-border bg-surface" />
+        <div className="h-[220px] animate-pulse rounded-[12px] border border-border bg-surface" />
       </div>
-      <span className="ml-auto whitespace-nowrap text-[11.5px] text-fg-mid">{hint}</span>
+      <div className="flex items-center justify-center py-6 text-fg-mid">
+        <Spinner size={20} />
+      </div>
     </div>
   );
 }
@@ -391,7 +729,7 @@ function SectionCard({
   title: string;
   meta?: ReactNode;
   headerExtra?: ReactNode;
-  onAdd?: boolean;
+  onAdd?: () => void;
   addLabel: string;
   children: ReactNode;
   className?: string;
@@ -403,7 +741,7 @@ function SectionCard({
         <div className="flex items-center gap-2.5">
           {meta ? <span className="font-mono text-[10px] text-fg-low">{meta}</span> : null}
           {headerExtra}
-          {onAdd ? <AddButton title={addLabel} /> : null}
+          {onAdd ? <AddButton title={addLabel} onClick={onAdd} /> : null}
         </div>
       </div>
       {children}
@@ -411,13 +749,13 @@ function SectionCard({
   );
 }
 
-/** Small "+" affordance — no handler (add flow deferred). */
-function AddButton({ title, size = 26 }: { title: string; size?: number }) {
+function AddButton({ title, onClick, size = 26 }: { title: string; onClick: () => void; size?: number }) {
   return (
     <button
       type="button"
       title={title}
       aria-label={title}
+      onClick={onClick}
       className="flex items-center justify-center rounded-[8px] border border-border-strong bg-surface-2 text-fg-mid transition-colors hover:border-accent hover:text-accent-text"
       style={{ width: size, height: size }}
     >
@@ -426,11 +764,11 @@ function AddButton({ title, size = 26 }: { title: string; size?: number }) {
   );
 }
 
-/** Dashed "empty section" prompt (add flow deferred → plain button). */
-function EmptyPrompt({ children, minimal = false }: { children: ReactNode; minimal?: boolean }) {
+function EmptyPrompt({ children, onClick, minimal = false }: { children: ReactNode; onClick: () => void; minimal?: boolean }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={cn(
         "w-full rounded-[10px] border border-dashed border-border-strong bg-input text-center text-[12.5px] text-fg-mid transition-colors hover:border-accent",
         minimal ? "p-[18px]" : "p-5",
@@ -441,66 +779,59 @@ function EmptyPrompt({ children, minimal = false }: { children: ReactNode; minim
   );
 }
 
-const SOURCE_META: Record<Source, { label: string; className?: string; style?: React.CSSProperties; dot: string }> = {
-  cv: { label: "CV", className: "bg-accent-weak text-accent-text", dot: "var(--accent)" },
-  github: { label: "GitHub", style: { background: "rgba(196,181,253,.14)", color: "#c4b5fd" }, dot: "#c4b5fd" },
-  linkedin: { label: "LinkedIn", style: { background: "rgba(147,197,253,.14)", color: "#93c5fd" }, dot: "#93c5fd" },
-  manual: { label: "Manual", className: "bg-surface-2 text-fg-mid", dot: "var(--text-low)" },
-};
-
-/** Provenance badge — where an item came from. */
-function SourceBadge({ source, className }: { source: Source; className?: string }) {
-  const m = SOURCE_META[source];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] leading-none",
-        m.className,
-        className,
-      )}
-      style={m.style}
-    >
-      <span className="h-1 w-1 rounded-full" style={{ background: m.dot }} />
-      {m.label}
-    </span>
-  );
-}
-
 /* ══════════════════════════════════════════════════════════════════
    Identity
    ══════════════════════════════════════════════════════════════════ */
-function IdentityCard({ identity }: { identity: Identity }) {
-  const { email, phone, linkedin, github } = identity;
+function IdentityCard({
+  profile,
+  experiences,
+  onEdit,
+}: {
+  profile: ProfileModel;
+  experiences: Experience[];
+  onEdit: () => void;
+}) {
+  const { email, phone, linkedin, github } = profile;
   const noContact = !email && !phone && !linkedin && !github;
+  const prov = fieldSrc(profile, "name") ?? fieldSrc(profile, "email");
+  const contactTitle = (key: string): string | undefined => {
+    const s = fieldSrc(profile, key);
+    return s ? [SOURCE_META[s.source ?? "manual"].label, s.detail, s.at ? fmtDate(s.at) : null].filter(Boolean).join(" · ") : undefined;
+  };
   return (
     <div className="cll-fade flex items-center gap-5 rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[16px] text-[22px] font-bold text-white"
         style={{ background: "var(--accent-grad)", boxShadow: "0 8px 24px -8px var(--accent-shadow)" }}
       >
-        {identity.initials}
+        {initialsOf(profile)}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[19px] font-bold text-fg">{identity.name}</div>
-        <div className="mt-1 text-[13px] text-fg-mid">{identity.subline}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-[19px] font-bold text-fg">{displayName(profile)}</div>
+          {prov && prov.source && prov.source !== "manual" ? (
+            <SourceBadge source={prov.source} at={prov.at} detail={prov.detail} />
+          ) : null}
+        </div>
+        <div className="mt-1 text-[13px] text-fg-mid">{sublineOf(experiences)}</div>
         <div className="mt-[11px] flex flex-wrap gap-x-[18px] gap-y-2 text-[12px] text-fg-mid">
           {email ? (
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5" title={contactTitle("email")}>
               <MailIcon size={13} strokeWidth={1.4} /> {email}
             </span>
           ) : null}
           {phone ? (
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5" title={contactTitle("phone")}>
               <PhoneIcon size={13} strokeWidth={1.4} /> {phone}
             </span>
           ) : null}
           {linkedin ? (
-            <span className="flex items-center gap-1.5" style={{ color: "#93c5fd" }}>
+            <span className="flex items-center gap-1.5" style={{ color: "#93c5fd" }} title={contactTitle("linkedin")}>
               <LinkedinIcon size={13} strokeWidth={1.4} /> {linkedin}
             </span>
           ) : null}
           {github ? (
-            <span className="flex items-center gap-1.5" style={{ color: "#c4b5fd" }}>
+            <span className="flex items-center gap-1.5" style={{ color: "#c4b5fd" }} title={contactTitle("github")}>
               <GithubIcon size={13} strokeWidth={1.4} /> {github}
             </span>
           ) : null}
@@ -509,6 +840,7 @@ function IdentityCard({ identity }: { identity: Identity }) {
       </div>
       <button
         type="button"
+        onClick={onEdit}
         className="flex shrink-0 items-center gap-1.5 rounded-[9px] border border-border-strong bg-transparent px-3 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
       >
         <PencilIcon size={13} /> Edit
@@ -518,38 +850,31 @@ function IdentityCard({ identity }: { identity: Identity }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Skills (tag cloud — the design's selected V2)
+   Skills
    ══════════════════════════════════════════════════════════════════ */
-const SKILL_CHIP: Record<SkillWeight, { className: string; style?: React.CSSProperties }> = {
-  primary: {
-    className: "rounded-[9px] px-[13px] py-2 text-[14px] font-semibold text-white",
-    style: { background: "var(--accent-grad)", boxShadow: "0 6px 16px -8px var(--accent-shadow)" },
-  },
-  strong: { className: "rounded-[9px] border border-border-strong bg-accent-weak px-3 py-[7px] text-[13px] font-semibold text-accent-text" },
-  normal: { className: "rounded-[8px] border border-border bg-surface-2 px-[11px] py-1.5 text-[12px] text-fg" },
-  learning: { className: "rounded-[8px] border border-dashed border-border-strong bg-transparent px-2.5 py-[5px] text-[11.5px] text-fg-mid" },
-};
-
-function SkillsCard({ skills, onOpen }: { skills: Skill[]; onOpen: (id: string) => void }) {
+function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Skill) => void; onAdd: () => void }) {
   return (
-    <SectionCard title="Skills" meta={`${skills.length} tracked`} addLabel="Add skill" onAdd className="flex flex-col">
+    <SectionCard title="Skills" meta={`${skills.length} tracked`} addLabel="Add skill" onAdd={onAdd} className="flex flex-col">
       {skills.length === 0 ? (
-        <EmptyPrompt>
+        <EmptyPrompt onClick={onAdd}>
           No skills yet — <span className="font-semibold text-accent-text">add one</span> or let AI infer them from your CV.
         </EmptyPrompt>
       ) : (
         <div
           className="flex max-h-[340px] flex-col gap-4 overflow-auto pr-1.5"
-          style={{ WebkitMaskImage: "linear-gradient(180deg,#000 93%,transparent)", maskImage: "linear-gradient(180deg,#000 93%,transparent)" }}
+          style={{
+            WebkitMaskImage: "linear-gradient(180deg,#000 93%,transparent)",
+            maskImage: "linear-gradient(180deg,#000 93%,transparent)",
+          }}
         >
           <div className="flex flex-wrap items-center gap-[7px]">
             {skills.map((sk) => {
-              const chip = SKILL_CHIP[sk.weight];
+              const chip = SKILL_CHIP[skillWeight(sk.self_rating)];
               return (
                 <button
-                  key={sk.id}
+                  key={sk.id ?? sk.name}
                   type="button"
-                  onClick={() => onOpen(sk.id)}
+                  onClick={() => onOpen(sk)}
                   className={cn("transition-transform hover:-translate-y-0.5", chip.className)}
                   style={chip.style}
                 >
@@ -575,24 +900,38 @@ function SkillsCard({ skills, onOpen }: { skills: Skill[]; onOpen: (id: string) 
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Experience (timeline)
+   Experience
    ══════════════════════════════════════════════════════════════════ */
-function ExperienceCard({ experience, onOpen }: { experience: Experience[]; onOpen: (id: string) => void }) {
+function ExperienceCard({
+  experiences,
+  onOpen,
+  onAdd,
+}: {
+  experiences: Experience[];
+  onOpen: (x: Experience) => void;
+  onAdd: () => void;
+}) {
   return (
-    <SectionCard title="Experience" meta={experience.length ? `${experience.length} roles` : undefined} addLabel="Add role" onAdd>
-      {experience.length === 0 ? (
-        <EmptyPrompt>
+    <SectionCard
+      title="Experience"
+      meta={experiences.length ? `${experiences.length} roles` : undefined}
+      addLabel="Add role"
+      onAdd={onAdd}
+    >
+      {experiences.length === 0 ? (
+        <EmptyPrompt onClick={onAdd}>
           No roles yet — <span className="font-semibold text-accent-text">add your first</span>.
         </EmptyPrompt>
       ) : (
         <div className="flex flex-col">
-          {experience.map((x, i) => {
-            const last = i === experience.length - 1;
+          {experiences.map((x, i) => {
+            const last = i === experiences.length - 1;
+            const tags = [x.employment_type ? titleCase(x.employment_type) : "", x.location ?? ""].filter(Boolean);
             return (
               <button
-                key={x.id}
+                key={x.id ?? i}
                 type="button"
-                onClick={() => onOpen(x.id)}
+                onClick={() => onOpen(x)}
                 className="-mx-2 flex gap-3.5 rounded-[10px] px-2 py-[11px] text-left transition-colors hover:bg-surface-2"
               >
                 <div className="flex shrink-0 flex-col items-center pt-1">
@@ -600,8 +939,8 @@ function ExperienceCard({ experience, onOpen }: { experience: Experience[]; onOp
                     className="h-2 w-2 rounded-full"
                     style={{
                       background: "var(--accent)",
-                      boxShadow: x.current ? "0 0 8px var(--accent)" : undefined,
-                      opacity: x.current ? 1 : 0.6,
+                      boxShadow: x.is_current ? "0 0 8px var(--accent)" : undefined,
+                      opacity: x.is_current ? 1 : 0.6,
                     }}
                   />
                   {!last ? <span className="mt-1.5 min-h-[14px] w-px flex-1 bg-border" /> : null}
@@ -609,18 +948,22 @@ function ExperienceCard({ experience, onOpen }: { experience: Experience[]; onOp
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2.5">
                     <span className="text-[13.5px] font-semibold leading-tight text-fg">{x.title}</span>
-                    <span className="shrink-0 text-[10.5px] tabular-nums text-fg-low">{x.period}</span>
+                    <span className="shrink-0 text-[10.5px] tabular-nums text-fg-low">
+                      {fmtPeriod(x.start_date, x.end_date, x.is_current)}
+                    </span>
                   </div>
                   <div className="mt-1 text-[12px] text-accent-text">{x.company}</div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {x.tags.map((t) => (
+                    {tags.map((t) => (
                       <span key={t} className="rounded-[6px] border border-border bg-input px-2 py-0.5 text-[10px] text-fg-mid">
                         {t}
                       </span>
                     ))}
-                    <SourceBadge source={x.source} />
+                    <SourceBadge source={srcOf(x)} at={x.source_at} detail={x.source_detail} />
                   </div>
-                  <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{x.description}</div>
+                  {x.description ? (
+                    <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{x.description}</div>
+                  ) : null}
                 </div>
               </button>
             );
@@ -634,7 +977,18 @@ function ExperienceCard({ experience, onOpen }: { experience: Experience[]; onOp
 /* ══════════════════════════════════════════════════════════════════
    Summary
    ══════════════════════════════════════════════════════════════════ */
-function SummaryCard({ summary, onGenerate }: { summary?: Summary; onGenerate: () => void }) {
+function SummaryCard({
+  profile,
+  onEdit,
+  onGenerate,
+}: {
+  profile: ProfileModel;
+  onEdit: () => void;
+  onGenerate: () => void;
+}) {
+  const summary = profile.summary?.trim() ?? "";
+  const words = summary ? summary.split(/\s+/).length : 0;
+  const prov = fieldSrc(profile, "summary");
   return (
     <div className="cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div className="mb-1.5 flex items-center justify-between">
@@ -642,28 +996,30 @@ function SummaryCard({ summary, onGenerate }: { summary?: Summary; onGenerate: (
         {summary ? (
           <button
             type="button"
+            onClick={onEdit}
             className="flex items-center gap-1.5 rounded-[8px] border border-border-strong bg-transparent px-2.5 py-1.5 text-[11.5px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
           >
             <PencilIcon size={12} /> Edit
           </button>
         ) : (
-          <span className="rounded-full border border-dashed border-border-strong px-2 py-0.5 font-mono text-[9px] text-fg-low">EMPTY</span>
+          <span className="rounded-full border border-dashed border-border-strong px-2 py-0.5 font-mono text-[9px] text-fg-low">
+            EMPTY
+          </span>
         )}
       </div>
       {summary ? (
         <>
-          <div className="mt-3 text-[13.5px] leading-[1.85] text-fg-mid">{summary.text}</div>
+          <div className="mt-3 text-[13.5px] leading-[1.85] text-fg-mid">{summary}</div>
           <div className="mt-3 flex items-center gap-1.5">
-            <span className="rounded-[6px] bg-input px-2 py-0.5 font-mono text-[9px] text-fg-low">{summary.words} words</span>
-            <span className="rounded-[6px] bg-input px-2 py-0.5 font-mono text-[9px] text-fg-low">{summary.keywords} keywords</span>
-            <SourceBadge source={summary.source} />
+            <span className="rounded-[6px] bg-input px-2 py-0.5 font-mono text-[9px] text-fg-low">{words} words</span>
+            {prov ? <SourceBadge source={prov.source ?? "manual"} at={prov.at} detail={prov.detail} /> : null}
           </div>
         </>
       ) : (
         <div className="mt-2.5 flex items-center justify-between gap-4 rounded-[10px] border border-dashed border-border-strong bg-input p-4">
           <div className="text-[13px] text-fg-mid">
-            <span className="font-semibold text-accent-text">AI can draft this from your CV.</span> A 2-line professional summary grounded in
-            your experience.
+            <span className="font-semibold text-accent-text">AI can draft this from your CV.</span> A short professional
+            summary grounded in your experience.
           </div>
           <div className="flex shrink-0 gap-2">
             <Button variant="primary" size="sm" onClick={onGenerate}>
@@ -671,6 +1027,7 @@ function SummaryCard({ summary, onGenerate }: { summary?: Summary; onGenerate: (
             </Button>
             <button
               type="button"
+              onClick={onEdit}
               className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
             >
               Write myself
@@ -685,20 +1042,32 @@ function SummaryCard({ summary, onGenerate }: { summary?: Summary; onGenerate: (
 /* ══════════════════════════════════════════════════════════════════
    Education
    ══════════════════════════════════════════════════════════════════ */
-function EducationCard({ education, onOpen }: { education: Education[]; onOpen: (id: string) => void }) {
+function eduMeta(ed: Education): string {
+  const period = fmtPeriod(ed.start_date, ed.end_date, ed.is_current);
+  return [period, ed.gpa ? `GPA ${ed.gpa}` : ""].filter(Boolean).join(" · ");
+}
+function EducationCard({
+  education,
+  onOpen,
+  onAdd,
+}: {
+  education: Education[];
+  onOpen: (e: Education) => void;
+  onAdd: () => void;
+}) {
   return (
-    <SectionCard title="Education" addLabel="Add education" onAdd>
+    <SectionCard title="Education" addLabel="Add education" onAdd={onAdd}>
       {education.length === 0 ? (
-        <EmptyPrompt minimal>
+        <EmptyPrompt minimal onClick={onAdd}>
           No education yet — <span className="font-semibold text-accent-text">add a degree</span>.
         </EmptyPrompt>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {education.map((ed) => (
+          {education.map((ed, i) => (
             <button
-              key={ed.id}
+              key={ed.id ?? i}
               type="button"
-              onClick={() => onOpen(ed.id)}
+              onClick={() => onOpen(ed)}
               className="flex gap-3 rounded-[10px] border border-border bg-surface-2 p-[11px] text-left transition-colors hover:border-accent"
             >
               <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-accent-weak text-accent-text">
@@ -706,11 +1075,11 @@ function EducationCard({ education, onOpen }: { education: Education[]; onOpen: 
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-semibold text-fg">{ed.degree}</span>
-                  <SourceBadge source={ed.source} />
+                  <span className="text-[13px] font-semibold text-fg">{ed.degree || ed.field || "Studies"}</span>
+                  <SourceBadge source={srcOf(ed)} at={ed.source_at} detail={ed.source_detail} />
                 </div>
-                <div className="mt-0.5 text-[12px] text-fg-mid">{ed.school}</div>
-                <div className="mt-1 font-mono text-[11px] text-fg-low">{ed.meta}</div>
+                <div className="mt-0.5 text-[12px] text-fg-mid">{ed.institution}</div>
+                {eduMeta(ed) ? <div className="mt-1 font-mono text-[11px] text-fg-low">{eduMeta(ed)}</div> : null}
               </div>
             </button>
           ))}
@@ -723,28 +1092,39 @@ function EducationCard({ education, onOpen }: { education: Education[]; onOpen: 
 /* ══════════════════════════════════════════════════════════════════
    Languages
    ══════════════════════════════════════════════════════════════════ */
-function LanguagesCard({ languages, onOpen }: { languages: Language[]; onOpen: (id: string) => void }) {
+function LanguagesCard({
+  languages,
+  onOpen,
+  onAdd,
+}: {
+  languages: Language[];
+  onOpen: (l: Language) => void;
+  onAdd: () => void;
+}) {
   return (
-    <SectionCard title="Languages" addLabel="Add language" onAdd>
+    <SectionCard title="Languages" addLabel="Add language" onAdd={onAdd}>
       {languages.length === 0 ? (
-        <EmptyPrompt minimal>
+        <EmptyPrompt minimal onClick={onAdd}>
           No languages yet — <span className="font-semibold text-accent-text">add one</span>.
         </EmptyPrompt>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {languages.map((lg) => (
+          {languages.map((lg, i) => (
             <button
-              key={lg.id}
+              key={lg.id ?? i}
               type="button"
-              onClick={() => onOpen(lg.id)}
+              onClick={() => onOpen(lg)}
               className="-mx-2 rounded-[9px] p-2 text-left transition-colors hover:bg-surface-2"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[13px] text-fg">{lg.name}</span>
-                <span className="font-mono text-[10px] text-accent-text">{lg.level}</span>
+                <span className="font-mono text-[10px] text-accent-text">{langLabel(lg.proficiency)}</span>
               </div>
               <div className="mt-2 h-[5px] overflow-hidden rounded-[3px] bg-input">
-                <div className="h-full rounded-[3px]" style={{ width: `${lg.pct}%`, background: "var(--accent-grad)" }} />
+                <div
+                  className="h-full rounded-[3px]"
+                  style={{ width: `${langPct(lg.proficiency)}%`, background: "var(--accent-grad)" }}
+                />
               </div>
             </button>
           ))}
@@ -757,15 +1137,26 @@ function LanguagesCard({ languages, onOpen }: { languages: Language[]; onOpen: (
 /* ══════════════════════════════════════════════════════════════════
    Projects
    ══════════════════════════════════════════════════════════════════ */
-function ProjectsCard({ projects, onOpen }: { projects: Project[]; onOpen: (id: string) => void }) {
+function ProjectsCard({
+  projects,
+  onOpen,
+  onAdd,
+  onGithub,
+}: {
+  projects: Project[];
+  onOpen: (p: Project) => void;
+  onAdd: () => void;
+  onGithub: () => void;
+}) {
   return (
     <SectionCard
       title="Projects"
       addLabel="Add project"
-      onAdd
+      onAdd={onAdd}
       headerExtra={
         <button
           type="button"
+          onClick={onGithub}
           className="flex items-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 px-3 py-1.5 text-[12px] text-fg transition-colors hover:border-accent"
         >
           <BranchIcon size={13} strokeWidth={1.4} /> Add from GitHub
@@ -773,11 +1164,11 @@ function ProjectsCard({ projects, onOpen }: { projects: Project[]; onOpen: (id: 
       }
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {projects.map((p) => (
+        {projects.map((p, i) => (
           <button
-            key={p.id}
+            key={p.id ?? i}
             type="button"
-            onClick={() => onOpen(p.id)}
+            onClick={() => onOpen(p)}
             className="rounded-[11px] border border-border bg-surface-2 p-3.5 text-left transition-colors hover:border-accent"
           >
             <div className="flex items-center gap-2">
@@ -785,22 +1176,29 @@ function ProjectsCard({ projects, onOpen }: { projects: Project[]; onOpen: (id: 
                 <BranchIcon size={14} strokeWidth={1.5} />
               </span>
               <span className="truncate text-[13px] font-semibold text-fg">{p.name}</span>
-              <span className="ml-auto shrink-0 rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">{p.role}</span>
+              {p.role ? (
+                <span className="ml-auto shrink-0 rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">
+                  {p.role}
+                </span>
+              ) : null}
             </div>
-            <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{p.desc}</div>
+            {p.description ? (
+              <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{p.description}</div>
+            ) : null}
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {p.tags.map((t) => (
+              {(p.technologies ?? []).map((t) => (
                 <span key={t} className="flex items-center gap-1.5 rounded-[6px] bg-input px-2 py-[3px] font-mono text-[9px] text-fg-mid">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                   {t}
                 </span>
               ))}
-              <SourceBadge source={p.source} />
+              <SourceBadge source={srcOf(p)} at={p.source_at} detail={p.source_detail} />
             </div>
           </button>
         ))}
         <button
           type="button"
+          onClick={onAdd}
           className="flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-border-strong bg-input p-3.5 text-center transition-colors hover:border-accent"
         >
           <PlusIcon size={18} strokeWidth={1.6} className="text-accent" />
@@ -814,28 +1212,36 @@ function ProjectsCard({ projects, onOpen }: { projects: Project[]; onOpen: (id: 
 /* ══════════════════════════════════════════════════════════════════
    Certificates
    ══════════════════════════════════════════════════════════════════ */
-function CertificatesCard({ certificates, onOpen }: { certificates: Certificate[]; onOpen: (id: string) => void }) {
+function CertificatesCard({
+  certificates,
+  onOpen,
+  onAdd,
+}: {
+  certificates: Certificate[];
+  onOpen: (c: Certificate) => void;
+  onAdd: () => void;
+}) {
   return (
-    <SectionCard title="Certificates" addLabel="Add certificate" onAdd>
+    <SectionCard title="Certificates" addLabel="Add certificate" onAdd={onAdd}>
       {certificates.length === 0 ? (
-        <EmptyPrompt minimal>
+        <EmptyPrompt minimal onClick={onAdd}>
           No certificates yet — <span className="font-semibold text-accent-text">add one</span>.
         </EmptyPrompt>
       ) : (
         <div className="flex flex-col gap-0.5">
-          {certificates.map((ct) => (
+          {certificates.map((ct, i) => (
             <button
-              key={ct.id}
+              key={ct.id ?? i}
               type="button"
-              onClick={() => onOpen(ct.id)}
+              onClick={() => onOpen(ct)}
               className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left text-[13px] transition-colors hover:bg-surface-2"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
                 <AwardIcon size={15} />
               </span>
               <span className="min-w-0 flex-1 truncate text-fg">{ct.name}</span>
-              <SourceBadge source={ct.source} />
-              <span className="shrink-0 font-mono text-[10px] text-fg-low">{ct.issuer}</span>
+              <SourceBadge source={srcOf(ct)} at={ct.source_at} detail={ct.source_detail} />
+              {ct.issuer ? <span className="shrink-0 font-mono text-[10px] text-fg-low">{ct.issuer}</span> : null}
             </button>
           ))}
         </div>
@@ -847,20 +1253,33 @@ function CertificatesCard({ certificates, onOpen }: { certificates: Certificate[
 /* ══════════════════════════════════════════════════════════════════
    Trainings
    ══════════════════════════════════════════════════════════════════ */
-function TrainingsCard({ trainings, onOpen }: { trainings: Training[]; onOpen: (id: string) => void }) {
+function TrainingsCard({
+  trainings,
+  onOpen,
+  onAdd,
+}: {
+  trainings: Training[];
+  onOpen: (t: Training) => void;
+  onAdd: () => void;
+}) {
   return (
-    <SectionCard title="Trainings" meta={trainings.length ? `${trainings.length} completed` : undefined} addLabel="Add training" onAdd>
+    <SectionCard
+      title="Trainings"
+      meta={trainings.length ? `${trainings.length} completed` : undefined}
+      addLabel="Add training"
+      onAdd={onAdd}
+    >
       {trainings.length === 0 ? (
-        <EmptyPrompt minimal>
+        <EmptyPrompt minimal onClick={onAdd}>
           No trainings yet — <span className="font-semibold text-accent-text">add one</span>.
         </EmptyPrompt>
       ) : (
         <div className="flex flex-col gap-0.5">
-          {trainings.map((tr) => (
+          {trainings.map((tr, i) => (
             <button
-              key={tr.id}
+              key={tr.id ?? i}
               type="button"
-              onClick={() => onOpen(tr.id)}
+              onClick={() => onOpen(tr)}
               className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-2"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
@@ -868,10 +1287,12 @@ function TrainingsCard({ trainings, onOpen }: { trainings: Training[]; onOpen: (
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12.5px] text-fg">{tr.name}</div>
-                <div className="truncate font-mono text-[11px] text-fg-low">{tr.provider}</div>
+                {tr.provider ? <div className="truncate font-mono text-[11px] text-fg-low">{tr.provider}</div> : null}
               </div>
-              <SourceBadge source={tr.source} />
-              <span className="shrink-0 font-mono text-[10px] text-fg-low">{tr.completed}</span>
+              <SourceBadge source={srcOf(tr)} at={tr.source_at} detail={tr.source_detail} />
+              {tr.completion_date ? (
+                <span className="shrink-0 font-mono text-[10px] text-fg-low">{fmtDate(tr.completion_date)}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -883,20 +1304,20 @@ function TrainingsCard({ trainings, onOpen }: { trainings: Training[]; onOpen: (
 /* ══════════════════════════════════════════════════════════════════
    Links
    ══════════════════════════════════════════════════════════════════ */
-function LinksCard({ links, onOpen }: { links: LinkItem[]; onOpen: (id: string) => void }) {
+function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) => void; onAdd: () => void }) {
   return (
-    <SectionCard title="Links" addLabel="Add link" onAdd>
+    <SectionCard title="Links" addLabel="Add link" onAdd={onAdd}>
       {links.length === 0 ? (
-        <EmptyPrompt minimal>
+        <EmptyPrompt minimal onClick={onAdd}>
           No links yet — <span className="font-semibold text-accent-text">add one</span>.
         </EmptyPrompt>
       ) : (
         <div className="flex flex-col gap-0.5">
-          {links.map((ln) => (
+          {links.map((ln, i) => (
             <button
-              key={ln.id}
+              key={ln.id ?? i}
               type="button"
-              onClick={() => onOpen(ln.id)}
+              onClick={() => onOpen(ln)}
               className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-2"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
@@ -906,7 +1327,7 @@ function LinksCard({ links, onOpen }: { links: LinkItem[]; onOpen: (id: string) 
                 <div className="text-[12.5px] text-fg">{ln.label}</div>
                 <div className="truncate font-mono text-[11px] text-accent-text">{ln.url}</div>
               </div>
-              <SourceBadge source={ln.source} />
+              <SourceBadge source={srcOf(ln)} at={ln.source_at} detail={ln.source_detail} />
             </button>
           ))}
         </div>
@@ -916,33 +1337,51 @@ function LinksCard({ links, onOpen }: { links: LinkItem[]; onOpen: (id: string) 
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Modal shell
+   Modal shell (shared Radix Dialog, styled to the design)
    ══════════════════════════════════════════════════════════════════ */
-function ModalShell({ children, onClose, width = 440 }: { children: ReactNode; onClose: () => void; width?: number }) {
+const WIDTH_CLASS: Record<number, string> = {
+  420: "w-[min(92vw,420px)]",
+  440: "w-[min(92vw,440px)]",
+  460: "w-[min(92vw,460px)]",
+  520: "w-[min(92vw,520px)]",
+  560: "w-[min(92vw,560px)]",
+};
+
+function ModalShell({
+  onClose,
+  width = 440,
+  title,
+  children,
+}: {
+  onClose: () => void;
+  width?: number;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm sm:p-8"
-      style={{ animation: "cll-backdrop .16s ease" }}
-      onClick={onClose}
-      role="presentation"
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
     >
-      <div
-        className="my-auto w-full overflow-hidden rounded-[13px] border border-border-strong bg-surface shadow-[0_24px_60px_-30px_#000]"
-        style={{ maxWidth: width, animation: "cll-modal .2s cubic-bezier(.16,1,.3,1) both" }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
+      <DialogContent
+        showClose={false}
+        className={cn("max-w-none overflow-hidden rounded-[13px] p-0", WIDTH_CLASS[width] ?? WIDTH_CLASS[440])}
       >
+        <DialogTitle className="sr-only">{title}</DialogTitle>
         {children}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 function ModalHeader({ icon, kicker, title }: { icon: ReactNode; kicker: string; title: string }) {
   return (
     <div className="flex items-center gap-3 border-b border-border px-4 py-4">
-      <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border-strong bg-accent-weak text-accent-text">{icon}</div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border-strong bg-accent-weak text-accent-text">
+        {icon}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="font-mono text-[8.5px] tracking-[1px] text-fg-low">{kicker}</div>
         <div className="truncate text-[15px] font-bold text-fg">{title}</div>
@@ -951,301 +1390,866 @@ function ModalHeader({ icon, kicker, title }: { icon: ReactNode; kicker: string;
   );
 }
 
-/** Delete / Edit footer shared by item detail modals (both deferred → no-op). */
-function DetailFooter() {
+function DetailFooter({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
     <div className="flex items-center justify-between border-t border-border bg-surface-2 px-4 py-3">
       <button
         type="button"
+        onClick={onDelete}
         className="rounded-[9px] border px-3 py-1.5 text-[12px] text-danger transition-colors hover:bg-danger-weak"
         style={{ borderColor: "rgba(251,113,133,.32)" }}
       >
         Delete
       </button>
-      <Button variant="primary" size="sm">
+      <Button variant="primary" size="sm" onClick={onEdit}>
         Edit
       </Button>
     </div>
   );
 }
 
+const KIND_ICON: Record<Kind, ReactNode> = {
+  skill: <SparkleIcon size={17} />,
+  experience: <BriefcaseIcon size={17} />,
+  education: <CapIcon size={17} />,
+  project: <BranchIcon size={17} strokeWidth={1.5} />,
+  certificate: <AwardIcon size={17} />,
+  training: <BookIcon size={17} />,
+  language: <GlobeIcon size={17} />,
+  link: <LinkIcon size={17} strokeWidth={1.6} />,
+};
+
 /* ══════════════════════════════════════════════════════════════════
-   Item detail modal — routes to per-kind body (M1 designs)
+   Item detail modal
    ══════════════════════════════════════════════════════════════════ */
-function DetailModal({ data, detail, onClose }: { data: ProfileData; detail: Detail; onClose: () => void }) {
-  const body = renderDetail(data, detail);
-  if (!body) return null;
+function DetailModal({
+  kind,
+  item,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  kind: Kind;
+  item: EntityItem;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <ModalShell onClose={onClose} width={detail.kind === "experience" || detail.kind === "project" ? 460 : 420}>
-      {body}
+    <ModalShell onClose={onClose} width={kind === "experience" || kind === "project" ? 460 : 420} title={itemTitle(kind, item)}>
+      <ModalHeader icon={KIND_ICON[kind]} kicker={KIND_LABEL[kind].toUpperCase()} title={itemTitle(kind, item)} />
+      <div className="p-4">{renderDetailBody(kind, item)}</div>
+      <DetailFooter onEdit={onEdit} onDelete={onDelete} />
     </ModalShell>
   );
 }
 
-const LEVEL_LABEL: Record<number, string> = { 5: "Expert", 4: "Advanced", 3: "Intermediate", 2: "Basic", 1: "Beginner" };
-
-function renderDetail(data: ProfileData, { kind, id }: Detail): ReactNode {
+function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
+  const prov = (it: { source?: Source; source_at?: string | null; source_detail?: string | null }) => (
+    <ProvenanceLine source={srcOf(it)} at={it.source_at} detail={it.source_detail} />
+  );
   switch (kind) {
     case "skill": {
-      const sk = data.skills.find((s) => s.id === id);
-      if (!sk) return null;
+      const sk = item as Skill;
+      const level = sk.self_rating ?? 0;
       return (
         <>
-          <ModalHeader icon={<SparkleIcon size={17} />} kicker="SKILL" title={sk.name} />
-          <div className="p-4">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[10.5px] text-fg-mid">{sk.category}</span>
-              <SourceBadge source={sk.source} />
-            </div>
-            <div className="mb-2.5 flex items-center justify-between">
-              <span className="font-mono text-[9px] tracking-[1px] text-fg-low">PROFICIENCY</span>
-              <span className="text-[12px] font-semibold text-accent-text">{LEVEL_LABEL[sk.level]}</span>
-            </div>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <span
-                  key={n}
-                  className="h-2 flex-1 rounded-[4px]"
-                  style={{ background: n <= sk.level ? "var(--accent-grad)" : "var(--input)" }}
-                />
-              ))}
-            </div>
+          <div className="mb-4 flex items-center gap-2">
+            {sk.category ? (
+              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[10.5px] text-fg-mid">
+                {sk.category}
+              </span>
+            ) : null}
+            {typeof sk.years_experience === "number" ? (
+              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-0.5 text-[10.5px] text-fg-mid">
+                {sk.years_experience} yrs
+              </span>
+            ) : null}
           </div>
-          <DetailFooter />
+          <div className="mb-2.5 flex items-center justify-between">
+            <span className="font-mono text-[9px] tracking-[1px] text-fg-low">PROFICIENCY</span>
+            <span className="text-[12px] font-semibold text-accent-text">{ratingLabel(sk.self_rating)}</span>
+          </div>
+          <div className="flex gap-1.5">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <span key={n} className="h-2 flex-1 rounded-[4px]" style={{ background: n <= level ? "var(--accent-grad)" : "var(--input)" }} />
+            ))}
+          </div>
+          {sk.note ? (
+            <div className="mt-3.5 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              {sk.note}
+            </div>
+          ) : null}
+          {prov(sk)}
         </>
       );
     }
     case "experience": {
-      const x = data.experience.find((e) => e.id === id);
-      if (!x) return null;
+      const x = item as Experience;
+      const tags = [x.employment_type ? titleCase(x.employment_type) : "", x.location ?? ""].filter(Boolean);
       return (
         <>
-          <ModalHeader icon={<BriefcaseIcon size={17} />} kicker="EXPERIENCE" title={x.title} />
-          <div className="p-4">
-            <div className="text-[12.5px] font-semibold text-accent-text">{x.company}</div>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">{x.period}</span>
-              {x.tags.map((t) => (
-                <span key={t} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-fg-mid">
-                  {t}
-                </span>
-              ))}
-              <SourceBadge source={x.source} />
-            </div>
+          <div className="text-[12.5px] font-semibold text-accent-text">{x.company}</div>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {fmtPeriod(x.start_date, x.end_date, x.is_current) ? (
+              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">
+                {fmtPeriod(x.start_date, x.end_date, x.is_current)}
+              </span>
+            ) : null}
+            {tags.map((t) => (
+              <span key={t} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-fg-mid">
+                {t}
+              </span>
+            ))}
+          </div>
+          {x.description ? (
             <div className="mt-3.5 border-t border-border pt-3.5">
               <div className="mb-2 font-mono text-[9px] tracking-[1px] text-fg-low">WHAT I DID</div>
-              <div className="rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">{x.description}</div>
+              <div className="rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+                {x.description}
+              </div>
             </div>
-          </div>
-          <DetailFooter />
+          ) : null}
+          {prov(x)}
         </>
       );
     }
     case "project": {
-      const p = data.projects.find((x) => x.id === id);
-      if (!p) return null;
+      const p = item as Project;
       return (
         <>
-          <ModalHeader icon={<BranchIcon size={17} strokeWidth={1.5} />} kicker="PROJECT" title={p.name} />
-          <div className="p-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {p.role ? (
               <span className="rounded-full bg-accent-weak px-2.5 py-0.5 font-mono text-[9px] text-accent-text">{p.role}</span>
-              <SourceBadge source={p.source} />
-              {typeof p.stars === "number" ? (
-                <span className="ml-auto font-mono text-[10px] text-fg-low">
-                  <span className="text-warning">★</span> {p.stars}
-                </span>
-              ) : null}
+            ) : null}
+            {fmtPeriod(p.start_date, p.end_date) ? (
+              <span className="ml-auto font-mono text-[10px] text-fg-low">{fmtPeriod(p.start_date, p.end_date)}</span>
+            ) : null}
+          </div>
+          {p.description ? (
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              {p.description}
             </div>
-            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">{p.desc}</div>
+          ) : null}
+          {(p.technologies ?? []).length ? (
             <div className="mt-3.5 flex flex-wrap gap-1.5">
-              {p.tags.map((t) => (
+              {(p.technologies ?? []).map((t) => (
                 <span key={t} className="rounded-[7px] border border-border bg-surface-2 px-2 py-1 font-mono text-[9px] text-fg-mid">
                   {t}
                 </span>
               ))}
             </div>
-            {p.url ? (
-              <a
-                href={`https://${p.url}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3.5 flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 text-[12px] text-accent-text transition-colors hover:border-accent"
-              >
-                <LinkIcon size={13} strokeWidth={1.6} /> {p.url}
-              </a>
-            ) : null}
-          </div>
-          <DetailFooter />
+          ) : null}
+          {p.url ? <DetailLink url={p.url} /> : null}
+          {prov(p)}
         </>
       );
     }
     case "education": {
-      const ed = data.education.find((e) => e.id === id);
-      if (!ed) return null;
+      const ed = item as Education;
+      const chips = [
+        fmtPeriod(ed.start_date, ed.end_date, ed.is_current),
+        ed.field ?? "",
+        ed.location ?? "",
+        ed.gpa ? `GPA ${ed.gpa}` : "",
+      ].filter(Boolean);
       return (
         <>
-          <ModalHeader icon={<CapIcon size={17} />} kicker="EDUCATION" title={ed.degree} />
-          <div className="p-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[12.5px] font-semibold text-accent-text">{ed.school}</span>
-              <SourceBadge source={ed.source} />
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-accent-text">{ed.institution}</span>
+          </div>
+          {chips.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {ed.meta.split(" · ").map((m) => (
+              {chips.map((m) => (
                 <span key={m} className="rounded-[8px] border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-fg-mid">
                   {m}
                 </span>
               ))}
             </div>
-            {ed.courses.length ? (
-              <div className="mt-3.5 border-t border-border pt-3.5">
-                <div className="mb-2 font-mono text-[9px] tracking-[1px] text-fg-low">KEY COURSES</div>
-                <div className="flex flex-col gap-0.5">
-                  {ed.courses.map((c) => (
-                    <div key={c} className="flex items-center justify-between border-b border-border py-1.5 text-[12px] text-fg-mid last:border-0">
-                      <span>{c}</span>
-                      <span className="font-mono text-[10px] text-accent-text">A</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <DetailFooter />
+          ) : null}
+          {prov(ed)}
         </>
       );
     }
     case "language": {
-      const lg = data.languages.find((l) => l.id === id);
-      if (!lg) return null;
+      const lg = item as Language;
+      const pct = langPct(lg.proficiency);
       return (
         <>
-          <ModalHeader icon={<GlobeIcon size={17} />} kicker="LANGUAGE" title={lg.name} />
-          <div className="p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-[12.5px] font-semibold text-accent-text">{lg.level}</span>
-              <SourceBadge source={lg.source} />
-            </div>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-mono text-[9px] tracking-[1px] text-fg-low">PROFICIENCY</span>
-              <span className="font-mono text-[11px] text-accent-text">{lg.pct}%</span>
-            </div>
-            <div className="h-[6px] overflow-hidden rounded-[3px] bg-input">
-              <div className="h-full rounded-[3px]" style={{ width: `${lg.pct}%`, background: "var(--accent-grad)" }} />
-            </div>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
           </div>
-          <DetailFooter />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-mono text-[9px] tracking-[1px] text-fg-low">PROFICIENCY</span>
+            <span className="font-mono text-[11px] text-accent-text">{pct}%</span>
+          </div>
+          <div className="h-[6px] overflow-hidden rounded-[3px] bg-input">
+            <div className="h-full rounded-[3px]" style={{ width: `${pct}%`, background: "var(--accent-grad)" }} />
+          </div>
+          {prov(lg)}
         </>
       );
     }
     case "certificate": {
-      const ct = data.certificates.find((c) => c.id === id);
-      if (!ct) return null;
+      const ct = item as Certificate;
+      const chips = [
+        ct.cert_type ? titleCase(ct.cert_type) : "",
+        ct.issue_date ? `Issued ${fmtDate(ct.issue_date)}` : "",
+        ct.expiry_date ? `Expires ${fmtDate(ct.expiry_date)}` : "",
+        ct.credential_id ? `ID ${ct.credential_id}` : "",
+      ].filter(Boolean);
       return (
         <>
-          <ModalHeader icon={<AwardIcon size={17} />} kicker="CERTIFICATE" title={ct.name} />
-          <div className="p-4">
+          {ct.issuer ? (
             <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
               <div>
                 <div className="font-mono text-[9px] tracking-[1px] text-fg-low">ISSUER</div>
                 <div className="mt-0.5 text-[13px] font-semibold text-fg">{ct.issuer}</div>
               </div>
-              <SourceBadge source={ct.source} />
             </div>
-          </div>
-          <DetailFooter />
+          ) : null}
+          {chips.length ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {chips.map((m) => (
+                <span key={m} className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">
+                  {m}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {ct.url ? <DetailLink url={ct.url} /> : null}
+          {prov(ct)}
         </>
       );
     }
     case "training": {
-      const tr = data.trainings.find((t) => t.id === id);
-      if (!tr) return null;
+      const tr = item as Training;
       return (
         <>
-          <ModalHeader icon={<BookIcon size={17} />} kicker="TRAINING" title={tr.name} />
-          <div className="p-4">
+          {tr.provider ? (
             <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
               <div>
                 <div className="font-mono text-[9px] tracking-[1px] text-fg-low">PROVIDER</div>
                 <div className="mt-0.5 text-[13px] font-semibold text-fg">{tr.provider}</div>
               </div>
-              <SourceBadge source={tr.source} />
             </div>
+          ) : null}
+          {tr.completion_date ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">Completed {tr.completed}</span>
+              <span className="rounded-[8px] bg-accent-weak px-2.5 py-1 text-[11px] text-accent-text">
+                Completed {fmtDate(tr.completion_date)}
+              </span>
             </div>
-            {tr.url ? (
-              <a
-                href={`https://${tr.url}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3.5 flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 text-[12px] text-accent-text transition-colors hover:border-accent"
-              >
-                <LinkIcon size={13} strokeWidth={1.6} /> {tr.url}
-              </a>
-            ) : null}
-          </div>
-          <DetailFooter />
+          ) : null}
+          {tr.description ? (
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              {tr.description}
+            </div>
+          ) : null}
+          {tr.url ? <DetailLink url={tr.url} /> : null}
+          {prov(tr)}
         </>
       );
     }
     case "link": {
-      const ln = data.links.find((l) => l.id === id);
-      if (!ln) return null;
+      const ln = item as Link;
       return (
         <>
-          <ModalHeader icon={<LinkIcon size={17} strokeWidth={1.6} />} kicker="LINK" title={ln.label} />
-          <div className="p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <SourceBadge source={ln.source} />
-            </div>
-            <a
-              href={`https://${ln.url}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 font-mono text-[12px] text-accent-text transition-colors hover:border-accent"
-            >
-              <LinkIcon size={13} strokeWidth={1.6} /> {ln.url}
-            </a>
-          </div>
-          <DetailFooter />
+          {ln.description ? <div className="mb-3 text-[12.5px] leading-relaxed text-fg-mid">{ln.description}</div> : null}
+          <DetailLink url={ln.url} mono />
+          {prov(ln)}
         </>
       );
     }
-    default:
-      return null;
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   AI complete empty fields — panel
-   ══════════════════════════════════════════════════════════════════ */
-type AiField = { key: string; label: string; note: string };
-function emptyFields(data: ProfileData): AiField[] {
-  const f: AiField[] = [];
-  const id = data.identity;
-  if (!id.email && !id.phone && !id.linkedin && !id.github)
-    f.push({ key: "contact", label: "Contact details", note: "Pulled from your CV header." });
-  if (!data.summary) f.push({ key: "summary", label: "Professional summary", note: "A 2-line summary grounded in your experience." });
-  if (data.skills.length === 0) f.push({ key: "skills", label: "Skills", note: "Inferred from roles and projects." });
-  if (data.experience.length === 0) f.push({ key: "experience", label: "Experience", note: "Parsed role by role from your CV." });
-  if (data.education.length === 0) f.push({ key: "education", label: "Education", note: "Degrees and schools from your CV." });
-  if (data.projects.length === 0) f.push({ key: "projects", label: "Projects", note: "Imported from your GitHub repos." });
-  if (data.certificates.length === 0) f.push({ key: "certificates", label: "Certificates", note: "Detected in your CV." });
-  if (data.trainings.length === 0) f.push({ key: "trainings", label: "Trainings", note: "Courses and trainings from your CV." });
-  if (data.languages.length === 0) f.push({ key: "languages", label: "Languages", note: "Spoken languages from your CV." });
-  if (data.links.length === 0) f.push({ key: "links", label: "Links", note: "Portfolio and profile URLs." });
-  return f;
+/** External-link row used across detail bodies. */
+function DetailLink({ url, mono = false }: { url: string; mono?: boolean }) {
+  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "mt-3.5 flex items-center justify-center gap-1.5 rounded-[9px] border border-border-strong bg-surface-2 py-2.5 text-[12px] text-accent-text transition-colors hover:border-accent",
+        mono && "font-mono",
+      )}
+    >
+      <LinkIcon size={13} strokeWidth={1.6} /> {url}
+    </a>
+  );
 }
 
-function AiCompleteModal({ data, onClose }: { data: ProfileData; onClose: () => void }) {
-  const fields = emptyFields(data);
-  const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(fields.map((f) => [f.key, true] as const)));
-  const selectedCount = fields.filter((f) => checked[f.key]).length;
+/* ══════════════════════════════════════════════════════════════════
+   Forms
+   ══════════════════════════════════════════════════════════════════ */
+function SelectInput({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-10 w-full rounded-[9px] border border-border bg-input px-3 text-[13px] text-fg outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak"
+    >
+      <option value="">—</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function FormGrid({
+  fields,
+  values,
+  onChange,
+}: {
+  fields: FieldDesc[];
+  values: FormValues;
+  onChange: (name: string, value: string | boolean) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+      {fields.map((f) => {
+        const span = f.full || f.type === "textarea" ? "sm:col-span-2" : "";
+        if (f.type === "checkbox") {
+          return (
+            <label key={f.name} className={cn("flex items-center justify-between gap-3 rounded-[9px] border border-border bg-input px-3 py-2.5", span)}>
+              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-fg-mid">{f.label}</span>
+              <Toggle checked={values[f.name] === true} onChange={(c) => onChange(f.name, c)} aria-label={f.label} />
+            </label>
+          );
+        }
+        return (
+          <div key={f.name} className={span}>
+            <Field label={f.label}>
+              {f.type === "textarea" ? (
+                <Textarea
+                  value={sv(values[f.name])}
+                  placeholder={f.placeholder}
+                  onChange={(e) => onChange(f.name, e.target.value)}
+                />
+              ) : f.type === "select" ? (
+                <SelectInput value={sv(values[f.name])} options={f.options ?? []} onChange={(v) => onChange(f.name, v)} />
+              ) : (
+                <Input
+                  type={f.type === "number" ? "number" : "text"}
+                  value={sv(values[f.name])}
+                  placeholder={f.placeholder}
+                  onChange={(e) => onChange(f.name, e.target.value)}
+                />
+              )}
+            </Field>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModalFooter({
+  onCancel,
+  saving,
+  submitLabel,
+}: {
+  onCancel: () => void;
+  saving: boolean;
+  submitLabel: string;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-2 px-4 py-3">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded-[9px] border border-border-strong bg-transparent px-3.5 py-2 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+      >
+        Cancel
+      </button>
+      <Button type="submit" variant="primary" size="sm" loading={saving}>
+        {submitLabel}
+      </Button>
+    </div>
+  );
+}
+
+function ItemFormModal({
+  kind,
+  existing,
+  onClose,
+  onSaved,
+}: {
+  kind: Kind;
+  existing: EntityItem | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const fields = FORM_FIELDS[kind];
+  const [values, setValues] = useState<FormValues>(() =>
+    existing ? prefill(fields, existing as unknown as Record<string, unknown>) : blankValues(fields),
+  );
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    for (const f of fields) {
+      if (f.required && !sv(values[f.name]).trim()) {
+        toast.warning("Missing field", `${f.label} is required.`);
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      await persistItem(kind, existing, values);
+      toast.success(existing ? `${KIND_LABEL[kind]} updated` : `${KIND_LABEL[kind]} added`);
+      onSaved();
+    } catch (err) {
+      toast.danger("Couldn't save", errorMessage(err));
+      setSaving(false);
+    }
+  };
 
   return (
-    <ModalShell onClose={onClose} width={520}>
+    <ModalShell onClose={onClose} width={520} title={`${existing ? "Edit" : "Add"} ${KIND_LABEL[kind].toLowerCase()}`}>
+      <form onSubmit={submit}>
+        <ModalHeader
+          icon={KIND_ICON[kind]}
+          kicker={`${existing ? "EDIT" : "ADD"} · ${KIND_LABEL[kind].toUpperCase()}`}
+          title={existing ? itemTitle(kind, existing) : `New ${KIND_LABEL[kind].toLowerCase()}`}
+        />
+        <div className="max-h-[62vh] overflow-y-auto p-4">
+          <FormGrid fields={fields} values={values} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} />
+        </div>
+        <ModalFooter onCancel={onClose} saving={saving} submitLabel={existing ? "Save changes" : "Add"} />
+      </form>
+    </ModalShell>
+  );
+}
+
+function IdentityFormModal({
+  profile,
+  onClose,
+  onSaved,
+}: {
+  profile: ProfileModel;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [values, setValues] = useState<FormValues>(() => prefill(IDENTITY_FIELDS, profile as unknown as Record<string, unknown>));
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    setSaving(true);
+    try {
+      const next: ProfileModel = { ...profile };
+      const field_sources: Record<string, FieldSource> = { ...(profile.field_sources ?? {}) };
+      const today = todayISO();
+      for (const f of IDENTITY_FIELDS) {
+        const value = sv(values[f.name]).trim() || null;
+        const prev = (profile as unknown as Record<string, unknown>)[f.name] ?? null;
+        (next as unknown as Record<string, unknown>)[f.name] = value;
+        if (value !== prev) field_sources[f.name] = { source: "manual", detail: null, at: today };
+      }
+      next.field_sources = field_sources;
+      await saveProfile(next);
+      toast.success("Identity saved");
+      onSaved();
+    } catch (err) {
+      toast.danger("Couldn't save", errorMessage(err));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} width={520} title="Edit identity">
+      <form onSubmit={submit}>
+        <ModalHeader icon={<PencilIcon size={17} />} kicker="EDIT · IDENTITY" title="Your details" />
+        <div className="max-h-[62vh] overflow-y-auto p-4">
+          <FormGrid fields={IDENTITY_FIELDS} values={values} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} />
+        </div>
+        <ModalFooter onCancel={onClose} saving={saving} submitLabel="Save changes" />
+      </form>
+    </ModalShell>
+  );
+}
+
+function SummaryFormModal({
+  profile,
+  onClose,
+  onSaved,
+}: {
+  profile: ProfileModel;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [text, setText] = useState(profile.summary ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    setSaving(true);
+    try {
+      const value = text.trim() || null;
+      const field_sources: Record<string, FieldSource> = { ...(profile.field_sources ?? {}) };
+      if (value !== (profile.summary ?? null)) field_sources.summary = { source: "manual", detail: null, at: todayISO() };
+      await saveProfile({ ...profile, summary: value, field_sources });
+      toast.success("Summary saved");
+      onSaved();
+    } catch (err) {
+      toast.danger("Couldn't save", errorMessage(err));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} width={520} title="Edit summary">
+      <form onSubmit={submit}>
+        <ModalHeader icon={<PencilIcon size={17} />} kicker="EDIT · SUMMARY" title="Professional summary" />
+        <div className="p-4">
+          <Field label="Summary" hint="A short professional summary, grounded in your experience.">
+            <Textarea value={text} onChange={(e) => setText(e.target.value)} className="min-h-[140px]" />
+          </Field>
+        </div>
+        <ModalFooter onCancel={onClose} saving={saving} submitLabel="Save changes" />
+      </form>
+    </ModalShell>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Summary AI studio — streams a grounded draft, tone chips refine it.
+   ══════════════════════════════════════════════════════════════════ */
+const SUMMARY_TONES: { label: string; instruction: string }[] = [
+  { label: "Concise", instruction: "Make it more concise." },
+  { label: "Technical", instruction: "Make it more technical and specific." },
+  { label: "Warmer", instruction: "Make it warmer and more personable." },
+];
+
+function SummaryStudioModal({
+  profile,
+  onClose,
+  onSaved,
+  onWriteMyself,
+}: {
+  profile: ProfileModel;
+  onClose: () => void;
+  onSaved: () => void;
+  onWriteMyself: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const run = useCallback((stream: (onEvent: (e: DraftEvent) => void, signal: AbortSignal) => Promise<void>) => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setText("");
+    setStreaming(true);
+    stream((e) => {
+      if (e.type === "token") setText((t) => t + e.text);
+      else if (e.type === "done") {
+        if (e.text) setText(e.text);
+        setStreaming(false);
+      } else {
+        setStreaming(false);
+        toast.danger("Draft failed", e.error);
+      }
+    }, ctrl.signal).catch((err) => {
+      if (!ctrl.signal.aborted) {
+        setStreaming(false);
+        toast.danger("Draft failed", errorMessage(err));
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    run((onEvent, signal) => streamDraft({ field_label: "Professional summary" }, onEvent, signal));
+    return () => abortRef.current?.abort();
+  }, [run]);
+
+  const refine = (instruction: string) => {
+    if (streaming || !text.trim()) return;
+    const current = text;
+    run((onEvent, signal) => streamRefine({ field_label: "Professional summary", current, instruction }, onEvent, signal));
+  };
+
+  const save = async () => {
+    if (!text.trim()) return;
+    setSaving(true);
+    try {
+      const field_sources: Record<string, FieldSource> = {
+        ...(profile.field_sources ?? {}),
+        summary: { source: "manual", detail: "AI-assisted", at: todayISO() },
+      };
+      await saveProfile({ ...profile, summary: text.trim(), field_sources });
+      toast.success("Summary saved");
+      onSaved();
+    } catch (err) {
+      toast.danger("Couldn't save", errorMessage(err));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} width={460} title="Generate summary">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-4">
+        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] text-white" style={{ background: "var(--accent-grad)" }}>
+          <SparkleIcon size={16} strokeWidth={1.6} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-semibold text-fg">Generate summary</div>
+          <div className="text-[10.5px] text-fg-mid">Drafted from your CV & GitHub — grounded, nothing invented.</div>
+        </div>
+        {streaming ? (
+          <Pill tone="accent" mono dot>
+            WRITING
+          </Pill>
+        ) : null}
+      </div>
+      <div className="p-4">
+        <div className="min-h-[96px] rounded-[10px] border border-border bg-reading px-3.5 py-3.5 text-[12.5px] leading-relaxed text-reading-ink">
+          {text}
+          {streaming ? <span className="cll-caret" /> : null}
+          {!text && !streaming ? <span className="text-fg-low">Nothing drafted yet.</span> : null}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {SUMMARY_TONES.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              disabled={streaming || !text.trim()}
+              onClick={() => refine(t.instruction)}
+              className="rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-[11px] text-fg transition-colors hover:border-accent disabled:opacity-45"
+            >
+              {t.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={streaming}
+            onClick={() => run((onEvent, signal) => streamDraft({ field_label: "Professional summary" }, onEvent, signal))}
+            className="rounded-[8px] border border-border-strong bg-surface-2 px-2.5 py-1.5 text-[11px] text-fg transition-colors hover:border-accent disabled:opacity-45"
+          >
+            Regenerate
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t border-border bg-surface-2 px-4 py-3">
+        <button
+          type="button"
+          onClick={onWriteMyself}
+          className="rounded-[9px] border border-border-strong px-3 py-1.5 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        >
+          Write myself
+        </button>
+        <Button variant="primary" size="sm" loading={saving} disabled={streaming || !text.trim()} onClick={save}>
+          Use this
+        </Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AI complete empty fields — plan → stream suggestions → apply
+   ══════════════════════════════════════════════════════════════════ */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+function asString(v: unknown): string | null {
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+function asInt(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
+}
+
+function previewValue(step: CompletionStep, value: unknown): string {
+  if (step.kind === "languages") {
+    if (Array.isArray(value)) {
+      const names = value.map((l) => (isRecord(l) ? asString(l.name) : null)).filter(Boolean) as string[];
+      return names.join(", ") || "—";
+    }
+    return "—";
+  }
+  if (step.kind === "skills") {
+    if (isRecord(value)) {
+      const cats = isRecord(value.categories) ? Object.keys(value.categories).length : 0;
+      const created = Array.isArray(value.new) ? value.new.length : 0;
+      return `${cats} categorized · ${created} new`;
+    }
+    return "—";
+  }
+  return asString(value) ?? "—";
+}
+
+function buildApply(
+  steps: CompletionStep[],
+  suggestions: Record<string, unknown>,
+  selected: Set<string>,
+  repoPicks: Set<number>,
+): ApplyPayload {
+  const profile: Record<string, string> = {};
+  const item_updates: NonNullable<ApplyPayload["item_updates"]> = [];
+  const skills_updates: NonNullable<ApplyPayload["skills_updates"]> = [];
+  const skills_new: NonNullable<ApplyPayload["skills_new"]> = [];
+  const languages_new: NonNullable<ApplyPayload["languages_new"]> = [];
+  const new_projects: NonNullable<ApplyPayload["new_projects"]> = [];
+
+  for (const step of steps) {
+    if (step.kind === "projects_from_github") {
+      for (const repo of step.extra?.repos ?? []) {
+        if (repoPicks.has(repo.github_repo_id)) {
+          new_projects.push({
+            name: repo.name,
+            description: repo.purpose,
+            technologies: repo.technologies,
+            url: repo.url,
+            github_repo_id: repo.github_repo_id,
+          });
+        }
+      }
+      continue;
+    }
+    if (!selected.has(step.id)) continue;
+    const value = suggestions[step.id];
+    if (value == null) continue;
+
+    if (step.section === "identity" && step.field) {
+      const s = asString(value);
+      if (s) profile[step.field] = s;
+      continue;
+    }
+    if (step.kind === "languages" && Array.isArray(value)) {
+      const existing = step.extra?.existing ?? [];
+      for (const raw of value) {
+        if (!isRecord(raw)) continue;
+        const name = asString(raw.name);
+        if (!name) continue;
+        const prof = asString(raw.proficiency);
+        const match = existing.find((e) => e.name.toLowerCase() === name.toLowerCase());
+        if (match && match.id != null && !match.proficiency && prof) {
+          item_updates.push({ table: "languages", id: match.id, field: "proficiency", value: prof });
+        } else if (!match) {
+          languages_new.push({ name, proficiency: prof });
+        }
+      }
+      continue;
+    }
+    if (step.kind === "skills" && isRecord(value)) {
+      const categories = isRecord(value.categories) ? value.categories : {};
+      const ratings = isRecord(value.ratings) ? value.ratings : {};
+      for (const ex of step.extra?.existing ?? []) {
+        if (ex.id == null) continue;
+        const cat = asString(categories[ex.name]);
+        const rating = asInt(ratings[ex.name]);
+        if (cat || rating != null) skills_updates.push({ id: ex.id, category: cat, self_rating: rating });
+      }
+      if (Array.isArray(value.new)) {
+        for (const raw of value.new) {
+          if (!isRecord(raw)) continue;
+          const name = asString(raw.name);
+          if (!name) continue;
+          skills_new.push({ name, category: asString(raw.category), self_rating: asInt(raw.self_rating) ?? 3 });
+        }
+      }
+      continue;
+    }
+    // Per-item single-field update (short_text / enum / date / generative).
+    if (step.table && step.entity_id != null && step.field) {
+      const s = asString(value);
+      if (s) item_updates.push({ table: step.table, id: step.entity_id, field: step.field, value: s });
+    }
+  }
+
+  return { profile, item_updates, skills_updates, skills_new, languages_new, new_projects };
+}
+
+function AiCompleteModal({ onClose, onApplied }: { onClose: () => void; onApplied: () => void }) {
+  const plan = useAsync(getCompletionPlan, []);
+  const [phase, setPhase] = useState<"plan" | "review">("plan");
+  const [suggestions, setSuggestions] = useState<Record<string, unknown>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [repoPicks, setRepoPicks] = useState<Set<number>>(new Set());
+  const [streaming, setStreaming] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const steps = plan.data?.steps ?? [];
+  const githubStep = steps.find((s) => s.kind === "projects_from_github");
+
+  const start = () => {
+    setPhase("review");
+    setStreaming(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const onEvent = (e: SuggestionEvent) => {
+      if (e.type === "suggestion") {
+        setSuggestions((prev) => ({ ...prev, [e.id]: e.value }));
+        setSelected((prev) => new Set(prev).add(e.id));
+      } else if (e.type === "done") {
+        setStreaming(false);
+      } else {
+        setStreaming(false);
+        toast.danger("Suggestions failed", e.error);
+      }
+    };
+    streamSuggestions(steps, onEvent, ctrl.signal).catch((err) => {
+      if (!ctrl.signal.aborted) {
+        setStreaming(false);
+        toast.danger("Suggestions failed", errorMessage(err));
+      }
+    });
+  };
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleRepo = (id: number) =>
+    setRepoPicks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const selectedCount = [...selected].filter((id) => suggestions[id] != null).length + repoPicks.size;
+
+  const apply = async () => {
+    setApplying(true);
+    try {
+      const payload = buildApply(steps, suggestions, selected, repoPicks);
+      const res = await applyCompletion(payload);
+      const total = Object.values(res.saved ?? {}).reduce((a, b) => a + b, 0);
+      toast.success("Profile updated", total ? `${total} change${total > 1 ? "s" : ""} applied.` : "Suggestions applied.");
+      onApplied();
+    } catch (err) {
+      toast.danger("Couldn't apply", errorMessage(err));
+      setApplying(false);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} width={560} title="AI complete empty fields">
       <div className="flex items-center gap-3 border-b border-border px-5 py-4">
         <div className="flex h-9 w-9 items-center justify-center rounded-[10px] text-white" style={{ background: "var(--accent-grad)" }}>
           <SparkleIcon size={17} />
@@ -1254,52 +2258,47 @@ function AiCompleteModal({ data, onClose }: { data: ProfileData; onClose: () => 
           <div className="text-[15px] font-bold text-fg">AI complete empty fields</div>
           <div className="text-[11.5px] text-fg-mid">Fill the gaps, grounded in your CV & GitHub — nothing is sent externally.</div>
         </div>
+        {streaming ? (
+          <Pill tone="accent" mono dot>
+            STREAMING
+          </Pill>
+        ) : null}
       </div>
 
-      <div className="max-h-[52vh] overflow-y-auto p-5">
-        {fields.length === 0 ? (
-          <div className="rounded-[11px] border border-dashed border-border-strong bg-input px-4 py-8 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-[12px] bg-accent-weak text-accent-text">
-              <SparkleIcon size={20} />
+      <div className="max-h-[54vh] overflow-y-auto p-5">
+        <AsyncBoundary
+          state={plan}
+          skeleton={
+            <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-fg-mid">
+              <Spinner size={18} /> Scanning your profile…
             </div>
-            <div className="text-[13.5px] font-semibold text-fg">Your profile is complete.</div>
-            <div className="mt-1 text-[12px] text-fg-mid">Every section already has content — nothing left to fill.</div>
-          </div>
-        ) : (
-          <>
-            <div className="mb-3 font-mono text-[9.5px] tracking-[1px] text-fg-low">{fields.length} EMPTY FIELDS FOUND</div>
-            <div className="flex flex-col gap-2">
-              {fields.map((f) => {
-                const on = checked[f.key];
-                return (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => setChecked((c) => ({ ...c, [f.key]: !c[f.key] }))}
-                    className={cn(
-                      "flex items-center gap-3 rounded-[11px] border px-3.5 py-3 text-left transition-colors",
-                      on ? "border-accent bg-accent-weak" : "border-border bg-surface-2",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border",
-                        on ? "border-transparent text-white" : "border-border-strong text-transparent",
-                      )}
-                      style={on ? { background: "var(--accent-grad)" } : undefined}
-                    >
-                      <CheckIcon size={12} strokeWidth={2.6} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-semibold text-fg">{f.label}</div>
-                      <div className="mt-0.5 text-[11.5px] text-fg-mid">{f.note}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
+          }
+        >
+          {(p) =>
+            p.steps.length === 0 ? (
+              <div className="rounded-[11px] border border-dashed border-border-strong bg-input px-4 py-8 text-center">
+                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-[12px] bg-accent-weak text-accent-text">
+                  <SparkleIcon size={20} />
+                </div>
+                <div className="text-[13.5px] font-semibold text-fg">Your profile is complete.</div>
+                <div className="mt-1 text-[12px] text-fg-mid">Every fillable section already has content — nothing left to fill.</div>
+              </div>
+            ) : phase === "plan" ? (
+              <PlanList steps={p.steps} />
+            ) : (
+              <ReviewList
+                steps={p.steps}
+                suggestions={suggestions}
+                selected={selected}
+                onToggle={toggle}
+                repoPicks={repoPicks}
+                onToggleRepo={toggleRepo}
+                githubStep={githubStep}
+                streaming={streaming}
+              />
+            )
+          }
+        </AsyncBoundary>
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-2 px-5 py-3">
@@ -1310,73 +2309,163 @@ function AiCompleteModal({ data, onClose }: { data: ProfileData; onClose: () => 
         >
           Cancel
         </button>
-        <Button variant="primary" size="sm" disabled={selectedCount === 0} onClick={onClose}>
-          <SparkleIcon size={13} /> {selectedCount ? `Complete ${selectedCount} field${selectedCount > 1 ? "s" : ""}` : "Nothing to fill"}
-        </Button>
+        {plan.data && plan.data.steps.length > 0 ? (
+          phase === "plan" ? (
+            <Button variant="primary" size="sm" onClick={start}>
+              <SparkleIcon size={13} /> Generate suggestions
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" loading={applying} disabled={streaming || selectedCount === 0} onClick={apply}>
+              <SparkleIcon size={13} /> {selectedCount ? `Apply ${selectedCount}` : "Nothing selected"}
+            </Button>
+          )
+        ) : null}
       </div>
     </ModalShell>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   Summary AI studio (the design's M1 generate modal)
-   ══════════════════════════════════════════════════════════════════ */
-function SummaryStudioModal({ onClose }: { onClose: () => void }) {
-  const tones = ["Concise", "Technical", "Warmer"] as const;
-  const [tone, setTone] = useState<(typeof tones)[number]>("Concise");
+function PlanList({ steps }: { steps: CompletionStep[] }) {
+  const groups = new Map<string, CompletionStep[]>();
+  for (const s of steps) {
+    const list = groups.get(s.section_label) ?? [];
+    list.push(s);
+    groups.set(s.section_label, list);
+  }
   return (
-    <ModalShell onClose={onClose} width={460}>
-      <div className="flex items-center gap-3 border-b border-border px-4 py-4">
-        <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] text-white" style={{ background: "var(--accent-grad)" }}>
-          <SparkleIcon size={16} strokeWidth={1.6} />
-        </div>
-        <div>
-          <div className="text-[14px] font-semibold text-fg">Generate summary</div>
-          <div className="text-[10.5px] text-fg-mid">2-line summary drafted from your CV</div>
-        </div>
+    <>
+      <div className="mb-3 font-mono text-[9.5px] tracking-[1px] text-fg-low">{steps.length} GAPS FOUND</div>
+      <div className="flex flex-col gap-3">
+        {[...groups.entries()].map(([label, list]) => (
+          <div key={label} className="rounded-[11px] border border-border bg-surface-2 p-3.5">
+            <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
+              {label}
+              <span className="rounded-full bg-accent-weak px-1.5 py-px font-mono text-[9px] text-accent-text">{list.length}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {list.map((s) => (
+                <span key={s.id} className="rounded-[7px] border border-border bg-input px-2 py-1 text-[11px] text-fg-mid">
+                  {s.label}
+                  {s.context_label ? <span className="text-fg-low"> · {s.context_label}</span> : null}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="p-4">
-        <div className="rounded-[10px] border border-border bg-reading px-3.5 py-3.5 text-[12.5px] leading-relaxed text-reading-ink">
-          ML engineer focused on evaluation and reliability
-          <span className="ml-px inline-block h-[13px] w-[6px] translate-y-0.5 bg-accent" style={{ animation: "cll-blink 1s step-end infinite" }} />
+    </>
+  );
+}
+
+function ReviewList({
+  steps,
+  suggestions,
+  selected,
+  onToggle,
+  repoPicks,
+  onToggleRepo,
+  githubStep,
+  streaming,
+}: {
+  steps: CompletionStep[];
+  suggestions: Record<string, unknown>;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  repoPicks: Set<number>;
+  onToggleRepo: (id: number) => void;
+  githubStep: CompletionStep | undefined;
+  streaming: boolean;
+}) {
+  const rows = steps.filter((s) => s.kind !== "projects_from_github" && suggestions[s.id] != null);
+  const nothingYet = rows.length === 0 && !githubStep;
+  return (
+    <div className="flex flex-col gap-2">
+      {rows.map((s) => {
+        const on = selected.has(s.id);
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onToggle(s.id)}
+            className={cn(
+              "flex items-start gap-3 rounded-[11px] border px-3.5 py-3 text-left transition-colors",
+              on ? "border-accent bg-accent-weak" : "border-border bg-surface-2",
+            )}
+          >
+            <span
+              className={cn(
+                "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border",
+                on ? "border-transparent text-white" : "border-border-strong text-transparent",
+              )}
+              style={on ? { background: "var(--accent-grad)" } : undefined}
+            >
+              <CheckIcon size={12} strokeWidth={2.6} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[12.5px] font-semibold text-fg">{s.label}</span>
+                {s.context_label ? <span className="truncate font-mono text-[10px] text-fg-low">{s.context_label}</span> : null}
+                <span className="ml-auto shrink-0 font-mono text-[9px] text-fg-low">{s.section_label}</span>
+              </div>
+              <div className="mt-1 line-clamp-3 text-[12px] leading-relaxed text-fg-mid">{previewValue(s, suggestions[s.id])}</div>
+            </div>
+          </button>
+        );
+      })}
+
+      {streaming ? (
+        <div className="flex items-center gap-2 py-2 text-[11.5px] text-fg-low">
+          <Spinner size={14} /> Drafting the rest…
         </div>
-        <div className="mt-3 flex gap-1.5">
-          {tones.map((t) => {
-            const active = t === tone;
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTone(t)}
-                className={cn(
-                  "rounded-[8px] border px-2.5 py-1.5 text-[11px] transition-colors",
-                  active ? "border-accent bg-accent-weak text-accent-text" : "border-border-strong bg-surface-2 text-fg hover:border-accent",
-                )}
-              >
-                {t}
-              </button>
-            );
-          })}
+      ) : null}
+
+      {githubStep && (githubStep.extra?.repos?.length ?? 0) > 0 ? (
+        <div className="mt-1 rounded-[11px] border border-border bg-surface-2 p-3.5">
+          <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-fg">
+            <BranchIcon size={14} strokeWidth={1.5} /> Turn GitHub repos into projects
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {(githubStep.extra?.repos ?? []).map((repo) => {
+              const on = repoPicks.has(repo.github_repo_id);
+              return (
+                <button
+                  key={repo.github_repo_id}
+                  type="button"
+                  onClick={() => onToggleRepo(repo.github_repo_id)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-[9px] border px-3 py-2 text-left transition-colors",
+                    on ? "border-accent bg-accent-weak" : "border-border bg-input",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border",
+                      on ? "border-transparent text-white" : "border-border-strong text-transparent",
+                    )}
+                    style={on ? { background: "var(--accent-grad)" } : undefined}
+                  >
+                    <CheckIcon size={10} strokeWidth={2.6} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-semibold text-fg">{repo.name}</div>
+                    {repo.purpose ? <div className="truncate text-[11px] text-fg-mid">{repo.purpose}</div> : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
-      <div className="flex items-center justify-between border-t border-border bg-surface-2 px-4 py-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-[9px] border border-border-strong px-3 py-1.5 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
-        >
-          Write myself
-        </button>
-        <Button variant="primary" size="sm" onClick={onClose}>
-          Use this
-        </Button>
-      </div>
-    </ModalShell>
+      ) : null}
+
+      {nothingYet && !streaming ? (
+        <div className="py-8 text-center text-[12.5px] text-fg-mid">No groundable suggestions were produced.</div>
+      ) : null}
+    </div>
   );
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Inline icons (20×20, stroke = currentColor) — matching the design
+   Inline icons (20×20, stroke = currentColor)
    ══════════════════════════════════════════════════════════════════ */
 type IconProps = { size?: number; strokeWidth?: number; className?: string };
 function Svg({ size = 20, strokeWidth = 1.5, className, children }: IconProps & { children: ReactNode }) {

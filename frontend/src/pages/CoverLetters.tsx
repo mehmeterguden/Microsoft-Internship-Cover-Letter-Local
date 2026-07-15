@@ -1,126 +1,47 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, ChevronRight, Plus, Search, X } from "lucide-react";
+import { Check, ChevronDown, Plus, Search, Trash2, Undo2, X } from "lucide-react";
 import { Page } from "@/components/common/Page";
+import { AsyncBoundary } from "@/components/common/AsyncBoundary";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { StatDot } from "@/components/ui/feedback";
+import { useAsync } from "@/lib/useAsync";
+import { deleteJob, listJobs, updateJob } from "@/api/jobs";
+import type { Job } from "@/api/types";
+import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
 
 /* ── Data model ──────────────────────────────────────────────────
-   Backend wiring is deferred; the "PREVIEW STATE" switcher (from the
-   design) toggles between the populated workspace and the first-run
-   empty screen. Within the populated view the toolbar is live: search,
-   company / role selects and the All / Drafts / Completed segment all
-   filter local state, and an empty match set surfaces the design's
-   "No letters found" screen. */
-type LetterStatus = "draft" | "completed";
+   Wired to the real /jobs API. Jobs are split into Drafts vs Completed
+   by `job.letter?.completed`. The toolbar (search + company / role
+   selects + All / Drafts / Completed segment) filters the live list;
+   an empty match set surfaces the "No letters found" screen, while a
+   truly empty account shows the designed first-run empty state. */
 
-type Letter = {
-  id: string;
-  initial: string;
-  role: string;
-  company: string;
-  snippet: string;
-  match: number;
-  status: LetterStatus;
-  date: string;
-};
+/** A job that has been persisted (always has a numeric id). */
+type JobWithId = Job & { id: number };
 
-const LETTERS: Letter[] = [
-  {
-    id: "l-anthropic",
-    initial: "A",
-    role: "ML Engineer",
-    company: "Anthropic",
-    snippet: "I've spent four years shipping ML systems and want to help make them safe.",
-    match: 74,
-    status: "draft",
-    date: "2h",
-  },
-  {
-    id: "l-mistral",
-    initial: "M",
-    role: "Research Engineer",
-    company: "Mistral",
-    snippet: "Open-weight models are why I got into research — I'd love to build them with you.",
-    match: 90,
-    status: "draft",
-    date: "1d",
-  },
-  {
-    id: "l-cohere",
-    initial: "C",
-    role: "Applied Scientist",
-    company: "Cohere",
-    snippet: "Your work on retrieval-augmented generation maps directly to my last two roles.",
-    match: 68,
-    status: "draft",
-    date: "3d",
-  },
-  {
-    id: "l-huggingface",
-    initial: "H",
-    role: "Platform Engineer",
-    company: "Hugging Face",
-    snippet: "I maintain three open-source libraries and live in the tooling layer every day.",
-    match: 94,
-    status: "completed",
-    date: "2d",
-  },
-  {
-    id: "l-openai",
-    initial: "O",
-    role: "Research Engineer",
-    company: "OpenAI",
-    snippet: "Scaling training infrastructure is the problem I keep coming back to.",
-    match: 96,
-    status: "completed",
-    date: "5d",
-  },
-  {
-    id: "l-deepmind",
-    initial: "D",
-    role: "Research Scientist",
-    company: "Google DeepMind",
-    snippet: "My thesis on sample-efficient RL lines up closely with your recent papers.",
-    match: 89,
-    status: "completed",
-    date: "1w",
-  },
-];
+const isCompleted = (job: Job): boolean => job.letter?.completed === true;
 
-/* ── Preview state ───────────────────────────────────────────────── */
-type ScreenState = "populated" | "empty";
+/** First non-empty line of the saved letter, whitespace-collapsed. */
+const snippetOf = (job: Job): string => (job.letter?.text ?? "").replace(/\s+/g, " ").trim();
 
-const STATE_OPTIONS: { value: ScreenState; label: string; desc: string }[] = [
-  { value: "populated", label: "Has letters", desc: "Drafts and completed letters" },
-  { value: "empty", label: "First run", desc: "No cover letters yet" },
-];
+const initialOf = (job: Job): string => job.company.trim().charAt(0).toUpperCase() || "?";
 
-/* ── Match pill ──────────────────────────────────────────────────── */
-type MatchTone = "success" | "accent" | "warning";
-
-function matchTone(match: number): MatchTone {
-  if (match >= 90) return "success";
-  if (match >= 75) return "accent";
-  return "warning";
+/** Average match score across rows that carry one (else null). */
+function avgMatch(rows: JobWithId[]): number | null {
+  const scores = rows.map((j) => j.match_score).filter((s): s is number => typeof s === "number");
+  if (!scores.length) return null;
+  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 }
 
-const matchToneCls: Record<MatchTone, string> = {
-  success: "bg-success-weak text-success",
-  accent: "bg-accent-weak text-accent-text",
-  warning: "bg-warning-weak text-warning",
-};
-
-function MatchPill({ match }: { match: number }) {
+/* ── Match label (kept subtle — this is not "how compatible you are") ── */
+function MatchPill({ score }: { score: number }) {
   return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums",
-        matchToneCls[matchTone(match)],
-      )}
-    >
-      {match} match
+    <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-surface-2 px-2 py-0.5 font-mono text-[10px] tabular-nums text-fg-low">
+      {Math.round(score)} match
     </span>
   );
 }
@@ -189,33 +110,87 @@ function SegmentFilter({
   );
 }
 
-/* ── Letter row ──────────────────────────────────────────────────── */
-function LetterRow({ letter, last }: { letter: Letter; last: boolean }) {
+/* ── Row action icon button ──────────────────────────────────────── */
+function RowAction({
+  onClick,
+  disabled,
+  label,
+  danger,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+  danger?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <Link
-      to="/write"
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "grid h-8 w-8 place-items-center rounded-[9px] text-fg-low transition-colors hover:bg-surface-3 disabled:pointer-events-none disabled:opacity-40",
+        danger ? "hover:text-danger" : "hover:text-fg",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ── Letter row ──────────────────────────────────────────────────── */
+function LetterRow({
+  job,
+  last,
+  busy,
+  onToggle,
+  onDelete,
+}: {
+  job: JobWithId;
+  last: boolean;
+  busy: boolean;
+  onToggle: (job: JobWithId) => void;
+  onDelete: (job: JobWithId) => void;
+}) {
+  const completed = isCompleted(job);
+  const snippet = snippetOf(job);
+  return (
+    <div
       className={cn(
         "flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-surface-2",
         !last && "border-b border-border",
       )}
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border bg-surface-2 text-[15px] font-bold text-accent-text">
-        {letter.initial}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13.5px] font-semibold text-fg">{letter.role}</span>
-          <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low" />
-          <span className="shrink-0 whitespace-nowrap text-[12px] text-fg-mid">{letter.company}</span>
+      <Link to={`/write?job=${job.id}`} className="flex min-w-0 flex-1 items-center gap-3.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border bg-surface-2 text-[15px] font-bold text-accent-text">
+          {initialOf(job)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-[13.5px] font-semibold text-fg">{job.role}</span>
+            <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low" />
+            <span className="shrink-0 whitespace-nowrap text-[12px] text-fg-mid">{job.company}</span>
+          </div>
+          <div className="mt-1 truncate text-[12px] text-fg-low">{snippet || "Not written yet"}</div>
         </div>
-        <div className="mt-1 truncate text-[12px] text-fg-low">{letter.snippet}</div>
+        {typeof job.match_score === "number" ? <MatchPill score={job.match_score} /> : null}
+      </Link>
+      <div className="flex shrink-0 items-center gap-1">
+        <RowAction
+          onClick={() => onToggle(job)}
+          disabled={busy}
+          label={completed ? "Mark as draft" : "Mark completed"}
+        >
+          {completed ? <Undo2 size={15} /> : <Check size={15} strokeWidth={2.2} />}
+        </RowAction>
+        <RowAction onClick={() => onDelete(job)} disabled={busy} label="Delete letter" danger>
+          <Trash2 size={15} />
+        </RowAction>
       </div>
-      <div className="flex shrink-0 items-center gap-2.5">
-        <MatchPill match={letter.match} />
-        <span className="w-[54px] text-right text-[11px] tabular-nums text-fg-low">{letter.date}</span>
-        <ChevronRight size={16} className="text-fg-low" />
-      </div>
-    </Link>
+    </div>
   );
 }
 
@@ -225,11 +200,17 @@ function LetterGroup({
   tone,
   meta,
   rows,
+  busyId,
+  onToggle,
+  onDelete,
 }: {
   title: string;
   tone: "warning" | "success";
   meta: string;
-  rows: Letter[];
+  rows: JobWithId[];
+  busyId: number | null;
+  onToggle: (job: JobWithId) => void;
+  onDelete: (job: JobWithId) => void;
 }) {
   return (
     <div>
@@ -242,109 +223,89 @@ function LetterGroup({
         <span className="ml-auto font-mono text-[9px] uppercase tracking-[1px] text-fg-low">{meta}</span>
       </div>
       <div className="cll-fade overflow-hidden rounded-[14px] border border-border bg-surface">
-        {rows.map((l, i) => (
-          <LetterRow key={l.id} letter={l} last={i === rows.length - 1} />
+        {rows.map((job, i) => (
+          <LetterRow
+            key={job.id}
+            job={job}
+            last={i === rows.length - 1}
+            busy={busyId === job.id}
+            onToggle={onToggle}
+            onDelete={onDelete}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-/* ── Preview-state switcher (mirrors Home.tsx) ───────────────────── */
-function StateSwitcher({ state, onPick }: { state: ScreenState; onPick: (s: ScreenState) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = STATE_OPTIONS.find((o) => o.value === state)!;
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2.5 rounded-[10px] border border-border-strong bg-surface px-3 py-2 transition-colors hover:border-accent"
-      >
-        <StatDot tone="accent" glow size={7} />
-        <span className="text-left leading-tight">
-          <span className="block font-mono text-[8.5px] tracking-[0.7px] text-fg-low">PREVIEW STATE</span>
-          <span className="mt-px block text-[12.5px] font-semibold text-fg">{current.label}</span>
-        </span>
-        <ChevronDown size={15} className="text-fg-mid" />
-      </button>
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div
-            className="absolute right-0 top-[calc(100%+8px)] z-40 w-[290px] rounded-[13px] border border-border-strong bg-surface-3 p-1.5 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
-            style={{ animation: "cll-menu .16s ease" }}
-          >
-            {STATE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => {
-                  onPick(o.value);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-semibold text-fg">{o.label}</div>
-                  <div className="mt-px text-[11px] text-fg-mid">{o.desc}</div>
-                </div>
-                {o.value === state ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
 /* ── Populated workspace (toolbar + grouped results / no-results) ── */
-function LettersWorkspace() {
-  const [query, setQuery] = useState("");
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState("");
-  const [segment, setSegment] = useState<Segment>("all");
-
+function LettersWorkspace({
+  jobs,
+  query,
+  setQuery,
+  company,
+  setCompany,
+  role,
+  setRole,
+  segment,
+  setSegment,
+  busyId,
+  onToggle,
+  onDelete,
+}: {
+  jobs: JobWithId[];
+  query: string;
+  setQuery: (v: string) => void;
+  company: string;
+  setCompany: (v: string) => void;
+  role: string;
+  setRole: (v: string) => void;
+  segment: Segment;
+  setSegment: (v: Segment) => void;
+  busyId: number | null;
+  onToggle: (job: JobWithId) => void;
+  onDelete: (job: JobWithId) => void;
+}) {
   const companyOptions = useMemo<Option[]>(() => {
-    const names = Array.from(new Set(LETTERS.map((l) => l.company)));
+    const names = Array.from(new Set(jobs.map((j) => j.company))).sort();
     return [{ value: "", label: "All companies" }, ...names.map((n) => ({ value: n, label: n }))];
-  }, []);
+  }, [jobs]);
   const roleOptions = useMemo<Option[]>(() => {
-    const names = Array.from(new Set(LETTERS.map((l) => l.role)));
+    const names = Array.from(new Set(jobs.map((j) => j.role))).sort();
     return [{ value: "", label: "All roles" }, ...names.map((n) => ({ value: n, label: n }))];
-  }, []);
+  }, [jobs]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return LETTERS.filter((l) => {
-      if (q && !`${l.company} ${l.role}`.toLowerCase().includes(q)) return false;
-      if (company && l.company !== company) return false;
-      if (role && l.role !== role) return false;
-      if (segment !== "all" && l.status !== segment) return false;
+    return jobs.filter((j) => {
+      if (q && !`${j.company} ${j.role}`.toLowerCase().includes(q)) return false;
+      if (company && j.company !== company) return false;
+      if (role && j.role !== role) return false;
+      if (segment === "draft" && isCompleted(j)) return false;
+      if (segment === "completed" && !isCompleted(j)) return false;
       return true;
     });
-  }, [query, company, role, segment]);
+  }, [jobs, query, company, role, segment]);
 
   // Segment counts reflect search + company + role, but ignore the segment itself.
   const segmentCounts = useMemo<Record<Segment, number>>(() => {
     const q = query.trim().toLowerCase();
-    const scoped = LETTERS.filter((l) => {
-      if (q && !`${l.company} ${l.role}`.toLowerCase().includes(q)) return false;
-      if (company && l.company !== company) return false;
-      if (role && l.role !== role) return false;
+    const scoped = jobs.filter((j) => {
+      if (q && !`${j.company} ${j.role}`.toLowerCase().includes(q)) return false;
+      if (company && j.company !== company) return false;
+      if (role && j.role !== role) return false;
       return true;
     });
     return {
       all: scoped.length,
-      draft: scoped.filter((l) => l.status === "draft").length,
-      completed: scoped.filter((l) => l.status === "completed").length,
+      draft: scoped.filter((j) => !isCompleted(j)).length,
+      completed: scoped.filter((j) => isCompleted(j)).length,
     };
-  }, [query, company, role]);
+  }, [jobs, query, company, role]);
 
-  const drafts = matches.filter((l) => l.status === "draft");
-  const completed = matches.filter((l) => l.status === "completed");
-  const avg = (rows: Letter[]) => Math.round(rows.reduce((s, l) => s + l.match, 0) / rows.length);
+  const drafts = matches.filter((j) => !isCompleted(j));
+  const completed = matches.filter((j) => isCompleted(j));
+  const completedAvg = avgMatch(completed);
 
   const hasFilters = query.trim() !== "" || company !== "" || role !== "" || segment !== "all";
 
@@ -356,7 +317,7 @@ function LettersWorkspace() {
   };
 
   return (
-    <>
+    <div className="flex flex-col gap-[18px]">
       {/* Toolbar */}
       <div className="flex shrink-0 flex-wrap items-center gap-2.5">
         <div className="flex min-w-[220px] max-w-[320px] flex-1 items-center gap-2.5 rounded-[10px] border border-border-strong bg-input px-[13px] py-[9px]">
@@ -388,10 +349,26 @@ function LettersWorkspace() {
       {matches.length > 0 ? (
         <div className="flex shrink-0 flex-col gap-[22px]">
           {drafts.length > 0 ? (
-            <LetterGroup title="Drafts" tone="warning" meta={`${drafts.length} in progress`} rows={drafts} />
+            <LetterGroup
+              title="Drafts"
+              tone="warning"
+              meta={`${drafts.length} in progress`}
+              rows={drafts}
+              busyId={busyId}
+              onToggle={onToggle}
+              onDelete={onDelete}
+            />
           ) : null}
           {completed.length > 0 ? (
-            <LetterGroup title="Completed" tone="success" meta={`avg ${avg(completed)} match`} rows={completed} />
+            <LetterGroup
+              title="Completed"
+              tone="success"
+              meta={completedAvg != null ? `avg ${completedAvg} match` : `${completed.length} ready`}
+              rows={completed}
+              busyId={busyId}
+              onToggle={onToggle}
+              onDelete={onDelete}
+            />
           ) : null}
         </div>
       ) : (
@@ -419,65 +396,143 @@ function LettersWorkspace() {
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
 /* ── First-run empty screen ──────────────────────────────────────── */
 function LettersEmpty() {
   return (
-    <div className="cll-fade mx-auto max-w-[440px] py-5 text-center">
-      <div className="relative mx-auto mb-5 flex h-[66px] w-[66px] items-center justify-center rounded-[18px] border border-border bg-accent-weak">
-        <svg
-          width="30"
-          height="30"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--accent-text)"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
-          <path d="M3.5 7l8.5 6 8.5-6" />
-        </svg>
+    <div className="flex min-h-full flex-col items-center justify-center">
+      <div className="cll-fade mx-auto max-w-[440px] py-5 text-center">
+        <div className="relative mx-auto mb-5 flex h-[66px] w-[66px] items-center justify-center rounded-[18px] border border-border bg-accent-weak">
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--accent-text)"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+            <path d="M3.5 7l8.5 6 8.5-6" />
+          </svg>
+        </div>
+        <div className="text-[20px] font-bold tracking-[-0.3px] text-fg">No cover letters yet</div>
+        <p className="mt-2.5 text-[13.5px] leading-[1.7] text-fg-mid">
+          Generate a tailored, on-device cover letter for any role — grounded in your profile and written in your own
+          voice. Your drafts and completed letters will live here.
+        </p>
+        <Button asChild variant="primary" size="lg" className="mt-[22px]">
+          <Link to="/write">
+            <Plus size={15} strokeWidth={1.8} /> Write your first letter
+          </Link>
+        </Button>
       </div>
-      <div className="text-[20px] font-bold tracking-[-0.3px] text-fg">No cover letters yet</div>
-      <p className="mt-2.5 text-[13.5px] leading-[1.7] text-fg-mid">
-        Generate a tailored, on-device cover letter for any role — grounded in your profile and written in your own
-        voice. Your drafts and sent letters will live here.
-      </p>
-      <Button asChild variant="primary" size="lg" className="mt-[22px]">
-        <Link to="/write">
-          <Plus size={15} strokeWidth={1.8} /> Write your first letter
-        </Link>
-      </Button>
     </div>
   );
 }
 
 /* ── Page ────────────────────────────────────────────────────────── */
 export function CoverLetters() {
-  const [state, setState] = useState<ScreenState>("populated");
+  const jobs = useAsync(listJobs, []);
+
+  // Toolbar filters are lifted here so they survive the AsyncBoundary
+  // remount that a reload() (after a toggle / delete) triggers.
+  const [query, setQuery] = useState("");
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [segment, setSegment] = useState<Segment>("all");
+
+  const [pendingDelete, setPendingDelete] = useState<JobWithId | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const handleToggle = async (job: JobWithId) => {
+    const next = !isCompleted(job);
+    setBusyId(job.id);
+    try {
+      await updateJob(job.id, { ...job, letter: { ...(job.letter ?? {}), completed: next } });
+      toast.success(next ? "Marked as completed" : "Moved back to drafts", `${job.role} — ${job.company}`);
+      jobs.reload();
+    } catch (e) {
+      toast.danger("Couldn't update letter", e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    const job = pendingDelete;
+    if (!job) return;
+    setDeleting(true);
+    try {
+      await deleteJob(job.id);
+      toast.success("Cover letter deleted", `${job.role} — ${job.company}`);
+      setPendingDelete(null);
+      jobs.reload();
+    } catch (e) {
+      toast.danger("Couldn't delete letter", e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Page
       eyebrow="WORKSPACE / COVER LETTERS"
       title="Cover Letters"
       actions={
-        <>
-          <StateSwitcher state={state} onPick={setState} />
-          <Button asChild variant="primary">
-            <Link to="/write">
-              <Plus size={15} strokeWidth={1.8} /> New letter
-            </Link>
-          </Button>
-        </>
+        <Button asChild variant="primary">
+          <Link to="/write">
+            <Plus size={15} strokeWidth={1.8} /> New letter
+          </Link>
+        </Button>
       }
       bodyClassName="px-7 py-5"
     >
-      <div className={cn("flex flex-col gap-[18px]", state === "empty" && "min-h-full justify-center")}>
-        {state === "populated" ? <LettersWorkspace /> : <LettersEmpty />}
-      </div>
+      <AsyncBoundary
+        state={jobs}
+        isEmpty={(list) => list.length === 0}
+        emptyView={<LettersEmpty />}
+      >
+        {(list) => (
+          <LettersWorkspace
+            jobs={list.filter((j): j is JobWithId => typeof j.id === "number")}
+            query={query}
+            setQuery={setQuery}
+            company={company}
+            setCompany={setCompany}
+            role={role}
+            setRole={setRole}
+            segment={segment}
+            setSegment={setSegment}
+            busyId={busyId}
+            onToggle={handleToggle}
+            onDelete={setPendingDelete}
+          />
+        )}
+      </AsyncBoundary>
+
+      <ConfirmDialog
+        open={pendingDelete != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        tone="danger"
+        icon={<Trash2 size={22} />}
+        title="Delete this cover letter?"
+        description={
+          pendingDelete
+            ? `“${pendingDelete.role} — ${pendingDelete.company}” will be permanently removed. This can't be undone.`
+            : undefined
+        }
+        confirmLabel="Delete letter"
+        loading={deleting}
+        onConfirm={confirmDelete}
+      />
     </Page>
   );
 }
