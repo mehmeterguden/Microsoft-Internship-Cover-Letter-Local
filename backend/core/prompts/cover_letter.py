@@ -18,6 +18,13 @@ TONES: dict[str, str] = {
     "concise": "Tone: crisp and concise — every sentence earns its place.",
 }
 
+# Length preset → one line injected into the system prompt.
+LENGTHS: dict[str, str] = {
+    "short": "Length: brief — about 180–240 words.",
+    "standard": "Length: about 250–350 words.",
+    "detailed": "Length: thorough — about 380–460 words.",
+}
+
 _SYSTEM = """You are helping a job applicant write their own cover letter. You write the letter itself in first person — not advice about it.
 
 Hard rules:
@@ -25,7 +32,7 @@ Hard rules:
 - {tone}
 - Open with a specific hook that connects the applicant to THIS company and role. Never open with "I am writing to express my interest" or similar clichés, and avoid generic AI phrasing ("I am excited to apply", "proven track record", "fast-paced environment").
 - Structure, as flowing paragraphs (no bullet lists, no headings): a hook → why the applicant is a strong fit, with concrete evidence from the profile → why this company specifically (use the research context) → a confident, brief close.
-- About 250–350 words. No placeholders like [Company] — use the real names given.
+- {length} No placeholders like [Company] — use the real names given.
 - If RESEARCH CONTEXT is provided, weave in the company's mission/values and the letter hooks naturally — do not quote them back mechanically. If fit gaps are noted, you may frame growth briefly and honestly, but do not dwell on weaknesses.
 - If an APPLICANT'S WRITING VOICE section is provided, mirror its tone, rhythm and phrasing so the letter reads unmistakably like this person — but never copy its content; write fresh material for this specific job.
 
@@ -39,11 +46,13 @@ def build_messages(
     job_description: str | None,
     research_context: str | None,
     tone: str = "professional",
+    length: str = "standard",
     style_guide: str | None = None,
     style_exemplars: list[str] | None = None,
 ) -> list[Message]:
     """Build the system+user messages for a cover-letter generation."""
     tone_line = TONES.get(tone, TONES["professional"])
+    length_line = LENGTHS.get(length, LENGTHS["standard"])
 
     parts = [
         "=== APPLICANT PROFILE ===",
@@ -68,6 +77,39 @@ def build_messages(
     parts += ["", f"Write the cover letter for {company_name} now."]
 
     return [
-        {"role": "system", "content": _SYSTEM.format(tone=tone_line)},
+        {"role": "system", "content": _SYSTEM.format(tone=tone_line, length=length_line)},
         {"role": "user", "content": "\n".join(parts)},
+    ]
+
+
+# ─────────────────────────────────────────────────────────────
+#  Review pass — flag claims the applicant should double-check.
+#  Not a score: it only surfaces specific, checkable claims that the
+#  profile does not clearly support, so nothing unverified is sent.
+# ─────────────────────────────────────────────────────────────
+
+_REVIEW_SYSTEM = """You are a careful fact-checker helping a job applicant avoid overstating themselves. You are given the applicant's PROFILE (the only source of truth) and a COVER LETTER they are about to send.
+
+Find sentences in the letter that make a SPECIFIC, checkable factual claim — a named employer, job title, metric/number, date, tool, or concrete achievement — that is NOT clearly supported by the profile. These are things to double-check before sending; not necessarily wrong, just unverified here.
+
+Rules:
+- Only flag concrete, checkable claims. Never flag general motivation, opinions, enthusiasm, or soft phrasing.
+- If everything is supported by the profile, return an empty list. Do not invent problems.
+- No scores, no ranking, no praise. Just the claim and a one-line reason.
+
+Return ONLY JSON in this exact shape:
+{"claims": [{"text": "<the exact sentence or phrase from the letter>", "reason": "<why it needs a check, one short line>"}]}"""
+
+
+def build_review_messages(profile_context: str, letter: str) -> list[Message]:
+    """Messages for the post-generation review pass (see core.cover_letter.review)."""
+    user = (
+        "=== APPLICANT PROFILE (source of truth) ===\n"
+        + (profile_context or "(no profile imported)")
+        + "\n\n=== COVER LETTER ===\n"
+        + letter.strip()
+    )
+    return [
+        {"role": "system", "content": _REVIEW_SYSTEM},
+        {"role": "user", "content": user},
     ]

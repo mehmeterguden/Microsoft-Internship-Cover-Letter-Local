@@ -14,11 +14,12 @@ settings — the documented opt-in.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from typing import Any
 
 from core import llm, style
-from core.prompts.cover_letter import build_messages
+from core.prompts.cover_letter import build_messages, build_review_messages
 from core.research.orchestrator import _cache_key
 from db import queries
 
@@ -30,6 +31,7 @@ def stream(
     role_title: str | None = None,
     job_description: str | None = None,
     tone: str = "professional",
+    length: str = "standard",
 ) -> Iterator[dict[str, Any]]:
     """Yield generation events: one `start`, many `token`, then `done`.
 
@@ -42,6 +44,7 @@ def stream(
 
     messages = build_messages(
         profile_context, company_name, role_title, job_description, research_context, tone,
+        length=length,
         style_guide=voice["guide"], style_exemplars=voice["exemplars"],
     )
 
@@ -159,3 +162,45 @@ def _span(exp: dict) -> str:
     if start or end:
         return f" ({start or '?'}–{end or '?'})"
     return ""
+
+
+# ─────────────────────────────────────────────────────────────
+#  Review pass — advisory, never blocks the letter
+# ─────────────────────────────────────────────────────────────
+
+def review(letter: str) -> list[dict[str, str]]:
+    """Return specific, checkable claims in `letter` that the local profile does
+    NOT clearly support, so the applicant can double-check before sending.
+
+    This is advisory only — no score, no ranking. Never raises: returns [] on any
+    provider or parse failure (a failed review must not block a finished letter).
+    """
+    letter = (letter or "").strip()
+    if not letter:
+        return []
+    profile_context, _ = _load_profile_context()
+    try:
+        raw = llm.complete(build_review_messages(profile_context, letter), temperature=0.0)
+        data = _parse_json_object(raw)
+    except Exception:  # noqa: BLE001 — advisory only
+        return []
+
+    claims = data.get("claims") if isinstance(data, dict) else None
+    if not isinstance(claims, list):
+        return []
+    out: list[dict[str, str]] = []
+    for c in claims[:8]:
+        if isinstance(c, dict) and c.get("text"):
+            out.append({"text": str(c["text"])[:400], "reason": str(c.get("reason") or "")[:200]})
+    return out
+
+
+def _parse_json_object(raw: str) -> dict[str, Any]:
+    """Extract the first JSON object from a model response (tolerates code fences)."""
+    raw = (raw or "").strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+    start, end = raw.find("{"), raw.rfind("}")
+    if start != -1 and end > start:
+        return json.loads(raw[start : end + 1])
+    return {}
