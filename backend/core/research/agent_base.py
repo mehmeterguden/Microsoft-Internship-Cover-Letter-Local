@@ -50,6 +50,11 @@ _RETRIES = 4                 # transient provider errors (Gemini "503 overloaded
 # cloud model with every agent at once triggers 503s. Reasoning is throttled.
 _llm_gate = asyncio.Semaphore(2)
 
+# Hard per-agent timeouts so one hung tool or LLM call can't stall the whole run.
+# On timeout the agent fails soft (agent_error) and the rest of the fleet continues.
+_GATHER_TIMEOUT = 45  # seconds — external tool gathering (search / fetch / etc.)
+_REASON_TIMEOUT = 90  # seconds — the LLM reasoning call
+
 
 @dataclass(frozen=True, slots=True)
 class AgentContext:
@@ -106,7 +111,12 @@ class Agent(ABC):
         """
         await emit({"type": "agent_started", "agent": self.name, "section": self.section})
 
-        gathered = await asyncio.to_thread(self._gather_safe, ctx)
+        try:
+            gathered = await asyncio.wait_for(
+                asyncio.to_thread(self._gather_safe, ctx), timeout=_GATHER_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            gathered = []
         for result in gathered:
             await emit(
                 {"type": "source", "agent": self.name, "source": result.source, "ok": result.ok}
@@ -125,7 +135,9 @@ class Agent(ABC):
 
         try:
             async with _llm_gate:
-                validated = await asyncio.to_thread(self._reason, ctx, gathered, on_token)
+                validated = await asyncio.wait_for(
+                    asyncio.to_thread(self._reason, ctx, gathered, on_token), timeout=_REASON_TIMEOUT
+                )
             section = self.section_from(validated)
         except Exception as exc:  # noqa: BLE001 — one bad agent must not sink the run
             await emit({"type": "agent_error", "agent": self.name, "error": str(exc)})

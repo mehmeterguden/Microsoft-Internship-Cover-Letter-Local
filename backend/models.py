@@ -80,6 +80,7 @@ class LLMProvider(str, Enum):
 
     foundry_local = "foundry_local"   # local, private (default)
     ollama = "ollama"                 # local, private
+    lm_studio = "lm_studio"           # local, OpenAI-compatible
     openai = "openai"                 # cloud
     anthropic = "anthropic"           # cloud (Claude)
     gemini = "gemini"                 # cloud
@@ -222,6 +223,7 @@ class Settings(BaseModel):
     tavily_api_key: str = ""             # company research key (only external call)
     ocr_enabled: bool = False            # optional feature: read images via OCR (needs tesseract)
     github_token: str = ""               # optional: GitHub PAT to import repos from the connected account
+    research_cache_retention: Literal["off", "7_days", "30_days", "forever", "last_10"] = "7_days"  # keep cached company research for…
 
 
 # ─────────────────────────────────────────────────────────────

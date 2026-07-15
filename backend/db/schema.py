@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS settings (
     embedding_model   TEXT NOT NULL,                        -- sentence-transformers model (later phases)
     tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
     ocr_enabled       INTEGER NOT NULL DEFAULT 0,           -- optional: read images via OCR (needs tesseract)
-    github_token      TEXT NOT NULL DEFAULT ''              -- optional: connect GitHub account (PAT) for repo import
+    github_token      TEXT NOT NULL DEFAULT '',             -- optional: connect GitHub account (PAT) for repo import
+    research_cache_retention TEXT NOT NULL DEFAULT '7_days'  -- off|7_days|30_days|forever|last_10 — how long to keep cached research
 );
 
 -- ── Uploaded documents (extracted text) ─────────────────────────
@@ -273,6 +274,7 @@ _COLUMNS_ADDED = {
         "key_switch_mode": "TEXT NOT NULL DEFAULT 'auto'",  # auto|manual on rate-limit
         "company_search_provider": "TEXT NOT NULL DEFAULT 'wikidata'",  # wikidata|brandfetch
         "brandfetch_client_id": "TEXT NOT NULL DEFAULT ''",  # public Brandfetch client id
+        "research_cache_retention": "TEXT NOT NULL DEFAULT '7_days'",  # off|7_days|30_days|forever|last_10
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

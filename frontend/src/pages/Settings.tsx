@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
    the provider selection drives the "cloud" state (which reveals the API
    key pool + swaps the privacy banner). No backend calls. */
 type Tab = "model" | "integrations" | "data";
-type ProviderId = "foundry" | "ollama" | "lmstudio" | "openai" | "claude" | "gemini";
+type ProviderId = "foundry" | "ollama" | "lm_studio" | "openai" | "claude" | "gemini";
 type KeyMode = "auto" | "manual";
 type AutocompleteSource = "wikidata" | "brandfetch";
 
@@ -47,7 +47,7 @@ const PROVIDERS: Provider[] = [
     models: ["llama3.1:8b", "mistral:7b", "qwen2.5:14b", "gemma2:9b", "phi3.5"],
   },
   {
-    id: "lmstudio",
+    id: "lm_studio",
     name: "LM Studio",
     desc: "Local model server with a friendly desktop UI.",
     badge: "LOCAL",

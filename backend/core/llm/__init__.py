@@ -12,6 +12,7 @@ from core.llm.anthropic import ClaudeProvider
 from core.llm.base import LLMProvider, Message
 from core.llm.foundry_local import FoundryLocalProvider
 from core.llm.gemini import GeminiProvider
+from core.llm.lm_studio import LMStudioProvider
 from core.llm.ollama import OllamaProvider
 from core.llm.openai import OpenAIProvider
 from db import queries
@@ -20,6 +21,7 @@ from db import queries
 PROVIDERS: dict[str, type[LLMProvider]] = {
     "foundry_local": FoundryLocalProvider,
     "ollama": OllamaProvider,
+    "lm_studio": LMStudioProvider,
     "openai": OpenAIProvider,
     "anthropic": ClaudeProvider,
     "gemini": GeminiProvider,

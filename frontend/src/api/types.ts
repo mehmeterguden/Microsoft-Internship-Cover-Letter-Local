@@ -27,7 +27,8 @@ export type LanguageLevel = "native" | "fluent" | "professional" | "intermediate
 
 export type JobStatus = "draft" | "sent" | "interview" | "rejected" | "offer";
 
-export type LLMProviderId = "foundry_local" | "ollama" | "openai" | "anthropic" | "gemini";
+export type LLMProviderId = "foundry_local" | "ollama" | "lm_studio" | "openai" | "anthropic" | "gemini";
+export type ResearchCacheRetention = "off" | "7_days" | "30_days" | "forever" | "last_10";
 
 /** Where a piece of profile data originally came from. */
 export type Source = "manual" | "cv" | "github" | "linkedin";
@@ -256,6 +257,7 @@ export interface Settings {
   tavily_api_key?: string;
   ocr_enabled?: boolean;
   github_token?: string;
+  research_cache_retention?: ResearchCacheRetention;
 }
 
 // ── Company research report (backend core/research/schema.py) ──
