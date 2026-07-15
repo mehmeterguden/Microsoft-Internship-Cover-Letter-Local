@@ -18,6 +18,8 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
  */
 function readInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
+  const param = new URLSearchParams(window.location.search).get("theme");
+  if (param === "light" || param === "dark") return param;
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
   return "dark";
