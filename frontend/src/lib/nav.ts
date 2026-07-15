@@ -1,45 +1,32 @@
-import {
-  FileUp,
-  Home,
-  Building2,
-  UserRound,
-  Github,
-  AudioLines,
-  PenLine,
-  LayoutGrid,
-  type LucideIcon,
-} from "lucide-react";
-
-export type NavGroup = "home" | "setup" | "create";
+/**
+ * Primary navigation for the app shell, matching the Claude Design layout:
+ *  • a prominent "New Cover Letter" CTA (→ /write)
+ *  • a main group: Home · Profile & Skills · Cover Letters
+ *  • a "Setup" group: Add CV · Writing Voice · GitHub Import
+ *
+ * Company Research is reached contextually from the writing flow, and
+ * Settings + theme live in the sidebar footer — so neither is a nav row.
+ * Icons are rendered in the Sidebar (keyed by `icon`) to stay faithful to
+ * the design's custom glyphs.
+ */
+export type NavIcon = "home" | "profile" | "letters" | "addcv" | "voice" | "github";
 
 export type NavItem = {
   to: string;
   label: string;
-  hint: string; // short description shown under the label
-  icon: LucideIcon;
-  group: NavGroup;
+  icon: NavIcon;
+  /** optional key for a trailing count badge (resolved in the Sidebar) */
+  count?: "letters";
 };
 
-/**
- * Primary navigation, split into two clear stages:
- *  • Setup — one-time: add your CV, profile, GitHub, and writing voice.
- *  • Write & apply — the ongoing loop: research, generate, track applications.
- */
-export const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Home", hint: "Overview", icon: Home, group: "home" },
-
-  { to: "/onboarding", label: "CV", hint: "Your CV", icon: FileUp, group: "setup" },
-  { to: "/profile", label: "Profile & Skills", hint: "Your details", icon: UserRound, group: "setup" },
-  { to: "/github", label: "GitHub", hint: "Import projects", icon: Github, group: "setup" },
-  { to: "/voice", label: "Writing Voice", hint: "Learn your style", icon: AudioLines, group: "setup" },
-
-  { to: "/research", label: "Company Research", hint: "Research a role", icon: Building2, group: "create" },
-  { to: "/write", label: "Write Cover Letter", hint: "Generate & edit", icon: PenLine, group: "create" },
-  { to: "/cover-letters", label: "Cover Letters", hint: "Drafts & completed", icon: LayoutGrid, group: "create" },
+export const MAIN_NAV: NavItem[] = [
+  { to: "/", label: "Home", icon: "home" },
+  { to: "/profile", label: "Profile & Skills", icon: "profile" },
+  { to: "/cover-letters", label: "Cover Letters", icon: "letters", count: "letters" },
 ];
 
-export const GROUP_LABELS: Record<NavGroup, string> = {
-  home: "",
-  setup: "1 · Set up your profile",
-  create: "2 · Write & apply",
-};
+export const SETUP_NAV: NavItem[] = [
+  { to: "/onboarding", label: "Add CV", icon: "addcv" },
+  { to: "/voice", label: "Writing Voice", icon: "voice" },
+  { to: "/github", label: "GitHub Import", icon: "github" },
+];

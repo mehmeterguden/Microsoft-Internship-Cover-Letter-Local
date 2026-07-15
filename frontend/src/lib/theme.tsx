@@ -12,11 +12,15 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/**
+ * The design is dark-first: dark tokens live on :root and are the default.
+ * Light mode is opt-in and applied by adding the `.light` class to <html>.
+ */
 function readInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return "dark";
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "dark";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -24,7 +28,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("dark", theme === "dark");
+    root.classList.remove("dark"); // legacy — dark is now the default (no class)
+    root.classList.toggle("light", theme === "light");
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 

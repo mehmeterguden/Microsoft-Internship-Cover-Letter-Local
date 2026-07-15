@@ -1,130 +1,174 @@
 @import "tailwindcss";
 
-/* Dark mode is class-driven (toggled on <html>), persisted to localStorage. */
-@custom-variant dark (&:where(.dark, .dark *));
-
 /* ─────────────────────────────────────────────────────────────
-   Theme tokens — the single source of truth.
-   Raw values live on :root / .dark; @theme maps them to utilities
-   (bg-bg, text-text-2, border-border, font-display, …) so that
-   toggling .dark re-themes every utility with no rebuild.
+   Cover Letter Local — design system (imported from Claude Design
+   "Cover Letter Local - App").
+
+   Dark is the reference theme and the default. A cool, high-contrast
+   light theme is derived so the sidebar theme toggle stays functional.
+   The theme is class-driven: <html> gets `.light` for light mode,
+   nothing (or `.dark`) for dark. Tokens live on :root/.light and are
+   mapped to Tailwind utilities via @theme inline, so flipping the
+   class re-skins every utility with no rebuild.
    ───────────────────────────────────────────────────────────── */
-:root,
-.light {
-  --bg: #ffffff;
-  --bg-2: #eaf6f1;          /* light mint (hero / section wash) */
-  --surface: #ffffff;
-  --surface-2: #f2f8f6;
-  --paper: #ffffff;
 
-  --navy: #0b1226;          /* dark sidebar + marketing bands (theme-independent) */
-  --navy-2: #111a34;
+@custom-variant light (&:where(.light, .light *));
+@custom-variant dark (&:where(:root:not(.light), :root:not(.light) *));
 
-  --border: #e4eae8;
-  --border-strong: #cdd8d3;
-  --line: #eef2f0;
+/* ── DARK — the reference palette (default) ── */
+:root {
+  color-scheme: dark;
 
-  --text: #131a2e;          /* near-navy ink */
-  --text-2: #55617a;
-  --text-3: #8a94a6;
+  --bg: #060a12;
+  --surface: #0b1220;
+  --surface-2: #101a2c;
+  --surface-3: #16233a;
+  --input: #050a14;
+  --reading-bg: #0c1421;
+  --reading-text: #e4ebf5;
 
-  --accent: #0ea373;        /* brand green */
-  --accent-ink: #0a7452;
-  --accent-soft: #e6f5ef;
-  --on-accent: #ffffff;
+  --border: rgba(150, 190, 230, 0.12);
+  --border-strong: rgba(150, 190, 230, 0.22);
 
-  --gold: #b4780f;
-  --gold-soft: #f7edd8;
-  --blue: #2f6f9e;
-  --blue-soft: #e3eef6;
-  --violet: #6d5bd6;
-  --violet-soft: #ece9fb;
-  --danger: #dc5b4b;
-  --danger-soft: #fbe8e5;
-  --good: #0ea373;
-  --good-soft: #e6f5ef;
+  --text-hi: #f0f4fa;
+  --text-mid: #9fb0c4;
+  --text-low: #61728a;
 
-  --shadow: 0 1px 2px rgba(19, 26, 46, 0.04), 0 10px 28px rgba(19, 26, 46, 0.07);
-  --shadow-lg: 0 2px 8px rgba(19, 26, 46, 0.06), 0 26px 60px rgba(19, 26, 46, 0.12);
-}
+  --accent: #38bdf8;
+  --accent-2: #3b82f6;
+  --accent-text: #7dd3fc;
+  --accent-weak: rgba(56, 189, 248, 0.14);
+  --accent-shadow: rgba(34, 150, 220, 0.55);
+  --accent-grad: linear-gradient(135deg, #22d3ee, #3b82f6);
+  --on-accent: #051422; /* ink/icon color on a solid accent fill */
 
-.dark {
-  --bg: #0a0f1f;
-  --bg-2: #0c1226;
-  --surface: #121a30;
-  --surface-2: #182241;
-  --paper: #0f1730;
+  --success: #34d399;
+  --success-weak: rgba(52, 211, 153, 0.12);
+  --warning: #fbbf24;
+  --warning-weak: rgba(251, 191, 36, 0.12);
+  --danger: #fb7185;
+  --danger-weak: rgba(251, 113, 133, 0.12);
 
-  --navy: #0b1226;
-  --navy-2: #111a34;
-
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
-  --line: rgba(255, 255, 255, 0.07);
-
-  --text: #eaeef7;
-  --text-2: #a9b2c7;
-  --text-3: #6b7590;
-
-  --accent: #2bd4a0;
-  --accent-ink: #5fe8be;
-  --accent-soft: rgba(43, 212, 160, 0.14);
-  --on-accent: #05130d;
-
-  --gold: #fbbf24;
-  --gold-soft: rgba(251, 191, 36, 0.14);
-  --blue: #6faed8;
-  --blue-soft: rgba(111, 174, 216, 0.15);
-  --violet: #a78bfa;
-  --violet-soft: rgba(167, 139, 250, 0.14);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.14);
-  --good: #2bd4a0;
-  --good-soft: rgba(43, 212, 160, 0.14);
+  /* atmosphere */
+  --glow-1: radial-gradient(circle, rgba(34, 211, 238, 0.4), transparent 65%);
+  --glow-2: radial-gradient(circle, rgba(59, 130, 246, 0.42), transparent 65%);
+  --grid: linear-gradient(rgba(150, 190, 230, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 190, 230, 0.05) 1px, transparent 1px);
+  --grid-size: 38px 38px;
+  --sidebar: rgba(150, 190, 230, 0.02);
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.5), 0 34px 80px rgba(0, 0, 0, 0.62);
 }
 
+/* ── LIGHT — derived, cool + high-contrast ── */
+.light {
+  color-scheme: light;
+
+  --bg: #eef2f8;
+  --surface: #ffffff;
+  --surface-2: #f3f6fb;
+  --surface-3: #e8eef6;
+  --input: #ffffff;
+  --reading-bg: #ffffff;
+  --reading-text: #1a2536;
+
+  --border: rgba(30, 58, 95, 0.12);
+  --border-strong: rgba(30, 58, 95, 0.2);
+
+  --text-hi: #0f1826;
+  --text-mid: #46566d;
+  --text-low: #7d8ba1;
+
+  --accent: #0891b2;
+  --accent-2: #2563eb;
+  --accent-text: #0e7490;
+  --accent-weak: rgba(8, 145, 178, 0.1);
+  --accent-shadow: rgba(8, 145, 178, 0.35);
+  --accent-grad: linear-gradient(135deg, #06b6d4, #2563eb);
+  --on-accent: #ffffff;
+
+  --success: #059669;
+  --success-weak: rgba(5, 150, 105, 0.1);
+  --warning: #b45309;
+  --warning-weak: rgba(180, 83, 9, 0.1);
+  --danger: #e11d48;
+  --danger-weak: rgba(225, 29, 72, 0.1);
+
+  --glow-1: radial-gradient(circle, rgba(6, 182, 212, 0.18), transparent 65%);
+  --glow-2: radial-gradient(circle, rgba(37, 99, 235, 0.16), transparent 65%);
+  --grid: linear-gradient(rgba(30, 58, 95, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 58, 95, 0.05) 1px, transparent 1px);
+  --grid-size: 38px 38px;
+  --sidebar: rgba(30, 58, 95, 0.015);
+
+  --shadow: 0 1px 2px rgba(15, 24, 38, 0.05), 0 10px 28px rgba(15, 24, 38, 0.08);
+  --shadow-lg: 0 2px 8px rgba(15, 24, 38, 0.07), 0 26px 60px rgba(15, 24, 38, 0.14);
+}
+
 @theme inline {
   --color-bg: var(--bg);
-  --color-bg-2: var(--bg-2);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-paper: var(--paper);
+  --color-surface-3: var(--surface-3);
+  --color-input: var(--input);
+  --color-reading: var(--reading-bg);
+  --color-reading-ink: var(--reading-text);
 
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
-  --color-line: var(--line);
 
-  --color-text: var(--text);
-  --color-text-2: var(--text-2);
-  --color-text-3: var(--text-3);
+  --color-fg: var(--text-hi);
+  --color-fg-mid: var(--text-mid);
+  --color-fg-low: var(--text-low);
 
   --color-accent: var(--accent);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
+  --color-accent-text: var(--accent-text);
+  --color-accent-weak: var(--accent-weak);
   --color-on-accent: var(--on-accent);
 
-  --color-gold: var(--gold);
-  --color-gold-soft: var(--gold-soft);
-  --color-blue: var(--blue);
-  --color-blue-soft: var(--blue-soft);
-  --color-violet: var(--violet);
-  --color-violet-soft: var(--violet-soft);
+  --color-success: var(--success);
+  --color-success-weak: var(--success-weak);
+  --color-warning: var(--warning);
+  --color-warning-weak: var(--warning-weak);
   --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-good: var(--good);
-  --color-good-soft: var(--good-soft);
-  --color-navy: var(--navy);
-  --color-navy-2: var(--navy-2);
+  --color-danger-weak: var(--danger-weak);
 
-  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  /* Transitional aliases — legacy token names still used by not-yet-migrated
+     components resolve to the new palette, so the whole app is dark-skinned
+     during the redesign. Removed once every page is migrated. */
+  --color-text: var(--text-hi);
+  --color-text-2: var(--text-mid);
+  --color-text-3: var(--text-low);
+  --color-bg-2: var(--surface);
+  --color-paper: var(--surface);
+  --color-line: var(--border);
+  --color-accent-ink: var(--accent-text);
+  --color-accent-soft: var(--accent-weak);
+  --color-good: var(--success);
+  --color-good-soft: var(--success-weak);
+  --color-gold: var(--warning);
+  --color-gold-soft: var(--warning-weak);
+  --color-danger-soft: var(--danger-weak);
+  --color-blue: var(--accent);
+  --color-blue-soft: var(--accent-weak);
+  --color-violet: var(--accent-2);
+  --color-violet-soft: var(--accent-weak);
+  --color-navy: var(--surface);
+  --color-navy-2: var(--surface-2);
+  --radius-card: 16px;
+
+  --font-display: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --radius-card: 18px;
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 13px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+
   --shadow-soft: var(--shadow);
   --shadow-elevated: var(--shadow-lg);
 }
@@ -141,16 +185,17 @@
 
   body {
     background-color: var(--bg);
-    color: var(--text);
+    color: var(--text-hi);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.55;
+    letter-spacing: -0.1px;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    color: var(--text);
-    letter-spacing: -0.01em;
+    color: var(--text-hi);
+    letter-spacing: -0.02em;
     font-weight: 700;
   }
 
@@ -158,100 +203,145 @@
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   [contenteditable][data-ph]:empty::before {
     content: attr(data-ph);
-    color: #b6bdc9;
+    color: var(--text-low);
     pointer-events: none;
   }
 
   ::selection {
-    background: var(--accent-soft);
+    background: rgba(56, 189, 248, 0.3);
+  }
+
+  /* Thin, themed scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--text-low);
+    background-clip: padding-box;
   }
 }
 
-/* ── Motion keyframes ── */
+/* ─────────────────────────────────────────────────────────────
+   Motion keyframes (mirrors the Claude Design source)
+   ───────────────────────────────────────────────────────────── */
 @keyframes cll-rise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cll-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes cll-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1); }
 }
 @keyframes cll-spin {
   to { transform: rotate(360deg); }
 }
-@keyframes cll-select-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes cll-shimmer {
+  0% { background-position: -500px 0; }
+  100% { background-position: 500px 0; }
 }
-@keyframes cll-caret {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-@keyframes cll-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.78); }
-}
-@keyframes cll-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+@keyframes cll-sheen {
+  0% { transform: translateX(-160%); }
+  55%, 100% { transform: translateX(260%); }
 }
 @keyframes cll-drift {
-  0%   { transform: translate(0, 0) scale(1); }
-  33%  { transform: translate(3%, -2%) scale(1.06); }
-  66%  { transform: translate(-2%, 3%) scale(0.97); }
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(46px, 32px) scale(1.14); }
   100% { transform: translate(0, 0) scale(1); }
 }
-@keyframes cll-shimmer {
-  0%   { transform: translateX(-140%) skewX(-18deg); }
-  60%, 100% { transform: translateX(360%) skewX(-18deg); }
+@keyframes cll-drift2 {
+  0% { transform: translate(0, 0) scale(1.06); }
+  50% { transform: translate(-54px, -26px) scale(1); }
+  100% { transform: translate(0, 0) scale(1.06); }
 }
-@keyframes cll-glow {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 0.85; }
+@keyframes cll-modal {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
-/* ── Atmosphere: film grain, drifting gradient mesh, faint grid ── */
-.cll-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.045;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+@keyframes cll-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-.cll-grid {
-  background-image:
-    linear-gradient(to right, var(--line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
-  background-size: 34px 34px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+@keyframes cll-toast {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
-.cll-mesh {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(60px);
-  will-change: transform;
-  animation: cll-drift 26s ease-in-out infinite;
+@keyframes cll-menu {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cll-ping {
+  0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45); }
+  70%, 100% { box-shadow: 0 0 0 16px rgba(56, 189, 248, 0); }
 }
 
-/* Sheen sweep for primary CTAs */
-.cll-sheen {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
+/* ─────────────────────────────────────────────────────────────
+   Utilities
+   ───────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* staggered entrance — pair with inline animation-delay */
+  .cll-fade {
+    animation: cll-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* faint masked grid overlay for the app background */
+  .cll-grid {
+    background-image: var(--grid);
+    background-size: var(--grid-size);
+    -webkit-mask-image: radial-gradient(ellipse at 74% 4%, #000, transparent 74%);
+    mask-image: radial-gradient(ellipse at 74% 4%, #000, transparent 74%);
+  }
+
+  /* drifting blurred glow orb; set background:var(--glow-1|2) inline */
+  .cll-orb {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  /* blinking streaming caret */
+  .cll-caret {
+    display: inline-block;
+    width: 8px;
+    height: 1em;
+    vertical-align: -2px;
+    margin-left: 2px;
+    background: var(--accent);
+    animation: cll-blink 1.05s step-end infinite;
+  }
 }
-.cll-sheen::after {
-  content: "";
+
+/* Sheen sweep for primary CTAs: <span class="cll-sheen-el"/> inside a
+   position:relative;overflow:hidden button. */
+.cll-sheen-el {
   position: absolute;
   top: 0;
   left: 0;
+  bottom: 0;
   width: 40%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
-  animation: cll-shimmer 4.5s ease-in-out infinite;
-  z-index: -1;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: cll-sheen 5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* Print only the letter sheet. */
@@ -268,9 +358,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
