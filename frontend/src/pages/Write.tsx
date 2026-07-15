@@ -113,10 +113,10 @@ export function Write() {
           </section>
         </div>
 
-        {/* ── Right column: streaming letter + groundedness ───── */}
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        {/* ── Right column: streaming letter (top) + groundedness (below) ── */}
+        <div className="flex min-w-0 flex-col gap-4">
           {/* Streaming reading pane */}
-          <section className="cll-fade relative flex min-h-[560px] flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
+          <section className="cll-fade relative flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
             <div className="relative flex-1 overflow-auto p-7 sm:px-8">
               {/* STREAMING pill */}
               <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.8px] text-accent-text">
@@ -148,7 +148,7 @@ export function Write() {
           </section>
 
           {/* Groundedness check */}
-          <section className="cll-fade h-fit rounded-[14px] border border-border bg-surface p-[18px]">
+          <section className="cll-fade rounded-[14px] border border-border bg-surface p-[18px]">
             <div className="mb-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
                 <ShieldCheck size={16} strokeWidth={1.6} className="text-success" />
