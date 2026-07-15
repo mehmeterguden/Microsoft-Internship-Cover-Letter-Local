@@ -108,3 +108,21 @@ def test_style_context_combines_guide_and_exemplars(monkeypatch):
     ctx = style.style_context("Backend at Stripe")
     assert ctx["has_style"] is True
     assert "warm" in ctx["guide"] and ctx["exemplars"] == ["passage"]
+
+
+# ── learn stream (real progress) ──
+
+def test_learn_stream_yields_monotonic_progress_then_result(monkeypatch):
+    monkeypatch.setattr(style, "_sorted_letters",
+                        lambda: [{"content": "Dear team, I really enjoy building useful things. Thank you."}])
+    monkeypatch.setattr(style, "_save_voice", lambda v: None)
+    monkeypatch.setattr(style, "_stored_voice", lambda: None)
+    monkeypatch.setattr(style.embeddings, "available", lambda: False)
+    monkeypatch.setattr(style.queries, "get_settings", lambda: {"llm_provider": "ollama", "llm_model": "x"})
+
+    events = list(style.learn_stream())
+    percents = [e["percent"] for e in events if e["type"] == "progress"]
+    assert percents == sorted(percents)      # monotonic
+    assert percents[-1] == 100
+    assert events[-1]["type"] == "result"
+    assert events[-1]["result"]["samples"] == 1

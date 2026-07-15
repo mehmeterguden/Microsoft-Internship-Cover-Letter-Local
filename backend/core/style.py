@@ -20,6 +20,7 @@ import json
 import re
 import statistics
 import time
+from collections.abc import Iterator
 from typing import Any
 
 from core import embeddings, llm
@@ -61,12 +62,17 @@ _VOICE_FIELDS = {
 #  Public API
 # ─────────────────────────────────────────────────────────────
 
-def learn() -> dict[str, Any]:
-    """Analyze past letters (metrics + deep LLM voice), store, and (re)index exemplars.
+def learn_stream() -> Iterator[dict[str, Any]]:
+    """Analyze past letters (metrics + deep LLM voice), store, and (re)index exemplars,
+    yielding real progress as each phase completes.
+
+    Yields ``{"type": "progress", "percent": int, "label": str}`` per phase and a final
+    ``{"type": "result", "result": {...}}``.
 
     If the deep analysis fails (a transient model error), we do NOT silently persist a
     thin, metrics-only profile over a good one — we keep the existing deep profile and
     report `analysis_failed` so the UI can ask the user to try again."""
+    yield {"type": "progress", "percent": 5, "label": "Gathering your letters"}
     letters = _sorted_letters()
     texts = [row["content"] for row in letters if row.get("content")]
     corpus = "\n\n---\n\n".join(t.strip() for t in texts if t and t.strip())
@@ -76,7 +82,9 @@ def learn() -> dict[str, Any]:
     error: str | None = None
     reasons: set[str] = set()
     if corpus:
+        yield {"type": "progress", "percent": 20, "label": "Measuring rhythm & structure"}
         fields = _metrics(corpus, texts)
+        yield {"type": "progress", "percent": 35, "label": "Learning your voice (the slow part)"}
         try:
             deep = _llm_voice(corpus, len(texts))
         except VoiceAnalysisError as exc:
@@ -88,6 +96,7 @@ def learn() -> dict[str, Any]:
             fields["llm_analyzed"] = True
             llm_ok = True
         voice = VoiceProfile(**fields)
+        yield {"type": "progress", "percent": 70, "label": "Voice learned"}
 
     # Never downgrade a previously-learned deep profile because of a transient failure.
     existing = _stored_voice()
@@ -98,6 +107,7 @@ def learn() -> dict[str, Any]:
 
     chunks, used_embeddings = 0, False
     if texts and embeddings.available():
+        yield {"type": "progress", "percent": 82, "label": "Indexing exemplars for retrieval"}
         try:
             chunks = _index_exemplars(letters)
             used_embeddings = True
@@ -109,7 +119,8 @@ def learn() -> dict[str, Any]:
     # not when the keys are quota-exhausted or rejected.
     suggest_model_switch = settings.get("llm_provider") == "gemini" and "unavailable" in reasons
 
-    return {
+    yield {"type": "progress", "percent": 100, "label": "Done"}
+    yield {"type": "result", "result": {
         "samples": len(texts),
         "chunks_indexed": chunks,
         "embeddings": used_embeddings,
@@ -121,7 +132,16 @@ def learn() -> dict[str, Any]:
         "model": settings.get("llm_model"),
         "provider": settings.get("llm_provider"),
         "style_profile": stored.model_dump(mode="json") if stored else None,
-    }
+    }}
+
+
+def learn() -> dict[str, Any]:
+    """Non-streaming convenience wrapper — drains :func:`learn_stream`."""
+    result: dict[str, Any] = {}
+    for event in learn_stream():
+        if event["type"] == "result":
+            result = event["result"]
+    return result
 
 
 def analyze(texts: list[str]) -> VoiceProfile | None:

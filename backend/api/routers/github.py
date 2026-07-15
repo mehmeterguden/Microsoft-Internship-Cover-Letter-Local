@@ -7,10 +7,13 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from starlette.concurrency import iterate_in_threadpool
 
 from core import github, github_analysis
 from db import queries
@@ -61,22 +64,49 @@ def fetch_repos(req: FetchRequest) -> dict:
         ) from exc
 
 
-@router.post("/analyze")
-def analyze_repos(req: AnalyzeRequest) -> dict:
-    """Fetch each repo's README and analyze them with the LLM into reusable context."""
+@router.post("/analyze", summary="Analyze repos with live progress (SSE)")
+async def analyze_repos(req: AnalyzeRequest) -> StreamingResponse:
+    """Fetch each repo's README and analyze them with the LLM, streaming real progress.
+
+    Events: ``{type: progress, percent, label}`` while working, one
+    ``{type: done, result}`` at the end, or ``{type: fatal, error}`` on failure.
+    Reading READMEs is the first ~40%; the LLM analysis is the rest.
+    """
     token = queries.get_settings().get("github_token") or None
-    inputs = []
-    for repo in req.repos:
-        data = repo.model_dump(mode="json", exclude={"id"})
-        data["readme"] = github.fetch_readme(req.login, repo.repo_name, token)
-        data["languages"] = github.fetch_languages(req.login, repo.repo_name, token)
-        inputs.append(data)
-    try:
-        return github_analysis.analyze(inputs)
-    except Exception as exc:  # noqa: BLE001 — LLM/connection failure
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, detail=f"Analysis failed ({type(exc).__name__}): {exc}"
-        ) from exc
+
+    def work():
+        total = max(1, len(req.repos))
+        inputs = []
+        for i, repo in enumerate(req.repos):
+            data = repo.model_dump(mode="json", exclude={"id"})
+            data["readme"] = github.fetch_readme(req.login, repo.repo_name, token)
+            data["languages"] = github.fetch_languages(req.login, repo.repo_name, token)
+            inputs.append(data)
+            yield {"type": "progress", "percent": round((i + 1) / total * 40),
+                   "label": f"Read {repo.repo_name}"}
+
+        result = None
+        for event in github_analysis.analyze_stream(inputs):
+            if event["type"] == "progress":
+                yield {"type": "progress", "percent": 40 + round(event["percent"] * 0.55),
+                       "label": event.get("label", "Analyzing…")}
+            elif event["type"] == "result":
+                result = event["result"]
+        yield {"type": "progress", "percent": 100, "label": "Done"}
+        yield {"type": "done", "result": result}
+
+    async def event_stream():
+        try:
+            async for event in iterate_in_threadpool(work()):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface the failure, then end the stream
+            yield f"data: {json.dumps({'type': 'fatal', 'error': f'Analysis failed ({type(exc).__name__}): {exc}'})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/save")

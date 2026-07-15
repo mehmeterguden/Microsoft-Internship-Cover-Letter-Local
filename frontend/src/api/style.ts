@@ -1,4 +1,6 @@
 import { client } from "./client";
+import { streamSSE } from "./sse";
+import type { Progress } from "./github";
 import type { PastCoverLetter, VoiceProfile } from "./types";
 
 export interface StyleState {
@@ -30,9 +32,30 @@ export interface LearnResult {
   style_profile: VoiceProfile | null;
 }
 
-export async function learnVoice(): Promise<LearnResult> {
-  const { data } = await client.post<LearnResult>("/style/learn");
-  return data;
+type LearnEvent =
+  | { type: "progress"; percent: number; label: string }
+  | { type: "done"; result: LearnResult }
+  | { type: "fatal"; error: string };
+
+/**
+ * Learn the writing voice with live progress over SSE. `onProgress` fires per
+ * phase (gather → metrics → deep voice → index). Resolves with the summary;
+ * throws on a fatal stream error.
+ */
+export async function learnVoice(
+  onProgress?: (p: Progress) => void,
+  signal?: AbortSignal,
+): Promise<LearnResult> {
+  let result: LearnResult | null = null;
+  let fatal: string | null = null;
+  await streamSSE<LearnEvent>("/style/learn", {}, (event) => {
+    if (event.type === "progress") onProgress?.({ percent: event.percent, label: event.label });
+    else if (event.type === "done") result = event.result;
+    else if (event.type === "fatal") fatal = event.error;
+  }, signal);
+  if (fatal) throw new Error(fatal);
+  if (!result) throw new Error("Voice learning produced no result");
+  return result;
 }
 
 export async function listPastLetters(): Promise<PastCoverLetter[]> {
