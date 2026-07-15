@@ -12,7 +12,7 @@ import json
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from starlette.concurrency import iterate_in_threadpool
+from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from core import cover_letter
 
@@ -24,6 +24,11 @@ class CoverLetterRequest(BaseModel):
     role_title: str | None = Field(default=None, max_length=200)
     job_description: str | None = None
     tone: str = "professional"
+    length: str = "standard"  # short | standard | detailed
+
+
+class ReviewRequest(BaseModel):
+    letter: str = Field(min_length=1)
 
 
 @router.post("/generate", summary="Stream a generated cover letter (SSE)")
@@ -39,6 +44,7 @@ async def generate(payload: CoverLetterRequest) -> StreamingResponse:
             role_title=payload.role_title,
             job_description=payload.job_description,
             tone=payload.tone,
+            length=payload.length,
         )
         try:
             async for event in iterate_in_threadpool(generator):
@@ -51,3 +57,14 @@ async def generate(payload: CoverLetterRequest) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/review", summary="Flag claims to double-check before sending (advisory)")
+async def review(payload: ReviewRequest) -> dict:
+    """Return specific, checkable claims the local profile doesn't clearly support.
+
+    Advisory only — no score. Runs the blocking LLM call in a threadpool so it
+    doesn't block the event loop. Returns {"claims": [{text, reason}, ...]}.
+    """
+    claims = await run_in_threadpool(cover_letter.review, payload.letter)
+    return {"claims": claims}
