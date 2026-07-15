@@ -339,6 +339,7 @@ class Project(Sourced):
     start_date: str | None = None
     end_date: str | None = None
     github_repo_id: int | None = None    # optional link to a github_repos row
+    stars: int | None = None             # GitHub stars, copied for repo-linked projects
 
 
 class Experience(Sourced):
@@ -363,6 +364,7 @@ class Education(Sourced):
     end_date: str | None = None
     is_current: bool = False
     gpa: str | None = None
+    courses: list[str] = []              # relevant coursework, shown as small pills
 
 
 class Training(Sourced):
@@ -422,6 +424,8 @@ class Job(BaseModel):
     company_research: CompanyResearch | None = None
     status: JobStatus = JobStatus.draft
     letter: dict[str, Any] | None = None   # saved cover-letter snapshot {content, design}
+    created_at: str | None = None          # server-set ISO8601 UTC; ignored on write
+    updated_at: str | None = None          # server-bumped ISO8601 UTC; ignored on write
 
 
 class CoverLetter(BaseModel):

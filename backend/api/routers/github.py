@@ -127,6 +127,7 @@ def save_repos(req: SaveReposRequest, replace: bool = False) -> dict:
             technologies=repo.technologies,
             url=repo.url,
             github_repo_id=repo_id,
+            stars=repo.stars,
             source=Source.github,
             source_detail=name,
             source_at=today,

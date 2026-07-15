@@ -35,8 +35,17 @@ _JSON_COLUMNS: dict[str, set[str]] = {
     "profile": {"style_profile", "field_sources"},
     "github_repos": {"technologies", "highlights"},
     "projects": {"technologies"},
+    "education": {"courses"},
     "jobs": {"match_breakdown", "company_research", "letter"},
 }
+
+# Tables whose rows carry server-managed created_at / updated_at timestamps.
+_TIMESTAMPED: frozenset[str] = frozenset({"jobs"})
+
+
+def _now_iso() -> str:
+    """Current UTC time as a second-precision ISO8601 string."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 # Columns stored as 0/1 integers — exposed to callers as bool.
 _BOOL_COLUMNS: dict[str, set[str]] = {
@@ -104,6 +113,9 @@ def get_by_id(table: str, row_id: int) -> dict[str, Any] | None:
 def insert(table: str, data: dict[str, Any]) -> int:
     """Insert a row and return its new id."""
     _check(table)
+    if table in _TIMESTAMPED:
+        now = _now_iso()
+        data = {**data, "created_at": now, "updated_at": now}
     data = _encode(table, data)
     cols = list(data.keys())
     columns = ", ".join(cols)
@@ -123,6 +135,10 @@ def insert(table: str, data: dict[str, Any]) -> int:
 def update(table: str, row_id: int, data: dict[str, Any]) -> bool:
     """Full-replace a row's columns. Returns False if the id does not exist."""
     _check(table)
+    if table in _TIMESTAMPED:
+        prior = get_by_id(table, row_id)
+        created = (prior or {}).get("created_at") or _now_iso()
+        data = {**data, "created_at": created, "updated_at": _now_iso()}
     data = _encode(table, data)
     cols = list(data.keys())
     assignments = ", ".join(f"{c} = ?" for c in cols)
