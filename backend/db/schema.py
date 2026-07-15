@@ -275,6 +275,7 @@ _COLUMNS_ADDED = {
         "company_search_provider": "TEXT NOT NULL DEFAULT 'wikidata'",  # wikidata|brandfetch
         "brandfetch_client_id": "TEXT NOT NULL DEFAULT ''",  # public Brandfetch client id
         "research_cache_retention": "TEXT NOT NULL DEFAULT '7_days'",  # off|7_days|30_days|forever|last_10
+        "pii_shield": "TEXT NOT NULL DEFAULT 'risky_only'",  # off|risky_only|on — warn about personal data in letters
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

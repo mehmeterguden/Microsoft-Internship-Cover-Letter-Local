@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, Check, Copy, Download, FileDown, FileText, Info, RotateCw, Save, ShieldCheck, Sparkles,
+  AlertTriangle, Check, Copy, Download, FileDown, FileText, Info, RotateCw, Save,
+  ShieldAlert, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
@@ -9,8 +10,8 @@ import { Field, Input, Label, Textarea } from "@/components/ui/field";
 import { Segmented, Slider, Toggle } from "@/components/ui/controls";
 import { Spinner } from "@/components/ui/feedback";
 import {
-  exportLetter, reviewCoverLetter, streamCoverLetter,
-  type ExportFormat, type LetterLength, type ReviewClaim,
+  exportLetter, reviewCoverLetter, scanPii, streamCoverLetter,
+  type ExportFormat, type LetterLength, type PiiFinding, type ReviewClaim,
 } from "@/api/coverLetter";
 import { errorMessage } from "@/api/client";
 import { createJob, getJob, updateJob } from "@/api/jobs";
@@ -44,6 +45,7 @@ export function Write() {
 
   const [claims, setClaims] = useState<ReviewClaim[] | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [pii, setPii] = useState<PiiFinding[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
@@ -99,6 +101,19 @@ export function Write() {
     }
   }
 
+  // Independent of the claim-check toggle: the PII shield is a privacy setting.
+  async function runPiiScan(text: string) {
+    if (!text.trim()) {
+      setPii([]);
+      return;
+    }
+    try {
+      setPii((await scanPii(text)).findings);
+    } catch {
+      setPii([]); // advisory — never block on a failed scan
+    }
+  }
+
   async function generate() {
     if (!company.trim()) {
       toast.warning("Add a company first", "Tell me who you're applying to.");
@@ -109,6 +124,7 @@ export function Write() {
     abortRef.current = ac;
     setLetter("");
     setClaims(null);
+    setPii([]);
     setDone(false);
     setStreaming(true);
     let acc = "";
@@ -135,6 +151,7 @@ export function Write() {
       if (acc.trim()) {
         setDone(true);
         void runReview(acc);
+        void runPiiScan(acc);
       }
     } catch (e) {
       setStreaming(false);
@@ -330,7 +347,7 @@ export function Write() {
                 {reviewing ? (
                   <span className="flex items-center gap-1.5 font-mono text-[10px] text-fg-mid"><Spinner size={12} /> checking…</span>
                 ) : (
-                  <button type="button" onClick={() => runReview(letter)} className="flex items-center gap-1.5 font-mono text-[10px] text-accent-text hover:brightness-110">
+                  <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 font-mono text-[10px] text-accent-text hover:brightness-110">
                     <RotateCw size={11} /> re-check
                   </button>
                 )}
@@ -361,6 +378,39 @@ export function Write() {
                   Every claim is backed by your profile. Nothing to double-check.
                 </div>
               )}
+            </section>
+          ) : null}
+
+          {/* PII shield — warns about personal/sensitive data (honors the Settings mode) */}
+          {done && pii.length > 0 ? (
+            <section className="cll-fade rounded-[14px] border border-[color:var(--warning)]/30 bg-warning-weak p-[18px]">
+              <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
+                <ShieldAlert size={16} strokeWidth={1.7} className="text-warning" /> Personal data detected
+              </div>
+              <p className="mb-3 text-[12px] leading-relaxed text-fg-mid">
+                This letter contains what looks like personal or sensitive information. Remove anything you didn&apos;t mean to send — detected locally, nothing left your device.
+              </p>
+              <div className="flex flex-col gap-2">
+                {pii.map((f) => {
+                  const dot = f.severity === "high" ? "bg-danger" : f.severity === "medium" ? "bg-warning" : "bg-fg-low";
+                  return (
+                    <div key={f.type} className="flex items-start gap-2.5 rounded-[10px] border border-border bg-surface px-3 py-2.5">
+                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 text-[12.5px] text-fg">
+                          <span className="font-semibold">{f.label}</span>
+                          {f.count > 1 ? <span className="font-mono text-[10px] text-fg-low">×{f.count}</span> : null}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {f.samples.map((s, i) => (
+                            <span key={i} className="rounded-[6px] bg-input px-2 py-[2px] font-mono text-[10px] text-fg-mid">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
           ) : null}
         </div>

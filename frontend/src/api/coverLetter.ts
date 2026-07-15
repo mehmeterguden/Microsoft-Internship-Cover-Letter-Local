@@ -1,6 +1,6 @@
 import { client } from "./client";
 import { streamSSE } from "./sse";
-import type { Tone } from "./types";
+import type { PiiShieldMode, Tone } from "./types";
 
 export type LetterLength = "short" | "standard" | "detailed";
 
@@ -37,6 +37,26 @@ export interface ReviewClaim {
 export async function reviewCoverLetter(letter: string): Promise<ReviewClaim[]> {
   const { data } = await client.post<{ claims: ReviewClaim[] }>("/cover-letter/review", { letter });
   return data.claims ?? [];
+}
+
+/** One group of masked PII matches found in the letter. */
+export interface PiiFinding {
+  type: string;
+  label: string;
+  severity: "high" | "medium" | "low";
+  count: number;
+  samples: string[];
+}
+
+export interface PiiScanResult {
+  mode: PiiShieldMode;
+  findings: PiiFinding[];
+}
+
+/** POST /cover-letter/pii-scan — flag personal data before sending (local, masked). */
+export async function scanPii(text: string): Promise<PiiScanResult> {
+  const { data } = await client.post<PiiScanResult>("/cover-letter/pii-scan", { text });
+  return { mode: data.mode ?? "risky_only", findings: data.findings ?? [] };
 }
 
 export type ExportFormat = "docx" | "pdf";

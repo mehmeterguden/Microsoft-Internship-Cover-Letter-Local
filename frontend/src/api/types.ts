@@ -29,6 +29,8 @@ export type JobStatus = "draft" | "sent" | "interview" | "rejected" | "offer";
 
 export type LLMProviderId = "foundry_local" | "ollama" | "lm_studio" | "openai" | "anthropic" | "gemini";
 export type ResearchCacheRetention = "off" | "7_days" | "30_days" | "forever" | "last_10";
+/** How aggressively to warn about personal data in generated letters. */
+export type PiiShieldMode = "off" | "risky_only" | "on";
 
 /** Where a piece of profile data originally came from. */
 export type Source = "manual" | "cv" | "github" | "linkedin";
@@ -265,6 +267,7 @@ export interface Settings {
   ocr_enabled?: boolean;
   github_token?: string;
   research_cache_retention?: ResearchCacheRetention;
+  pii_shield?: PiiShieldMode;
 }
 
 // ── Company research report (backend core/research/schema.py) ──
