@@ -370,12 +370,20 @@ def get_research(cache_key: str) -> dict[str, Any] | None:
         conn.close()
 
 
+_RETENTION_DAYS = {"7_days": 7, "30_days": 30}
+
+
 def save_research(
-    cache_key: str, company_name: str, role_title: str | None, report: dict[str, Any], ttl_days: int = 7
+    cache_key: str, company_name: str, role_title: str | None, report: dict[str, Any]
 ) -> None:
-    """Store (or replace) a research report under its key with a TTL."""
+    """Store (or replace) a research report, honoring the user's retention setting:
+    off (don't cache), 7_days / 30_days (TTL), forever, or last_10 (keep newest 10)."""
+    retention = get_settings().get("research_cache_retention", "7_days")
+    if retention == "off":
+        return
     now = datetime.now(timezone.utc)
-    expires = now + timedelta(days=ttl_days)
+    days = _RETENTION_DAYS.get(retention, 3650)  # forever / last_10 → far-future expiry
+    expires = now + timedelta(days=days)
     conn = get_connection()
     try:
         conn.execute(
@@ -384,6 +392,12 @@ def save_research(
                VALUES (?, ?, ?, ?, ?, ?)""",
             (cache_key, company_name, role_title, json.dumps(report), now.isoformat(), expires.isoformat()),
         )
+        if retention == "last_10":
+            conn.execute(
+                """DELETE FROM company_research_cache WHERE cache_key NOT IN (
+                       SELECT cache_key FROM company_research_cache
+                       ORDER BY created_at DESC LIMIT 10)"""
+            )
         conn.commit()
     finally:
         conn.close()
