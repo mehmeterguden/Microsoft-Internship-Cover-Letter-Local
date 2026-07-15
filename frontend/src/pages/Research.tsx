@@ -867,7 +867,7 @@ function AmmoCard({ ammo }: { ammo: WireLetterHook[] }) {
   );
 }
 
-function WriteCta({ ready }: { ready: boolean }) {
+function WriteCta({ ready, company, role }: { ready: boolean; company?: string; role?: string }) {
   if (!ready) {
     return (
       <Button variant="primary" size="lg" className="mt-1 w-full rounded-[12px]" loading disabled>
@@ -875,9 +875,13 @@ function WriteCta({ ready }: { ready: boolean }) {
       </Button>
     );
   }
+  const params = new URLSearchParams();
+  if (company) params.set("company", company);
+  if (role) params.set("role", role);
+  const href = params.toString() ? `/write?${params.toString()}` : "/write";
   return (
     <Button asChild variant="primary" size="lg" className="mt-1 w-full rounded-[12px]">
-      <Link to="/write">
+      <Link to={href}>
         Write cover letter with this research <ArrowRight size={16} />
       </Link>
     </Button>
@@ -907,7 +911,7 @@ function DoneBody({ report, cachedAt }: { report: WireReport; cachedAt: string |
           Sections with no data: {report.meta.missing.map(prettySection).join(", ")}.
         </p>
       ) : null}
-      <WriteCta ready />
+      <WriteCta ready company={report.company_name} role={report.role_title ?? undefined} />
     </>
   );
 }
