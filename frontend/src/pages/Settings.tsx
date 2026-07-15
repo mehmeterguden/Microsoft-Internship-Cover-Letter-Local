@@ -67,7 +67,7 @@ const PROVIDERS: ProviderMeta[] = [
     id: "foundry_local",
     name: "Foundry Local",
     desc: "Microsoft's on-device runtime. Private by default.",
-    badge: "DEFAULT",
+    badge: "Default",
     cloud: false,
     baseUrl: "http://localhost:5272/v1",
     curatedModels: ["phi-4", "phi-3.5-mini", "qwen2.5-7b", "mistral-7b", "llama-3.2-3b"],
@@ -76,7 +76,7 @@ const PROVIDERS: ProviderMeta[] = [
     id: "ollama",
     name: "Ollama",
     desc: "Run open models locally with a single command.",
-    badge: "LOCAL",
+    badge: "Local",
     cloud: false,
     baseUrl: "http://localhost:11434",
     curatedModels: ["llama3.1:8b", "mistral:7b", "qwen2.5:14b", "gemma2:9b", "phi3.5"],
@@ -85,7 +85,7 @@ const PROVIDERS: ProviderMeta[] = [
     id: "lm_studio",
     name: "LM Studio",
     desc: "Local model server with a friendly desktop UI.",
-    badge: "LOCAL",
+    badge: "Local",
     cloud: false,
     baseUrl: "http://localhost:1234/v1",
     curatedModels: ["llama-3.1-8b-instruct", "mistral-nemo", "qwen2.5-coder", "gemma-2-9b", "phi-3.5"],
@@ -94,7 +94,7 @@ const PROVIDERS: ProviderMeta[] = [
     id: "openai",
     name: "OpenAI",
     desc: "GPT-4o and o-series models via your API key.",
-    badge: "CLOUD",
+    badge: "Cloud",
     cloud: true,
     baseUrl: "https://api.openai.com/v1",
     curatedModels: ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "o3-mini", "o1"],
@@ -103,7 +103,7 @@ const PROVIDERS: ProviderMeta[] = [
     id: "anthropic",
     name: "Claude",
     desc: "Anthropic's Claude models via your API key.",
-    badge: "CLOUD",
+    badge: "Cloud",
     cloud: true,
     baseUrl: "https://api.anthropic.com",
     curatedModels: ["claude-opus-4", "claude-sonnet-4", "claude-3.5-sonnet", "claude-3.5-haiku", "claude-3-opus"],
@@ -112,7 +112,7 @@ const PROVIDERS: ProviderMeta[] = [
     id: "gemini",
     name: "Gemini",
     desc: "Google's Gemini with automatic key-pool rotation.",
-    badge: "CLOUD",
+    badge: "Cloud",
     cloud: true,
     baseUrl: "https://generativelanguage.googleapis.com",
     curatedModels: ["gemini-2.0-flash", "gemini-2.0-pro", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.5-flash-8b"],
@@ -172,7 +172,7 @@ export function Settings() {
   const state = useAsync(getSettings, []);
   if (state.data) return <SettingsForm initial={state.data} />;
   return (
-    <Page eyebrow="SETUP / SETTINGS" title="Settings" bodyClassName="px-7 py-5">
+    <Page eyebrow="Setup / Settings" title="Settings" bodyClassName="px-7 py-5">
       <AsyncBoundary state={state}>{() => null}</AsyncBoundary>
     </Page>
   );
@@ -342,14 +342,14 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
 
   return (
     <Page
-      eyebrow="SETUP / SETTINGS"
+      eyebrow="Setup / Settings"
       title="Settings"
       bodyClassName="px-7 py-5"
       actions={
         <div className="flex items-center gap-2.5">
           {dirty ? (
             <Pill tone="warning" mono dot>
-              UNSAVED
+              Unsaved
             </Pill>
           ) : null}
           <Button variant="ghost" size="sm" onClick={discard} disabled={!dirty || saving}>
@@ -396,7 +396,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               {/* Model + base URL */}
               <div className="grid grid-cols-2 gap-3.5">
                 <Field
-                  label="MODEL"
+                  label="Model"
                   hint={
                     discoveryError && !discovery.loading
                       ? "Discovery unavailable — enter a model name."
@@ -435,7 +435,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     </div>
                   )}
                 </Field>
-                <Field label="BASE URL">
+                <Field label="Base URL">
                   <Input
                     value={draft.llm_base_url}
                     onChange={(e) => setField("llm_base_url", e.target.value)}
@@ -679,7 +679,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               {/* Research cache retention (new control) */}
               <div className="mt-5 rounded-[12px] border border-border bg-surface p-4">
                 <Field
-                  label="RESEARCH CACHE RETENTION"
+                  label="Research cache retention"
                   hint="How long company-research reports are kept on this device before they're cleared."
                 >
                   <Segmented
@@ -693,7 +693,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               {/* PII shield */}
               <div className="mt-5 rounded-[12px] border border-border bg-surface p-4">
                 <Field
-                  label="PERSONAL-DATA SHIELD"
+                  label="Personal-data shield"
                   hint="After a letter is generated, scan it (locally) for personal or sensitive data and warn you. High-risk only flags things like card / bank / SSN numbers; Always also flags emails, phones and IPs."
                 >
                   <Segmented
@@ -709,8 +709,8 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
           {tab === "data" ? (
             <div key="data" className="cll-fade flex flex-col gap-4">
               <div className="rounded-[12px] border border-border bg-surface p-[18px]">
-                <div className="mb-2.5 flex items-center gap-2 font-mono text-[10px] tracking-[1px] text-fg-low">
-                  <Database size={13} /> STORED ON THIS DEVICE
+                <div className="mb-2.5 flex items-center gap-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+                  <Database size={13} /> Stored on this device
                 </div>
                 <p className="text-[12.5px] leading-relaxed text-fg-mid">
                   Your profile, skills, cover letters, embeddings, and cached company research all live in a local database
@@ -777,7 +777,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
         loading={resetting}
         onConfirm={() => void doReset()}
       >
-        <Field label="TYPE DELETE TO CONFIRM">
+        <Field label="Type DELETE to confirm">
           <Input
             value={resetText}
             onChange={(e) => setResetText(e.target.value)}
@@ -1018,7 +1018,7 @@ function GeminiKeyRow({
         {entry.label ? <div className="truncate text-[11px] text-fg-low">{entry.label}</div> : null}
       </div>
       <span className={cn("font-mono text-[10px]", active ? "text-success" : "text-fg-low")}>
-        {active ? "ACTIVE" : "STANDBY"}
+        {active ? "Active" : "Standby"}
       </span>
       <button
         type="button"
@@ -1100,20 +1100,20 @@ function ConnectionStatus({ loading, error, count }: { loading: boolean; error: 
   if (loading) {
     return (
       <Pill tone="accent" mono dot>
-        CHECKING…
+        Checking…
       </Pill>
     );
   }
   if (error) {
     return (
       <Pill tone="danger" mono dot>
-        UNAVAILABLE
+        Unavailable
       </Pill>
     );
   }
   return (
     <Pill tone="success" mono dot>
-      {`HEALTHY · ${count} MODELS`}
+      {`Healthy · ${count} models`}
     </Pill>
   );
 }

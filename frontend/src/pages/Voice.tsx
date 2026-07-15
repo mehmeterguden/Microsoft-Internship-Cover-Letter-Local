@@ -22,7 +22,7 @@ import {
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
 import { cn } from "@/lib/utils";
 
-const EYEBROW = "SETUP / WRITING VOICE";
+const EYEBROW = "Setup / Writing Voice";
 const TITLE = "Writing Voice";
 
 /* ── Small text helpers over raw letter content ──────────────────── */
@@ -167,9 +167,9 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
   const deep = !!profile.llm_analyzed;
 
   const stats: { k: string; v: string }[] = [
-    profile.tone ? { k: "TONE", v: profile.tone } : null,
-    profile.structure ? { k: "STRUCTURE", v: profile.structure } : null,
-    profile.sentence_patterns ? { k: "SENTENCES", v: profile.sentence_patterns } : null,
+    profile.tone ? { k: "Tone", v: profile.tone } : null,
+    profile.structure ? { k: "Structure", v: profile.structure } : null,
+    profile.sentence_patterns ? { k: "Sentences", v: profile.sentence_patterns } : null,
   ].filter((s): s is { k: string; v: string } => s !== null);
 
   const metrics: { k: string; v: string }[] = [
@@ -189,9 +189,9 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
       />
 
       <div className="relative flex items-center justify-between gap-3">
-        <span className="font-mono text-[10px] tracking-[1px] text-accent-text">VOICE FINGERPRINT</span>
-        <Pill tone={deep ? "accent" : "neutral"} mono className="gap-1 whitespace-nowrap px-[9px] py-[3px] text-[9px]">
-          <IconSparkle /> {deep ? `DEEP ANALYSIS · ${letterCount} letter${letterCount === 1 ? "" : "s"}` : "LOCAL METRICS"}
+        <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Voice fingerprint</span>
+        <Pill tone={deep ? "accent" : "neutral"} className="gap-1 whitespace-nowrap px-[9px] py-[3px] text-[10.5px] font-semibold">
+          <IconSparkle /> {deep ? `Deep analysis · ${letterCount} letter${letterCount === 1 ? "" : "s"}` : "Local metrics"}
         </Pill>
       </div>
 
@@ -219,7 +219,7 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
         >
           {stats.map((s) => (
             <div key={s.k} className="rounded-[10px] bg-surface-2 p-3">
-              <div className="font-mono text-[9px] text-fg-low">{s.k}</div>
+              <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{s.k}</div>
               <div className="mt-[5px] text-[13px] font-semibold text-fg first-letter:uppercase">{s.v}</div>
             </div>
           ))}
@@ -229,8 +229,8 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
       {/* formality meter */}
       {profile.formality ? (
         <div className="relative mt-4">
-          <div className="mb-1.5 flex justify-between font-mono text-[9px] text-fg-low">
-            <span>FORMALITY · {profile.formality}</span>
+          <div className="mb-1.5 flex justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+            <span>Formality · {profile.formality}</span>
             <span>Casual ↔ Formal</span>
           </div>
           <div className="relative h-1.5 rounded-[3px] bg-input">
@@ -376,7 +376,7 @@ function NotLearnedPanel({ count, analyzing, onLearn }: { count: number; analyzi
         className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
         style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.28 }}
       />
-      <span className="relative font-mono text-[10px] tracking-[1px] text-accent-text">VOICE FINGERPRINT</span>
+      <span className="relative text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Voice fingerprint</span>
       <div className="relative mt-3 text-[19px] tracking-[-0.3px] text-fg" style={{ fontWeight: 680 }}>Not learned yet</div>
       <p className="relative mt-2 max-w-[440px] text-[13px] leading-[1.65] text-fg-mid">
         You&rsquo;ve added {count} letter{count === 1 ? "" : "s"}. Analyze them to build your voice fingerprint — the model
@@ -416,10 +416,10 @@ function DoneBody({
       {/* Left — the past letters */}
       <section className="cll-fade flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] tracking-[1px] text-fg-low">YOUR LETTERS · {letters.length}</span>
+          <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your letters · {letters.length}</span>
           {profile?.llm_analyzed ? (
-            <Pill tone="accent" mono className="gap-1 px-[9px] py-[3px] text-[9px]">
-              <IconSparkle /> DEEP
+            <Pill tone="accent" className="gap-1 px-[9px] py-[3px] text-[10.5px] font-semibold">
+              <IconSparkle /> Deep
             </Pill>
           ) : null}
         </div>
@@ -500,7 +500,7 @@ function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]
   return (
     <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
       <section className="cll-fade flex flex-col gap-2.5">
-        <div className="font-mono text-[10px] tracking-[1px] text-fg-low">SAMPLES · {letters.length}</div>
+        <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Samples · {letters.length}</div>
         {letters.map((l, i) => (
           <div key={l.id ?? i} className="flex items-center gap-2.5 rounded-[11px] border border-border bg-surface px-3.5 py-3">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-accent-weak">
@@ -538,7 +538,7 @@ function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]
                   <IconSpin size={13} />
                 </span>
                 <span className="flex-1 text-[12.5px] text-fg">{label}</span>
-                <span className="font-mono text-[9px] text-accent-text">WORKING</span>
+                <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Working</span>
               </div>
             ))}
           </div>

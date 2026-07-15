@@ -34,7 +34,7 @@ export function ScoreRing({
           {Math.round(v)}
         </span>
         {label ? (
-          <span className="mt-0.5 font-mono uppercase text-fg-low" style={{ fontSize: Math.max(7, size * 0.1), letterSpacing: 0.8 }}>
+          <span className="mt-0.5 font-semibold text-fg-low" style={{ fontSize: Math.max(8, size * 0.11), letterSpacing: 0.2 }}>
             {label}
           </span>
         ) : null}
