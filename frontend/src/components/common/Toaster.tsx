@@ -4,9 +4,9 @@ import { useToastStore, type ToastTone } from "@/store/toast";
 import { cn } from "@/lib/utils";
 
 const TONE: Record<ToastTone, { icon: LucideIcon; color: string }> = {
-  info: { icon: Info, color: "text-blue" },
-  success: { icon: CheckCircle2, color: "text-good" },
-  warning: { icon: AlertTriangle, color: "text-gold" },
+  info: { icon: Info, color: "text-accent-text" },
+  success: { icon: CheckCircle2, color: "text-success" },
+  warning: { icon: AlertTriangle, color: "text-warning" },
   danger: { icon: XCircle, color: "text-danger" },
 };
 
@@ -29,14 +29,14 @@ function ToastCard({ id, tone, title, description }: { id: number; tone: ToastTo
     >
       <Icon size={18} className={cn("mt-0.5 shrink-0", color)} />
       <div className="min-w-0 flex-1">
-        <p className="text-[13.5px] font-semibold text-text">{title}</p>
-        {description && <p className="mt-0.5 text-[12.5px] text-text-2">{description}</p>}
+        <p className="text-[13.5px] font-semibold text-fg">{title}</p>
+        {description && <p className="mt-0.5 text-[12.5px] text-fg-mid">{description}</p>}
       </div>
       <button
         type="button"
         aria-label="Dismiss"
         onClick={() => dismiss(id)}
-        className="rounded-[6px] p-0.5 text-text-3 transition-colors hover:text-text"
+        className="rounded-[6px] p-0.5 text-fg-low transition-colors hover:text-fg"
       >
         <X size={15} />
       </button>
