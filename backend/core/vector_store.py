@@ -100,6 +100,25 @@ def add(
     get_collection(name).upsert(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
 
 
+def all_documents(name: str, where: dict | None = None) -> list[dict]:
+    """Return every stored document (no vector query) as [{id, document, metadata}].
+
+    Used by hybrid retrieval to run lexical BM25 over the full corpus alongside
+    the dense query. []-safe on an empty collection.
+    """
+    collection = get_collection(name)
+    if collection.count() == 0:
+        return []
+    result = collection.get(where=where or None)
+    ids = result.get("ids") or []
+    docs = result.get("documents") or []
+    metas = result.get("metadatas") or []
+    return [
+        {"id": i, "document": d, "metadata": m}
+        for i, d, m in zip(ids, docs, metas)
+    ]
+
+
 def query(
     name: str, query_embedding: list[float], *, n_results: int = 3, where: dict | None = None
 ) -> list[dict]:

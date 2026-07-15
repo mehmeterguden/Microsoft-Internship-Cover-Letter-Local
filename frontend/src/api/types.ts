@@ -268,6 +268,8 @@ export interface Settings {
   github_token?: string;
   research_cache_retention?: ResearchCacheRetention;
   pii_shield?: PiiShieldMode;
+  /** Cross-encoder rerank on exemplar retrieval (higher precision; needs a model). */
+  rag_rerank?: boolean;
 }
 
 // ── Company research report (backend core/research/schema.py) ──

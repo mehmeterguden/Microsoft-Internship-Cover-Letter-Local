@@ -23,7 +23,7 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-from core import embeddings, llm
+from core import embeddings, llm, rerank
 from core import vector_store as vs
 from core.prompts.voice import build_analysis_messages
 from db import queries
@@ -213,16 +213,45 @@ def build_voice_guide(v: VoiceProfile) -> str:
     return "\n".join(lines)
 
 
+def _rerank_enabled() -> bool:
+    """Whether the (optional, model-backed) cross-encoder reranker is turned on."""
+    try:
+        return bool(queries.get_settings().get("rag_rerank"))
+    except Exception:  # noqa: BLE001 — settings unavailable → treat as off
+        return False
+
+
 def retrieve_exemplars(query_text: str, k: int = 3) -> list[str]:
-    """Return the user's past passages most relevant to the target job. []-safe."""
+    """Return the user's past passages most relevant to the target job. []-safe.
+
+    Hybrid retrieval: dense (embedding) and lexical (BM25) rankings over the full
+    exemplar corpus are fused with Reciprocal Rank Fusion, so both paraphrases
+    and exact-term matches surface. If the reranker is enabled in settings, a
+    cross-encoder re-orders the fused shortlist for precision (graceful no-op if
+    the model isn't available).
+    """
     if not embeddings.available() or not query_text.strip():
         return []
     try:
+        corpus = [c["document"] for c in vs.all_documents(_COLLECTION, {"type": "past"}) if c.get("document")]
+        if not corpus:
+            return []
         vector = embeddings.embed_one(query_text)
-        hits = vs.query(_COLLECTION, vector, n_results=k, where={"type": "past"})
+        dense = [h["document"] for h in vs.query(_COLLECTION, vector, n_results=len(corpus), where={"type": "past"})
+                 if h.get("document")]
     except Exception:  # noqa: BLE001 — retrieval is optional; never break generation
         return []
-    return [h["document"] for h in hits if h.get("document")]
+
+    lexical = rerank.bm25_rank(query_text, corpus)
+    ordered = rerank.rrf_fuse([dense, lexical]) if lexical else dense
+
+    if _rerank_enabled() and len(ordered) > 1:
+        shortlist = ordered[: max(k * 3, 10)]
+        scores = rerank.cross_encode(query_text, shortlist)
+        if scores:
+            ordered = [doc for doc, _ in sorted(zip(shortlist, scores), key=lambda pair: -pair[1])]
+
+    return ordered[:k]
 
 
 def style_context(query_text: str) -> dict[str, Any]:

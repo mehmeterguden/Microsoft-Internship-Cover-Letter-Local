@@ -276,6 +276,7 @@ _COLUMNS_ADDED = {
         "brandfetch_client_id": "TEXT NOT NULL DEFAULT ''",  # public Brandfetch client id
         "research_cache_retention": "TEXT NOT NULL DEFAULT '7_days'",  # off|7_days|30_days|forever|last_10
         "pii_shield": "TEXT NOT NULL DEFAULT 'risky_only'",  # off|risky_only|on — warn about personal data in letters
+        "rag_rerank": "INTEGER NOT NULL DEFAULT 0",  # cross-encoder rerank on exemplar retrieval (needs a model)
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

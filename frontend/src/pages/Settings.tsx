@@ -156,6 +156,7 @@ const MAIN_FIELDS: (keyof SettingsModel)[] = [
   "ocr_enabled",
   "research_cache_retention",
   "pii_shield",
+  "rag_rerank",
 ];
 
 const norm = (v: unknown): unknown => (v === undefined || v === null ? "" : v);
@@ -657,6 +658,20 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     checked={draft.ocr_enabled ?? false}
                     onChange={(v) => setField("ocr_enabled", v)}
                     aria-label="OCR for scanned CVs"
+                  />
+                </Row>
+
+                <Row>
+                  <span className="min-w-0 pr-3 text-[13px] text-fg">
+                    Rerank retrieved writing samples
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-fg-low">
+                      Higher-precision voice matching with a cross-encoder. Downloads a small model on first use.
+                    </span>
+                  </span>
+                  <Toggle
+                    checked={draft.rag_rerank ?? false}
+                    onChange={(v) => setField("rag_rerank", v)}
+                    aria-label="Rerank retrieved writing samples"
                   />
                 </Row>
               </div>
