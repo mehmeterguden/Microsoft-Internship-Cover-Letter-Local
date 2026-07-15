@@ -8,13 +8,16 @@ generated. Real streaming — tokens are forwarded straight from the provider.
 from __future__ import annotations
 
 import json
+import re
+from typing import Literal
 
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
-from core import cover_letter
+from core import cover_letter, export
+from db import queries
 
 router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
 
@@ -29,6 +32,21 @@ class CoverLetterRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     letter: str = Field(min_length=1)
+
+
+class ExportRequest(BaseModel):
+    text: str = Field(min_length=1)
+    format: Literal["docx", "pdf"]
+    company_name: str | None = Field(default=None, max_length=200)
+    role_title: str | None = Field(default=None, max_length=200)
+
+
+_SENDER_FIELDS = ("name", "surname", "email", "phone", "linkedin", "github")
+
+
+def _slug(value: str | None) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", (value or "draft").lower()).strip("-")
+    return slug or "draft"
 
 
 @router.post("/generate", summary="Stream a generated cover letter (SSE)")
@@ -68,3 +86,27 @@ async def review(payload: ReviewRequest) -> dict:
     """
     claims = await run_in_threadpool(cover_letter.review, payload.letter)
     return {"claims": claims}
+
+
+@router.post("/export", summary="Download the letter as a templated .docx or .pdf")
+async def export_letter(payload: ExportRequest) -> Response:
+    """Render the letter into a business-letter document and return it for download.
+
+    The sender header is filled from the local profile; nothing leaves the device.
+    """
+    profile = queries.get_profile() or {}
+    sender = {k: profile.get(k) for k in _SENDER_FIELDS}
+    try:
+        data, media_type = await run_in_threadpool(
+            export.render, payload.format, payload.text,
+            company=payload.company_name, role=payload.role_title, sender=sender,
+        )
+    except ValueError as exc:  # unsupported format — shouldn't happen past validation
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    filename = f"cover-letter-{_slug(payload.company_name)}.{payload.format}"
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -38,3 +38,26 @@ export async function reviewCoverLetter(letter: string): Promise<ReviewClaim[]> 
   const { data } = await client.post<{ claims: ReviewClaim[] }>("/cover-letter/review", { letter });
   return data.claims ?? [];
 }
+
+export type ExportFormat = "docx" | "pdf";
+
+/**
+ * POST /cover-letter/export — download the letter as a templated .docx or .pdf.
+ * The document (sender header + body) is rendered by the local backend; the
+ * browser just saves the returned blob.
+ */
+export async function exportLetter(
+  format: ExportFormat,
+  req: { text: string; company_name?: string | null; role_title?: string | null },
+): Promise<void> {
+  const { data, headers } = await client.post("/cover-letter/export", { ...req, format }, { responseType: "blob" });
+  const blob = new Blob([data as BlobPart], { type: headers["content-type"] as string });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const disposition = (headers["content-disposition"] as string | undefined) ?? "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  a.download = match?.[1] ?? `cover-letter.${format}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

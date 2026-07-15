@@ -13,10 +13,11 @@ import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Stepper } from "@/components/ui/data";
+import { Field, Input } from "@/components/ui/field";
 import { streamImportCv, saveExtraction, type CvImportEvent } from "@/api/cv";
 import { getSettings } from "@/api/settings";
 import { errorMessage } from "@/api/client";
-import type { CVExtraction } from "@/api/types";
+import type { CVExtraction, Profile } from "@/api/types";
 import { toast } from "@/store/toast";
 
 /* ── State model ─────────────────────────────────────────────────
@@ -168,6 +169,13 @@ export function Onboarding() {
     }
   }, [extraction, saveMode, meta]);
 
+  /** Correct a parsed basics field in place before saving. */
+  const editBasics = useCallback(
+    (patch: Partial<Profile>) =>
+      setExtraction((ex) => (ex ? { ...ex, profile: { ...ex.profile, ...patch } } : ex)),
+    [],
+  );
+
   return (
     <Page
       eyebrow="SETUP / ADD CV"
@@ -207,6 +215,7 @@ export function Onboarding() {
             saving={saving}
             onReset={reset}
             onSave={handleSave}
+            onEditBasics={editBasics}
           />
         ) : null}
         {state === "ready" && extraction ? <ReadyState extraction={extraction} mode={saveMode} /> : null}
@@ -588,6 +597,15 @@ function buildReviewCards(ex: CVExtraction): ReviewCard[] {
   return cards;
 }
 
+const BASICS_FIELDS: { key: keyof Profile; label: string; placeholder: string; type?: string }[] = [
+  { key: "name", label: "First name", placeholder: "Jane" },
+  { key: "surname", label: "Last name", placeholder: "Doe" },
+  { key: "email", label: "Email", placeholder: "jane@example.com", type: "email" },
+  { key: "phone", label: "Phone", placeholder: "+1 555 0100", type: "tel" },
+  { key: "linkedin", label: "LinkedIn", placeholder: "linkedin.com/in/jane" },
+  { key: "github", label: "GitHub", placeholder: "github.com/jane" },
+];
+
 function ReviewState({
   extraction,
   mode,
@@ -595,6 +613,7 @@ function ReviewState({
   saving,
   onReset,
   onSave,
+  onEditBasics,
 }: {
   extraction: CVExtraction;
   mode: SaveMode;
@@ -602,15 +621,36 @@ function ReviewState({
   saving: boolean;
   onReset: () => void;
   onSave: () => void;
+  onEditBasics: (patch: Partial<Profile>) => void;
 }) {
   const cards = buildReviewCards(extraction);
   const empty = countExtraction(extraction);
   const nothing = Object.values(empty).every((n) => n === 0);
+  const profile = extraction.profile;
 
   return (
     <div className="cll-fade">
       <div className="mb-3.5 text-[13px] text-fg-mid">
-        Here's what we pulled from your CV. Save it now — you can refine every section from your profile afterwards.
+        Here's what we pulled from your CV. Fix any contact details below, then save — you can refine every section from your profile afterwards.
+      </div>
+
+      {/* Editable basics — the fields most worth correcting before import */}
+      <div className="mb-4 rounded-[12px] border border-border bg-surface p-4">
+        <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.6px] text-fg-low">Your details</div>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3">
+          {BASICS_FIELDS.map((f) => (
+            <Field key={f.key} label={f.label} htmlFor={`basics-${f.key}`}>
+              <Input
+                id={`basics-${f.key}`}
+                type={f.type ?? "text"}
+                value={(profile[f.key] as string | null | undefined) ?? ""}
+                placeholder={f.placeholder}
+                disabled={saving}
+                onChange={(e) => onEditBasics({ [f.key]: e.target.value || null } as Partial<Profile>)}
+              />
+            </Field>
+          ))}
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3">
         {cards.map((c) => (
