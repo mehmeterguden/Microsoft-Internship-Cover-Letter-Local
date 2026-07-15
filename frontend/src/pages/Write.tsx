@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { jsPDF } from "jspdf";
 import {
-  AlertTriangle, Check, Copy, Download, FileDown, Info, RotateCw, Save, ShieldCheck, Sparkles,
+  AlertTriangle, Check, Copy, Download, FileDown, FileText, Info, RotateCw, Save, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
@@ -10,8 +9,10 @@ import { Field, Input, Label, Textarea } from "@/components/ui/field";
 import { Segmented, Slider, Toggle } from "@/components/ui/controls";
 import { Spinner } from "@/components/ui/feedback";
 import {
-  reviewCoverLetter, streamCoverLetter, type LetterLength, type ReviewClaim,
+  exportLetter, reviewCoverLetter, streamCoverLetter,
+  type ExportFormat, type LetterLength, type ReviewClaim,
 } from "@/api/coverLetter";
+import { errorMessage } from "@/api/client";
 import { createJob, getJob, updateJob } from "@/api/jobs";
 import type { Tone } from "@/api/types";
 import { toast } from "@/store/toast";
@@ -45,6 +46,7 @@ export function Write() {
   const [reviewing, setReviewing] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const jobIdRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [searchParams] = useSearchParams();
@@ -156,14 +158,17 @@ export function Write() {
     URL.revokeObjectURL(url);
     toast.success("Downloaded .txt");
   }
-  function exportPdf() {
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    doc.setFont("times", "normal");
-    doc.setFontSize(12);
-    const lines = doc.splitTextToSize(letter, 480) as string[];
-    doc.text(lines, 58, 72);
-    doc.save(`cover-letter-${(company || "draft").toLowerCase().replace(/\s+/g, "-")}.pdf`);
-    toast.success("Exported PDF");
+  async function download(format: ExportFormat) {
+    if (!letter.trim() || exporting) return;
+    setExporting(format);
+    try {
+      await exportLetter(format, { text: letter, company_name: company || null, role_title: role || null });
+      toast.success(format === "pdf" ? "Exported PDF" : "Exported Word (.docx)");
+    } catch (err) {
+      toast.danger("Couldn't export", errorMessage(err));
+    } finally {
+      setExporting(null);
+    }
   }
 
   async function saveDraft() {
@@ -303,7 +308,12 @@ export function Write() {
                   <div className="flex items-center gap-1.5">
                     <Button variant="ghost" size="xs" onClick={copyLetter}><Copy size={13} /> Copy</Button>
                     <Button variant="ghost" size="xs" onClick={downloadTxt}><Download size={13} /> .txt</Button>
-                    <Button variant="ghost" size="xs" onClick={exportPdf}><FileDown size={13} /> PDF</Button>
+                    <Button variant="ghost" size="xs" onClick={() => download("pdf")} loading={exporting === "pdf"} disabled={exporting !== null}>
+                      <FileDown size={13} /> PDF
+                    </Button>
+                    <Button variant="ghost" size="xs" onClick={() => download("docx")} loading={exporting === "docx"} disabled={exporting !== null}>
+                      <FileText size={13} /> Word
+                    </Button>
                   </div>
                 </div>
               </div>

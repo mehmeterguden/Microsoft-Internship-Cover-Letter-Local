@@ -6,7 +6,8 @@ python-multipart>=0.0.9   # file uploads (CV PDF)
 
 # ── Document parsing (CV: PDF, image, Word) ──
 pdfplumber>=0.11.0        # PDF text
-python-docx>=1.1.0        # Word (.docx) text
+python-docx>=1.1.0        # Word (.docx) read + write (cover-letter export)
+reportlab>=4.0.0          # templated PDF cover-letter export
 pytesseract>=0.3.10       # image OCR — requires the `tesseract` binary (brew install tesseract)
 Pillow>=10.0.0            # image loading for OCR
 
@@ -29,4 +30,3 @@ pytest>=8.0.0
 
 # Added in later phases as features need them:
 #   sentence-transformers   (embeddings)
-#   python-docx, reportlab  (export)
