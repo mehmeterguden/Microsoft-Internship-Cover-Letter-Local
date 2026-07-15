@@ -127,6 +127,8 @@ export interface Project extends Sourced {
   start_date?: string | null;
   end_date?: string | null;
   github_repo_id?: number | null;
+  /** GitHub stars, copied for repo-linked projects. */
+  stars?: number | null;
 }
 
 export interface Experience extends Sourced {
@@ -151,6 +153,8 @@ export interface Education extends Sourced {
   end_date?: string | null;
   is_current?: boolean;
   gpa?: string | null;
+  /** Relevant coursework, shown as small pills. */
+  courses?: string[];
 }
 
 export interface Training extends Sourced {
@@ -211,6 +215,9 @@ export interface Job {
   /** The saved cover letter: plain text plus a user-set completed flag.
    *  `canvas` may exist on letters saved by the old design editor (read-only). */
   letter?: { text?: string; completed?: boolean; canvas?: unknown } | null;
+  /** Server-managed ISO8601 UTC timestamps (read-only; ignored on write). */
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 /** How the app reacts when the active API key hits its rate/quota limit. */

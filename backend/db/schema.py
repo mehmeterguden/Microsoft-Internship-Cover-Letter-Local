@@ -281,8 +281,16 @@ _COLUMNS_ADDED = {
         "purpose": "TEXT",  # AI: core problem/goal in one line
         "highlights": "TEXT",  # AI: JSON list of standout points
     },
+    "projects": {
+        "stars": "INTEGER",  # GitHub stars, copied for repo-linked projects
+    },
+    "education": {
+        "courses": "TEXT",  # JSON: list[str] relevant coursework
+    },
     "jobs": {
         "letter": "TEXT",  # JSON: saved cover-letter snapshot {content, design}
+        "created_at": "TEXT",  # ISO8601 UTC — set on insert
+        "updated_at": "TEXT",  # ISO8601 UTC — bumped on every write
     },
 }
 

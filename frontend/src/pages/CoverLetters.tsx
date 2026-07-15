@@ -11,7 +11,7 @@ import { useAsync } from "@/lib/useAsync";
 import { deleteJob, listJobs, updateJob } from "@/api/jobs";
 import type { Job } from "@/api/types";
 import { toast } from "@/store/toast";
-import { cn } from "@/lib/utils";
+import { cn, relativeTime } from "@/lib/utils";
 
 /* ── Data model ──────────────────────────────────────────────────
    Wired to the real /jobs API. Jobs are split into Drafts vs Completed
@@ -157,6 +157,7 @@ function LetterRow({
 }) {
   const completed = isCompleted(job);
   const snippet = snippetOf(job);
+  const when = relativeTime(job.updated_at ?? job.created_at);
   return (
     <div
       className={cn(
@@ -174,7 +175,15 @@ function LetterRow({
             <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low" />
             <span className="shrink-0 whitespace-nowrap text-[12px] text-fg-mid">{job.company}</span>
           </div>
-          <div className="mt-1 truncate text-[12px] text-fg-low">{snippet || "Not written yet"}</div>
+          <div className="mt-1 flex items-center gap-1.5 text-[12px] text-fg-low">
+            <span className="truncate">{snippet || "Not written yet"}</span>
+            {when ? (
+              <>
+                <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low/60" />
+                <span className="shrink-0 whitespace-nowrap font-mono text-[10.5px]">{when}</span>
+              </>
+            ) : null}
+          </div>
         </div>
         {typeof job.match_score === "number" ? <MatchPill score={job.match_score} /> : null}
       </Link>

@@ -335,6 +335,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
     { name: "is_current", label: "Currently studying", type: "checkbox" },
     { name: "gpa", label: "GPA", type: "text" },
+    { name: "courses", label: "Relevant coursework (comma-separated)", type: "tags", full: true },
   ],
   project: [
     { name: "name", label: "Project", type: "text", required: true },
@@ -1080,6 +1081,15 @@ function EducationCard({
                 </div>
                 <div className="mt-0.5 text-[12px] text-fg-mid">{ed.institution}</div>
                 {eduMeta(ed) ? <div className="mt-1 font-mono text-[11px] text-fg-low">{eduMeta(ed)}</div> : null}
+                {ed.courses && ed.courses.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {ed.courses.map((c) => (
+                      <span key={c} className="rounded-[6px] bg-input px-2 py-[3px] font-mono text-[9px] text-fg-mid">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </button>
           ))}
@@ -1176,11 +1186,19 @@ function ProjectsCard({
                 <BranchIcon size={14} strokeWidth={1.5} />
               </span>
               <span className="truncate text-[13px] font-semibold text-fg">{p.name}</span>
-              {p.role ? (
-                <span className="ml-auto shrink-0 rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">
-                  {p.role}
-                </span>
-              ) : null}
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                {typeof p.stars === "number" ? (
+                  <span className="flex items-center gap-0.5 font-mono text-[10px] text-warning" title={`${p.stars} stars`}>
+                    <StarIcon size={11} strokeWidth={1.6} />
+                    {p.stars}
+                  </span>
+                ) : null}
+                {p.role ? (
+                  <span className="rounded-[6px] bg-accent-weak px-2 py-0.5 font-mono text-[9px] text-accent-text">
+                    {p.role}
+                  </span>
+                ) : null}
+              </div>
             </div>
             {p.description ? (
               <div className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-fg-mid">{p.description}</div>
@@ -2584,6 +2602,13 @@ function BriefcaseIcon(p: IconProps) {
     <Svg {...p}>
       <rect x="3" y="6" width="14" height="10" rx="1.5" />
       <path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6" />
+    </Svg>
+  );
+}
+function StarIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M10 3l2.1 4.3 4.7.7-3.4 3.3.8 4.7L10 13.9 5.8 16l.8-4.7L3.2 8l4.7-.7z" />
     </Svg>
   );
 }
