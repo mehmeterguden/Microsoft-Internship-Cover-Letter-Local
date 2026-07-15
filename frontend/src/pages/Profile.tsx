@@ -707,6 +707,7 @@ function SectionCard({
   addLabel,
   children,
   className,
+  maxBody,
 }: {
   title: string;
   meta?: ReactNode;
@@ -715,6 +716,8 @@ function SectionCard({
   addLabel: string;
   children: ReactNode;
   className?: string;
+  /** Cap the body at this pixel height and scroll it when content is longer. */
+  maxBody?: number;
 }) {
   return (
     <div className={cn("cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]", className)}>
@@ -726,7 +729,13 @@ function SectionCard({
           {onAdd ? <AddButton title={addLabel} onClick={onAdd} /> : null}
         </div>
       </div>
-      {children}
+      {maxBody ? (
+        <div className="-mr-2 overflow-y-auto pr-2" style={{ maxHeight: maxBody }}>
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }
@@ -923,6 +932,7 @@ function ExperienceCard({
       meta={experiences.length ? `${experiences.length} roles` : undefined}
       addLabel="Add role"
       onAdd={onAdd}
+      maxBody={300}
     >
       {experiences.length === 0 ? (
         <EmptyPrompt onClick={onAdd}>
@@ -1061,7 +1071,7 @@ function EducationCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Education" addLabel="Add education" onAdd={onAdd}>
+    <SectionCard title="Education" addLabel="Add education" onAdd={onAdd} maxBody={300}>
       {education.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No education yet — <span className="font-semibold text-accent-text">add a degree</span>.
@@ -1115,7 +1125,7 @@ function LanguagesCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Languages" addLabel="Add language" onAdd={onAdd}>
+    <SectionCard title="Languages" addLabel="Add language" onAdd={onAdd} maxBody={300}>
       {languages.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No languages yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1158,6 +1168,7 @@ function ProjectsCard({
       title="Projects"
       addLabel="Add project"
       onAdd={onAdd}
+      maxBody={520}
       headerExtra={
         <button
           type="button"
@@ -1244,7 +1255,7 @@ function CertificatesCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Certificates" addLabel="Add certificate" onAdd={onAdd}>
+    <SectionCard title="Certificates" addLabel="Add certificate" onAdd={onAdd} maxBody={300}>
       {certificates.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No certificates yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1292,6 +1303,7 @@ function TrainingsCard({
       meta={trainings.length ? `${trainings.length} completed` : undefined}
       addLabel="Add training"
       onAdd={onAdd}
+      maxBody={300}
     >
       {trainings.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
@@ -1329,7 +1341,7 @@ function TrainingsCard({
    ══════════════════════════════════════════════════════════════════ */
 function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) => void; onAdd: () => void }) {
   return (
-    <SectionCard title="Links" addLabel="Add link" onAdd={onAdd}>
+    <SectionCard title="Links" addLabel="Add link" onAdd={onAdd} maxBody={300}>
       {links.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No links yet — <span className="font-semibold text-accent-text">add one</span>.
