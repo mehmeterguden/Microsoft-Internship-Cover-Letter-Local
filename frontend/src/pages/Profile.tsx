@@ -190,8 +190,8 @@ function SourceBadge({
 function ProvenanceLine({ source, at, detail }: { source: Source; at?: string | null; detail?: string | null }) {
   const parts = [detail, at ? fmtDate(at) : null].filter(Boolean).join(" · ");
   return (
-    <div className="mt-3.5 flex items-center gap-2 border-t border-border pt-3 font-mono text-[10px] text-fg-low">
-      <span>SOURCE</span>
+    <div className="mt-3.5 flex items-center gap-2 border-t border-border pt-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+      <span>Source</span>
       <SourceBadge source={source} at={at} detail={detail} />
       {parts ? <span className="truncate">{parts}</span> : null}
     </div>
@@ -530,7 +530,7 @@ export function Profile() {
 
   return (
     <Page
-      eyebrow="WORKSPACE / PROFILE"
+      eyebrow="Workspace / Profile"
       title="Profile & Skills"
       actions={
         <>
@@ -1003,8 +1003,8 @@ function SummaryCard({
             <PencilIcon size={12} /> Edit
           </button>
         ) : (
-          <span className="rounded-full border border-dashed border-border-strong px-2 py-0.5 font-mono text-[9px] text-fg-low">
-            EMPTY
+          <span className="rounded-full border border-dashed border-border-strong px-2 py-0.5 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+            Empty
           </span>
         )}
       </div>
@@ -1401,7 +1401,7 @@ function ModalHeader({ icon, kicker, title }: { icon: ReactNode; kicker: string;
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="font-mono text-[8.5px] tracking-[1px] text-fg-low">{kicker}</div>
+        <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{kicker}</div>
         <div className="truncate text-[15px] font-bold text-fg">{title}</div>
       </div>
     </div>
@@ -1455,7 +1455,7 @@ function DetailModal({
 }) {
   return (
     <ModalShell onClose={onClose} width={kind === "experience" || kind === "project" ? 460 : 420} title={itemTitle(kind, item)}>
-      <ModalHeader icon={KIND_ICON[kind]} kicker={KIND_LABEL[kind].toUpperCase()} title={itemTitle(kind, item)} />
+      <ModalHeader icon={KIND_ICON[kind]} kicker={KIND_LABEL[kind]} title={itemTitle(kind, item)} />
       <div className="p-4">{renderDetailBody(kind, item)}</div>
       <DetailFooter onEdit={onEdit} onDelete={onDelete} />
     </ModalShell>
@@ -1485,7 +1485,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
             ) : null}
           </div>
           <div className="mb-2.5 flex items-center justify-between">
-            <span className="font-mono text-[9px] tracking-[1px] text-fg-low">PROFICIENCY</span>
+            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
             <span className="text-[12px] font-semibold text-accent-text">{ratingLabel(sk.self_rating)}</span>
           </div>
           <div className="flex gap-1.5">
@@ -1522,7 +1522,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
           </div>
           {x.description ? (
             <div className="mt-3.5 border-t border-border pt-3.5">
-              <div className="mb-2 font-mono text-[9px] tracking-[1px] text-fg-low">WHAT I DID</div>
+              <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">What I did</div>
               <div className="rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
                 {x.description}
               </div>
@@ -1598,7 +1598,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
             <span className="text-[12.5px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
           </div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-mono text-[9px] tracking-[1px] text-fg-low">PROFICIENCY</span>
+            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
             <span className="font-mono text-[11px] text-accent-text">{pct}%</span>
           </div>
           <div className="h-[6px] overflow-hidden rounded-[3px] bg-input">
@@ -1621,7 +1621,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
           {ct.issuer ? (
             <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
               <div>
-                <div className="font-mono text-[9px] tracking-[1px] text-fg-low">ISSUER</div>
+                <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Issuer</div>
                 <div className="mt-0.5 text-[13px] font-semibold text-fg">{ct.issuer}</div>
               </div>
             </div>
@@ -1647,7 +1647,7 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
           {tr.provider ? (
             <div className="flex items-center justify-between rounded-[10px] border border-border bg-surface-2 px-3.5 py-3">
               <div>
-                <div className="font-mono text-[9px] tracking-[1px] text-fg-low">PROVIDER</div>
+                <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Provider</div>
                 <div className="mt-0.5 text-[13px] font-semibold text-fg">{tr.provider}</div>
               </div>
             </div>
@@ -1744,7 +1744,7 @@ function FormGrid({
         if (f.type === "checkbox") {
           return (
             <label key={f.name} className={cn("flex items-center justify-between gap-3 rounded-[9px] border border-border bg-input px-3 py-2.5", span)}>
-              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-fg-mid">{f.label}</span>
+              <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">{f.label}</span>
               <Toggle checked={values[f.name] === true} onChange={(c) => onChange(f.name, c)} aria-label={f.label} />
             </label>
           );
@@ -1842,7 +1842,7 @@ function ItemFormModal({
       <form onSubmit={submit}>
         <ModalHeader
           icon={KIND_ICON[kind]}
-          kicker={`${existing ? "EDIT" : "ADD"} · ${KIND_LABEL[kind].toUpperCase()}`}
+          kicker={`${existing ? "Edit" : "Add"} · ${KIND_LABEL[kind]}`}
           title={existing ? itemTitle(kind, existing) : `New ${KIND_LABEL[kind].toLowerCase()}`}
         />
         <div className="max-h-[62vh] overflow-y-auto p-4">
@@ -1892,7 +1892,7 @@ function IdentityFormModal({
   return (
     <ModalShell onClose={onClose} width={520} title="Edit identity">
       <form onSubmit={submit}>
-        <ModalHeader icon={<PencilIcon size={17} />} kicker="EDIT · IDENTITY" title="Your details" />
+        <ModalHeader icon={<PencilIcon size={17} />} kicker="Edit · Identity" title="Your details" />
         <div className="max-h-[62vh] overflow-y-auto p-4">
           <FormGrid fields={IDENTITY_FIELDS} values={values} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} />
         </div>
@@ -1933,7 +1933,7 @@ function SummaryFormModal({
   return (
     <ModalShell onClose={onClose} width={520} title="Edit summary">
       <form onSubmit={submit}>
-        <ModalHeader icon={<PencilIcon size={17} />} kicker="EDIT · SUMMARY" title="Professional summary" />
+        <ModalHeader icon={<PencilIcon size={17} />} kicker="Edit · Summary" title="Professional summary" />
         <div className="p-4">
           <Field label="Summary" hint="A short professional summary, grounded in your experience.">
             <Textarea value={text} onChange={(e) => setText(e.target.value)} className="min-h-[140px]" />
@@ -2033,7 +2033,7 @@ function SummaryStudioModal({
         </div>
         {streaming ? (
           <Pill tone="accent" mono dot>
-            WRITING
+            Writing
           </Pill>
         ) : null}
       </div>
@@ -2278,7 +2278,7 @@ function AiCompleteModal({ onClose, onApplied }: { onClose: () => void; onApplie
         </div>
         {streaming ? (
           <Pill tone="accent" mono dot>
-            STREAMING
+            Streaming
           </Pill>
         ) : null}
       </div>
@@ -2352,7 +2352,7 @@ function PlanList({ steps }: { steps: CompletionStep[] }) {
   }
   return (
     <>
-      <div className="mb-3 font-mono text-[9.5px] tracking-[1px] text-fg-low">{steps.length} GAPS FOUND</div>
+      <div className="mb-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{steps.length} gaps found</div>
       <div className="flex flex-col gap-3">
         {[...groups.entries()].map(([label, list]) => (
           <div key={label} className="rounded-[11px] border border-border bg-surface-2 p-3.5">

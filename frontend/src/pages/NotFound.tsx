@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export function NotFound() {
   return (
-    <Page eyebrow="ERROR / 404" title="Page not found">
+    <Page eyebrow="Error / 404" title="Page not found">
       <EmptyState
         icon={<FileQuestion size={24} />}
         title="This page doesn't exist"

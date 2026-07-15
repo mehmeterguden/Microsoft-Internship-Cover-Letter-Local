@@ -220,7 +220,7 @@ export function Write() {
 
   return (
     <Page
-      eyebrow="GENERATE / WRITE LETTER"
+      eyebrow="Generate / Write Letter"
       title="Write letter"
       subtitle="A grounded first draft in your voice — written only from your real profile."
       actions={
@@ -266,10 +266,10 @@ export function Write() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label>Length</Label>
-                <span className="font-mono text-[10px] tracking-[0.3px] text-accent-text">{lenLabel} · ~{words} words</span>
+                <span className="font-mono text-[10px] tracking-[0.02em] text-accent-text">{lenLabel} · ~{words} words</span>
               </div>
               <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
-              <div className="flex justify-between font-mono text-[9.5px] uppercase tracking-[0.6px] text-fg-low">
+              <div className="flex justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
                 <span>Brief</span><span>Detailed</span>
               </div>
             </div>
@@ -288,7 +288,7 @@ export function Write() {
           {/* Letter pane */}
           <section className="cll-fade relative flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
             {streaming ? (
-              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.8px] text-accent-text">
+              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }} />
                 Streaming
               </div>
@@ -345,9 +345,9 @@ export function Write() {
                   <ShieldCheck size={16} strokeWidth={1.6} className="text-success" /> Claim check
                 </div>
                 {reviewing ? (
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] text-fg-mid"><Spinner size={12} /> checking…</span>
+                  <span className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid"><Spinner size={12} /> checking…</span>
                 ) : (
-                  <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 font-mono text-[10px] text-accent-text hover:brightness-110">
+                  <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text hover:brightness-110">
                     <RotateCw size={11} /> re-check
                   </button>
                 )}

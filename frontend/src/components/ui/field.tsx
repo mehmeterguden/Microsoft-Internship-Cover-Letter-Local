@@ -1,11 +1,11 @@
 import { forwardRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Small uppercase mono label, matching the design's field kickers. */
+/** Small field label — sans, Title/sentence case (no shouty caps). */
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn("font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-fg-mid", className)}
+      className={cn("text-[11px] font-semibold tracking-[0.01em] text-fg-mid", className)}
       {...props}
     />
   );

@@ -178,7 +178,7 @@ export function Onboarding() {
 
   return (
     <Page
-      eyebrow="SETUP / ADD CV"
+      eyebrow="Setup / Add CV"
       title="Add your CV"
       actions={
         <Link
@@ -500,7 +500,7 @@ function ParseState({
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <div className="font-mono text-[10px] tracking-[0.6px] text-fg-mid">EXTRACTED SO FAR</div>
+            <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">Extracted so far</div>
             <div className="flex flex-wrap gap-2">
               {counters.map((ct) => (
                 <span
@@ -524,7 +524,7 @@ function ParseState({
                 animation: parsing ? "cll-pulse 1.3s ease-in-out infinite" : undefined,
               }}
             />
-            {done ? "PARSED" : "PARSING"} · {timeLabel}s
+            {done ? "Parsed" : "Parsing"} · {timeLabel}s
           </div>
           <pre className="mt-5 max-h-[300px] overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.75] text-reading-ink">
             {streamText || (parsing ? "Waiting for the model to respond…" : "")}
@@ -636,7 +636,7 @@ function ReviewState({
 
       {/* Editable basics — the fields most worth correcting before import */}
       <div className="mb-4 rounded-[12px] border border-border bg-surface p-4">
-        <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.6px] text-fg-low">Your details</div>
+        <div className="mb-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your details</div>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:grid-cols-3">
           {BASICS_FIELDS.map((f) => (
             <Field key={f.key} label={f.label} htmlFor={`basics-${f.key}`}>
@@ -677,7 +677,7 @@ function ReviewState({
       {/* Save mode */}
       <div className="mt-[18px] flex flex-col gap-3 rounded-[12px] border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="font-mono text-[10px] uppercase tracking-[0.6px] text-fg-low">Saving mode</div>
+          <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Saving mode</div>
           <div className="mt-1 text-[12px] leading-[1.5] text-fg-mid">
             {mode === "replace"
               ? "Replace everything in your profile with this CV."

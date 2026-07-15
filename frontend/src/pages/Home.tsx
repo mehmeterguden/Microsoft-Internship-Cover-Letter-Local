@@ -83,7 +83,7 @@ function Hero({
       <span aria-hidden className="pointer-events-none absolute -right-12 -top-24 h-56 w-72 rounded-full" style={{ background: "var(--glow-1)", opacity: 0.3, filter: "blur(56px)" }} />
       <div className="relative flex flex-wrap items-center justify-between gap-6">
         <div className="min-w-[260px] flex-1">
-          <Pill tone={badgeTone} dot mono className="border border-border-strong uppercase tracking-[0.6px]">
+          <Pill tone={badgeTone} dot mono className="border border-border-strong tracking-[0.02em]">
             {badge}
           </Pill>
           <h2 className="mt-3 text-[18px] font-bold tracking-[-0.4px] text-fg">{title}</h2>
@@ -126,7 +126,7 @@ type SetupItem = { n: number; title: string; desc: string; status: "done" | "act
 function SetupChecklist({ header, count, pct, items }: { header: string; count: string; pct: number; items: SetupItem[] }) {
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
-      <div className="mb-3 flex items-center justify-between font-mono text-[10px] tracking-[1px] text-fg-low">
+      <div className="mb-3 flex items-center justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
         <span>{header}</span>
         <span>{count}</span>
       </div>
@@ -180,7 +180,7 @@ function RecentList({ header, rows }: { header: string; rows: LetterRow[] }) {
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-[18px] pb-3 pt-1.5">
       <div className="flex items-center justify-between py-3 pb-1.5">
-        <span className="font-mono text-[10px] tracking-[1px] text-fg-low">{header}</span>
+        <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{header}</span>
         <Link to="/cover-letters" className="text-[12px] text-accent-text">View all →</Link>
       </div>
       {rows.map((r, i) => (
@@ -248,7 +248,7 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
           }
           steps={d.railSetup}
         />
-        <SetupChecklist header="GET SET UP · 3 MINUTES" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
+        <SetupChecklist header="Get set up · 3 minutes" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             { icon: <ShieldCheck size={17} />, title: "100% on-device", desc: "A local model does the writing. Your CV and letters never touch a server." },
@@ -291,7 +291,7 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
             { label: "Letters", value: String(d.lettersCount), sub: d.lettersCount ? "in progress" : "none yet" },
           ]}
         />
-        <SetupChecklist header="FINISH SETTING UP" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
+        <SetupChecklist header="Finish setting up" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
         <OpenSourceBanner />
       </>
     );
@@ -328,7 +328,7 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
           <div className="mb-3 flex items-center justify-between">
-            <span className="font-mono text-[10px] tracking-[1px] text-fg-low">START YOUR FIRST LETTER</span>
+            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Start your first letter</span>
             <Link to="/write" className="text-[12px] text-accent-text">Open composer →</Link>
           </div>
           <p className="max-w-[560px] text-[12.5px] leading-relaxed text-fg-mid">
@@ -378,9 +378,9 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
           ]}
         />
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
-          <RecentList header="RECENT LETTERS" rows={d.recent} />
+          <RecentList header="Recent letters" rows={d.recent} />
           <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
-            <div className="font-mono text-[10px] tracking-[1px] text-fg-low">RECENT ACTIVITY</div>
+            <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Recent activity</div>
             <div className="mt-3 flex flex-col gap-3">
               {d.activity.map((a) => (
                 <div key={a.t} className="flex items-center gap-2.5 text-[12px] text-fg">
@@ -427,9 +427,9 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         ]}
       />
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
-        <RecentList header="RECENTLY SENT" rows={d.recent} />
+        <RecentList header="Recently sent" rows={d.recent} />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
-          <div className="font-mono text-[10px] tracking-[1px] text-fg-low">DO MORE</div>
+          <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Do more</div>
           <div className="mt-3 flex flex-col gap-2.5">
             <Link to="/voice" className="flex items-center gap-3 rounded-[10px] bg-surface-2 p-2.5 text-[12.5px] text-fg transition-colors hover:brightness-110">
               <span className="text-accent-text"><AudioLines size={17} /></span> Refine your writing voice
@@ -459,7 +459,7 @@ function HomeSkeleton() {
     <div className="flex flex-col gap-3.5">
       <div className="flex items-center gap-2 text-fg-low">
         <Spinner size={14} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Loading workspace</span>
+        <span className="text-[10.5px] font-semibold tracking-[0.01em]">Loading workspace</span>
       </div>
       <Skeleton className="h-[168px] w-full rounded-[15px]" />
       <Skeleton className="h-[74px] w-full rounded-[14px]" />
@@ -482,7 +482,7 @@ function StateSwitcher({ derived, override, onPick }: { derived: HomeState; over
       >
         <StatDot tone="accent" glow size={7} />
         <span className="text-left leading-tight">
-          <span className="block font-mono text-[8.5px] tracking-[0.7px] text-fg-low">PREVIEW STATE</span>
+          <span className="block text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Preview state</span>
           <span className="mt-px block text-[12.5px] font-semibold text-fg">{overrideOption ? overrideOption.label : `Auto · ${derivedOption.label}`}</span>
         </span>
         <ChevronDown size={15} className="text-fg-mid" />
@@ -612,10 +612,10 @@ export function Home() {
     : null;
 
   const activity: ActivityItem[] = [];
-  if (topDraft) activity.push({ c: "var(--accent)", t: `Draft in progress · ${topDraft.role} at ${topDraft.company}`, tag: "DRAFT" });
-  if (completedCount > 0) activity.push({ c: "var(--success)", t: `${completedCount} ${completedCount === 1 ? "letter" : "letters"} completed`, tag: "DONE" });
-  if (hasRepos) activity.push({ c: "var(--accent-2)", t: `${rp.length} ${rp.length === 1 ? "repo" : "repos"} imported from GitHub`, tag: "GITHUB" });
-  if (voiceAnalyzed) activity.push({ c: "var(--accent)", t: "Writing voice analyzed", tag: "VOICE" });
+  if (topDraft) activity.push({ c: "var(--accent)", t: `Draft in progress · ${topDraft.role} at ${topDraft.company}`, tag: "Draft" });
+  if (completedCount > 0) activity.push({ c: "var(--success)", t: `${completedCount} ${completedCount === 1 ? "letter" : "letters"} completed`, tag: "Done" });
+  if (hasRepos) activity.push({ c: "var(--accent-2)", t: `${rp.length} ${rp.length === 1 ? "repo" : "repos"} imported from GitHub`, tag: "GitHub" });
+  if (voiceAnalyzed) activity.push({ c: "var(--accent)", t: "Writing voice analyzed", tag: "Voice" });
 
   // Setup steps (welcome / cv states)
   const setupFlags = [hasProfile, hasVoice, hasRepos, hasLetters];
@@ -693,7 +693,7 @@ export function Home() {
   };
 
   return (
-    <Page eyebrow="WORKSPACE / HOME" title="Home" actions={<StateSwitcher derived={derived} override={override} onPick={setOverride} />} bodyClassName="px-7 py-5">
+    <Page eyebrow="Workspace / Home" title="Home" actions={<StateSwitcher derived={derived} override={override} onPick={setOverride} />} bodyClassName="px-7 py-5">
       <div className="flex flex-col gap-3.5">
         {loading ? <HomeSkeleton /> : <StateBody state={effective} d={d} />}
       </div>

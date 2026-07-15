@@ -113,7 +113,7 @@ function AccountChip({ connected, profile }: { connected: boolean; profile: Gith
           </span>
           <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-success">
             <StatDot tone="success" glow size={5} />
-            {typeof profile.public_repos === "number" ? `${profile.public_repos} REPOS` : "LOADED"}
+            {typeof profile.public_repos === "number" ? `${profile.public_repos} repos` : "Loaded"}
           </span>
         </span>
       </>
@@ -142,7 +142,7 @@ function AccountChip({ connected, profile }: { connected: boolean; profile: Gith
         <span className="block text-[13px] font-semibold text-fg-mid">{connected ? "Account linked" : "No account"}</span>
         <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px]" style={{ color: connected ? "var(--success)" : "var(--text-low)" }}>
           <span className="h-[5px] w-[5px] rounded-full" style={{ background: connected ? "var(--success)" : "var(--text-low)" }} />
-          {connected ? "TOKEN SET" : "NOT CONNECTED"}
+          {connected ? "Token set" : "Not connected"}
         </span>
       </span>
     </div>
@@ -191,7 +191,7 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
               style={{ background: "rgba(52,211,153,.14)" }}
             >
               <Check size={10} strokeWidth={2.8} />
-              IN PROFILE
+              In profile
             </span>
             {onRemove ? (
               <button
@@ -245,7 +245,7 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
 function SectionHead({ label, count, tone, right }: { label: string; count: number; tone: "success" | "low"; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <span className={cn("font-mono text-[10px] tracking-[1px]", tone === "success" ? "text-success" : "text-fg-low")}>
+      <span className={cn("text-[10.5px] font-semibold tracking-[0.01em]", tone === "success" ? "text-success" : "text-fg-low")}>
         {label} · {count}
       </span>
       {right}
@@ -263,9 +263,9 @@ function SkillsCard({ skills, repoCount }: { skills: ScoredSkill[]; repoCount: n
   return (
     <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
       <div className="mb-3.5 flex items-center justify-between">
-        <span className="flex items-center gap-2 font-mono text-[10px] tracking-[1px] text-fg-low">
+        <span className="flex items-center gap-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
           <Sparkles size={12} className="text-accent-text" />
-          DETECTED SKILLS · {sorted.length}
+          Detected skills · {sorted.length}
         </span>
         <span className="font-mono text-[10px] text-fg-low">from {plural(repoCount, "analyzed repo")}</span>
       </div>
@@ -329,7 +329,7 @@ function RepoDetail({
               {formatStars(repo.stars)}
             </span>
             {typeof repo.involvement_rating === "number" ? (
-              <span className="font-mono uppercase tracking-[0.5px] text-fg-low">Involvement {repo.involvement_rating}/5</span>
+              <span className="font-mono tracking-[0.02em] text-fg-low">Involvement {repo.involvement_rating}/5</span>
             ) : null}
           </div>
         </div>
@@ -337,16 +337,16 @@ function RepoDetail({
         {repo.description ? <p className="mt-4 text-[12.5px] leading-relaxed text-fg-mid">{repo.description}</p> : null}
 
         <div className="mt-4 rounded-[11px] border border-border bg-surface-2 p-3.5">
-          <div className="mb-2 flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[1px] text-accent-text">
+          <div className="mb-2 flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">
             <Sparkles size={12} />
-            AI Summary
+            AI summary
           </div>
           <p className="text-[12.5px] leading-relaxed text-fg">{summary}</p>
         </div>
 
         {bullets.length > 0 ? (
           <div className="mt-4">
-            <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[1px] text-fg-low">Your involvement</div>
+            <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your involvement</div>
             <ul className="flex flex-col gap-2">
               {bullets.map((line) => (
                 <li key={line} className="flex gap-2.5 text-[12.5px] leading-relaxed text-fg">
@@ -360,7 +360,7 @@ function RepoDetail({
 
         {repo.technologies && repo.technologies.length > 0 ? (
           <div className="mt-4">
-            <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[1px] text-fg-low">Tech</div>
+            <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Tech</div>
             <div className="flex flex-wrap gap-2">
               {repo.technologies.map((t) => (
                 <span key={t} className="rounded-full border border-border bg-surface-2 px-2.5 py-1 font-mono text-[10px] text-fg-mid">
@@ -628,7 +628,7 @@ export function Github() {
   const profileSection = (
     <section>
       <SectionHead
-        label="IN YOUR PROFILE"
+        label="In your profile"
         count={savedRepos.length}
         tone="success"
         right={<span className="font-mono text-[10px] text-fg-low">click a repo to view its analysis</span>}
@@ -655,7 +655,7 @@ export function Github() {
 
   return (
     <Page
-      eyebrow="SETUP / GITHUB IMPORT"
+      eyebrow="Setup / GitHub Import"
       title={
         <span className="inline-flex items-center gap-2.5">
           <GithubMark size={21} />
@@ -723,7 +723,7 @@ export function Github() {
                   <span className="shrink-0 font-mono text-[11px] text-fg-mid">{plural(fetchedRepos.length, "repo")}</span>
                 </div>
 
-                <SectionHead label="READING FROM GITHUB" count={fetchedRepos.length} tone="low" />
+                <SectionHead label="Reading from GitHub" count={fetchedRepos.length} tone="low" />
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                   {fetchedRepos.map((r) => (
                     <RepoCard key={r.id ?? r.repo_name} repo={r} inProfile={false} analyzing />
@@ -738,7 +738,7 @@ export function Github() {
 
                 <section>
                   <SectionHead
-                    label="AVAILABLE ON GITHUB"
+                    label="Available on GitHub"
                     count={availableRepos.length}
                     tone="low"
                     right={

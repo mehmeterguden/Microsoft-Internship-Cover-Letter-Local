@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
-  /** small uppercase mono breadcrumb, e.g. "GENERATE / WRITE LETTER" */
+  /** small breadcrumb, Title Case, e.g. "Generate / Write Letter" */
   eyebrow: string;
   title: ReactNode;
   subtitle?: ReactNode;
@@ -14,8 +14,13 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
   return (
     <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-7 py-5">
       <div className="min-w-0">
-        <div className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-accent-text">
-          {eyebrow}
+        <div className="text-[12px] font-semibold tracking-[0.01em] text-fg-mid">
+          {eyebrow.split("/").map((part, i) => (
+            <span key={i}>
+              {i > 0 ? <span className="px-1.5 text-fg-low">/</span> : null}
+              {part.trim()}
+            </span>
+          ))}
         </div>
         <h1 className="mt-1.5 truncate text-[22px] font-bold leading-tight tracking-[-0.02em] text-fg">
           {title}

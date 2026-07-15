@@ -154,7 +154,7 @@ export function Sidebar() {
           ))}
         </div>
         <div className="mx-1 my-3.5 h-px bg-border" />
-        <div className="mb-2 px-[11px] text-[10px] font-semibold uppercase tracking-[0.09em] text-fg-low">Setup</div>
+        <div className="mb-2 px-[11px] text-[11px] font-semibold tracking-[0.01em] text-fg-low">Setup</div>
         <div className="flex flex-col gap-0.5">
           {SETUP_NAV.map((item) => (
             <NavRow key={item.to} item={item} />

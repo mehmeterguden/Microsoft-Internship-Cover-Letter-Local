@@ -229,7 +229,7 @@ function LetterGroup({
         <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-fg-low">
           {rows.length}
         </span>
-        <span className="ml-auto font-mono text-[9px] uppercase tracking-[1px] text-fg-low">{meta}</span>
+        <span className="ml-auto font-mono text-[9px] tracking-[0.02em] text-fg-low">{meta}</span>
       </div>
       <div className="cll-fade overflow-hidden rounded-[14px] border border-border bg-surface">
         {rows.map((job, i) => (
@@ -491,7 +491,7 @@ export function CoverLetters() {
 
   return (
     <Page
-      eyebrow="WORKSPACE / COVER LETTERS"
+      eyebrow="Workspace / Cover Letters"
       title="Cover Letters"
       actions={
         <Button asChild variant="primary">
