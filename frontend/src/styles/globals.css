@@ -269,6 +269,14 @@
   0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45); }
   70%, 100% { box-shadow: 0 0 0 16px rgba(56, 189, 248, 0); }
 }
+@keyframes cll-pop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.cll-pop { animation: cll-pop 0.12s ease-out; transform-origin: top; }
+@media (prefers-reduced-motion: reduce) {
+  .cll-pop { animation: none; }
+}
 
 /* ─────────────────────────────────────────────────────────────
    Utilities
