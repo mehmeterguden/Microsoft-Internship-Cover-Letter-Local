@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ══════════════════════════════════════════════════════════════════
@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
    clipped by a scrollable modal body. Closes on outside click / Esc /
    page scroll / resize — but NOT when scrolling inside the panel itself.
    ══════════════════════════════════════════════════════════════════ */
-type Pos = { left: number; top: number; width: number; up: boolean };
+type Pos = { left: number; top: number; width: number; up: boolean; maxH: number };
 
 function useAnchored<T extends HTMLElement>() {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<T>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<Pos>({ left: 0, top: 0, width: 0, up: false });
+  const [pos, setPos] = useState<Pos>({ left: 0, top: 0, width: 0, up: false, maxH: 280 });
   // Portal into the enclosing modal (if any) so the popover stays inside the
   // dialog's focus + interaction scope; position is relative to that box.
   const [container, setContainer] = useState<HTMLElement | null>(null);
@@ -29,9 +29,16 @@ function useAnchored<T extends HTMLElement>() {
     const c = host?.getBoundingClientRect();
     const cLeft = c?.left ?? 0;
     const cTop = c?.top ?? 0;
-    const below = window.innerHeight - r.bottom;
-    const up = below < 320 && r.top > below;
-    setPos({ left: r.left - cLeft, top: (up ? r.top : r.bottom) - cTop, width: r.width, up });
+    // Keep the popover inside the enclosing modal (and viewport): bound the
+    // available height to the space between the field and the modal edge.
+    const margin = 12;
+    const boundBottom = Math.min(window.innerHeight, c ? c.bottom : window.innerHeight);
+    const boundTop = Math.max(0, c ? c.top : 0);
+    const spaceBelow = boundBottom - r.bottom - margin;
+    const spaceAbove = r.top - boundTop - margin;
+    const up = spaceBelow < 200 && spaceAbove > spaceBelow;
+    const maxH = Math.max(150, Math.min(300, up ? spaceAbove : spaceBelow));
+    setPos({ left: r.left - cLeft, top: (up ? r.top : r.bottom) - cTop, width: r.width, up, maxH });
     const onScroll = (e: Event) => {
       if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
       setOpen(false);
@@ -158,6 +165,8 @@ export function SearchSelect({
   const ql = q.trim().toLowerCase();
   const filtered = ql ? options.filter((o) => o.label.toLowerCase().includes(ql)) : options;
   const exact = options.some((o) => o.label.toLowerCase() === ql || o.value.toLowerCase() === ql);
+  const showCustom = allowCustom && ql.length > 0 && !exact;
+  const listMax = Math.max(96, pos.maxH - (searchable ? 54 : 8) - (showCustom ? 52 : 0));
 
   const pick = (v: string) => {
     onChange(v);
@@ -198,18 +207,29 @@ export function SearchSelect({
               </div>
             </div>
           ) : null}
-          <div style={{ maxHeight: 264 }} className="overflow-y-auto p-1.5">
-            {allowCustom && q.trim() && !exact ? (
-              <OptionRow label={<>Use “<span className="font-medium text-fg">{q.trim()}</span>”</>} selected={false} muted onPick={() => pick(q.trim())} />
-            ) : null}
+          <div style={{ maxHeight: listMax }} className="overflow-y-auto p-1.5">
             {!allowCustom && value ? <OptionRow label="— Clear —" selected={false} muted onPick={() => pick("")} /> : null}
             {filtered.map((o) => (
               <OptionRow key={o.value} label={o.label} selected={o.value === value} onPick={() => pick(o.value)} />
             ))}
-            {!filtered.length && !(allowCustom && q.trim()) ? (
-              <div className="px-2.5 py-6 text-center text-[12px] text-fg-low">No matches</div>
+            {!filtered.length && !showCustom ? (
+              <div className="px-2.5 py-5 text-center text-[12px] text-fg-low">No matches — type to add your own</div>
             ) : null}
           </div>
+          {showCustom ? (
+            <div className="border-t border-border p-1.5">
+              <button
+                type="button"
+                onClick={() => pick(q.trim())}
+                className="flex w-full items-center gap-2 rounded-[8px] border border-dashed border-border-strong bg-accent-weak px-2.5 py-2 text-left text-[12.5px] text-accent-text transition-colors hover:border-accent"
+              >
+                <Plus size={14} className="shrink-0" />
+                <span className="truncate">
+                  Add “<span className="font-semibold">{q.trim()}</span>”
+                </span>
+              </button>
+            </div>
+          ) : null}
         </Panel>
       ) : null}
     </>
@@ -283,7 +303,7 @@ export function TagField({
       </div>
       {open && avail.length ? (
         <Panel panelRef={panelRef} pos={pos} container={container}>
-          <div style={{ maxHeight: 224 }} className="overflow-y-auto p-1.5">
+          <div style={{ maxHeight: Math.max(96, pos.maxH - 8) }} className="overflow-y-auto p-1.5">
             {avail.slice(0, 60).map((s) => (
               <OptionRow key={s} label={s} selected={false} onPick={() => add(s)} />
             ))}
