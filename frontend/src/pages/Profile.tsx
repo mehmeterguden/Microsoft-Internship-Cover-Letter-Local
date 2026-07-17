@@ -4,6 +4,7 @@ import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Toggle } from "@/components/ui/controls";
+import { Select, DateField } from "@/components/ui/pickers";
 import { Pill, Spinner, StatDot, type Tone } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -269,7 +270,7 @@ const langLabel = (p?: LanguageLevel | null): string => (p ? titleCase(p) : "—
 /* ══════════════════════════════════════════════════════════════════
    Forms — descriptor-driven so the 8 entities share one renderer.
    ══════════════════════════════════════════════════════════════════ */
-type FieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "tags";
+type FieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "tags" | "month";
 type FieldDesc = {
   name: string;
   label: string;
@@ -287,8 +288,6 @@ const EMPLOYMENT_OPTIONS = enumOptions(["full_time", "part_time", "internship", 
 const CERT_OPTIONS = enumOptions(["professional", "course", "exam", "language", "award", "bootcamp", "other"]);
 const LANG_OPTIONS = enumOptions(["native", "fluent", "professional", "intermediate", "basic"]);
 const RATING_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} · ${LEVEL_LABEL[n]}` }));
-
-const DATE_HINT = "YYYY-MM";
 const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
   skill: [
     { name: "name", label: "Skill", type: "text", required: true },
@@ -302,8 +301,8 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "company", label: "Company", type: "text", required: true },
     { name: "employment_type", label: "Employment type", type: "select", options: EMPLOYMENT_OPTIONS },
     { name: "location", label: "Location", type: "text" },
-    { name: "start_date", label: "Start", type: "text", placeholder: DATE_HINT },
-    { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
+    { name: "start_date", label: "Start", type: "month" },
+    { name: "end_date", label: "End", type: "month" },
     { name: "is_current", label: "Current role", type: "checkbox" },
     { name: "description", label: "What I did", type: "textarea", full: true },
   ],
@@ -312,8 +311,8 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "degree", label: "Degree", type: "text" },
     { name: "field", label: "Field of study", type: "text" },
     { name: "location", label: "Location", type: "text" },
-    { name: "start_date", label: "Start", type: "text", placeholder: DATE_HINT },
-    { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
+    { name: "start_date", label: "Start", type: "month" },
+    { name: "end_date", label: "End", type: "month" },
     { name: "is_current", label: "Currently studying", type: "checkbox" },
     { name: "gpa", label: "GPA", type: "text" },
     { name: "courses", label: "Relevant coursework (comma-separated)", type: "tags", full: true },
@@ -323,23 +322,23 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "role", label: "Your role", type: "text" },
     { name: "technologies", label: "Technologies (comma-separated)", type: "tags", full: true },
     { name: "url", label: "URL", type: "text", full: true },
-    { name: "start_date", label: "Start", type: "text", placeholder: DATE_HINT },
-    { name: "end_date", label: "End", type: "text", placeholder: DATE_HINT },
+    { name: "start_date", label: "Start", type: "month" },
+    { name: "end_date", label: "End", type: "month" },
     { name: "description", label: "Description", type: "textarea", full: true },
   ],
   certificate: [
     { name: "name", label: "Certificate", type: "text", required: true },
     { name: "issuer", label: "Issuer", type: "text" },
     { name: "cert_type", label: "Type", type: "select", options: CERT_OPTIONS },
-    { name: "issue_date", label: "Issued", type: "text", placeholder: DATE_HINT },
-    { name: "expiry_date", label: "Expires", type: "text", placeholder: DATE_HINT },
+    { name: "issue_date", label: "Issued", type: "month" },
+    { name: "expiry_date", label: "Expires", type: "month" },
     { name: "credential_id", label: "Credential ID", type: "text" },
     { name: "url", label: "URL", type: "text", full: true },
   ],
   training: [
     { name: "name", label: "Training", type: "text", required: true },
     { name: "provider", label: "Provider", type: "text" },
-    { name: "completion_date", label: "Completed", type: "text", placeholder: DATE_HINT },
+    { name: "completion_date", label: "Completed", type: "month" },
     { name: "url", label: "URL", type: "text", full: true },
     { name: "description", label: "Description", type: "textarea", full: true },
   ],
@@ -533,7 +532,7 @@ export function Profile() {
           <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4">
             <IdentityCard profile={b.profile} experiences={b.experiences} onEdit={() => setEditIdentity(true)} />
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
               <SkillsCard skills={b.skills} onOpen={(it) => openDetail("skill", it)} onAdd={() => openAdd("skill")} />
               <ExperienceCard
                 experiences={b.experiences}
@@ -544,7 +543,7 @@ export function Profile() {
 
             <SummaryCard profile={b.profile} onEdit={() => setEditSummary(true)} onGenerate={() => setGenSummary(true)} />
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
               <EducationCard
                 education={b.education}
                 onOpen={(it) => openDetail("education", it)}
@@ -564,7 +563,7 @@ export function Profile() {
               onGithub={() => setAiOpen(true)}
             />
 
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
               <CertificatesCard
                 certificates={b.certificates}
                 onOpen={(it) => openDetail("certificate", it)}
@@ -708,6 +707,7 @@ function SectionCard({
   children,
   className,
   maxBody,
+  footer,
 }: {
   title: string;
   meta?: ReactNode;
@@ -716,12 +716,19 @@ function SectionCard({
   addLabel: string;
   children: ReactNode;
   className?: string;
-  /** Cap the body at this pixel height and scroll it when content is longer. */
+  /** Cap the whole card at this pixel height; the body scrolls when content is longer.
+   *  Cards in the same row share a height (items-stretch) and the body flex-fills. */
   maxBody?: number;
+  /** Optional fixed footer that stays below the scrolling body (e.g. a legend). */
+  footer?: ReactNode;
 }) {
+  const scroll = typeof maxBody === "number";
   return (
-    <div className={cn("cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]", className)}>
-      <div className="mb-4 flex items-center justify-between">
+    <div
+      className={cn("cll-fade rounded-[12px] border border-border bg-surface px-5 py-[18px]", scroll && "flex flex-col", className)}
+      style={scroll ? { maxHeight: maxBody } : undefined}
+    >
+      <div className="mb-4 flex shrink-0 items-center justify-between">
         <span className="text-[14px] font-semibold text-fg">{title}</span>
         <div className="flex items-center gap-2.5">
           {meta ? <span className="font-mono text-[10px] text-fg-low">{meta}</span> : null}
@@ -729,13 +736,8 @@ function SectionCard({
           {onAdd ? <AddButton title={addLabel} onClick={onAdd} /> : null}
         </div>
       </div>
-      {maxBody ? (
-        <div className="-mr-2 overflow-y-auto pr-2" style={{ maxHeight: maxBody }}>
-          {children}
-        </div>
-      ) : (
-        children
-      )}
+      {scroll ? <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">{children}</div> : children}
+      {footer ? <div className="mt-3.5 shrink-0 border-t border-border pt-3">{footer}</div> : null}
     </div>
   );
 }
@@ -863,42 +865,15 @@ function groupSkills(skills: Skill[]): { label: string; items: Skill[] }[] | nul
 function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Skill) => void; onAdd: () => void }) {
   const groups = groupSkills(skills);
   return (
-    <SectionCard title="Skills" meta={`${skills.length} tracked`} addLabel="Add skill" onAdd={onAdd} className="flex flex-col">
-      {skills.length === 0 ? (
-        <EmptyPrompt onClick={onAdd}>
-          No skills yet — <span className="font-semibold text-accent-text">add one</span> or let AI infer them from your CV.
-        </EmptyPrompt>
-      ) : (
-        <>
-          <div
-            className="max-h-[300px] overflow-auto pr-1.5"
-            style={{
-              WebkitMaskImage: "linear-gradient(180deg,#000 94%,transparent)",
-              maskImage: "linear-gradient(180deg,#000 94%,transparent)",
-            }}
-          >
-            {groups ? (
-              <div className="flex flex-col gap-3.5">
-                {groups.map((g) => (
-                  <div key={g.label}>
-                    <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.06em] text-fg-low">{g.label}</div>
-                    <div className="flex flex-wrap items-center gap-[7px]">
-                      {g.items.map((sk) => (
-                        <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-[7px]">
-                {skills.map((sk) => (
-                  <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="mt-3.5 flex items-center justify-end gap-4 border-t border-border pt-3 text-[11px] text-fg-mid">
+    <SectionCard
+      title="Skills"
+      meta={`${skills.length} tracked`}
+      addLabel="Add skill"
+      onAdd={onAdd}
+      maxBody={380}
+      footer={
+        skills.length ? (
+          <div className="flex items-center justify-end gap-4 text-[11px] text-fg-mid">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--accent)" }} />
               Strong
@@ -908,7 +883,32 @@ function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Sk
               Learning
             </span>
           </div>
-        </>
+        ) : undefined
+      }
+    >
+      {skills.length === 0 ? (
+        <EmptyPrompt onClick={onAdd}>
+          No skills yet — <span className="font-semibold text-accent-text">add one</span> or let AI infer them from your CV.
+        </EmptyPrompt>
+      ) : groups ? (
+        <div className="flex flex-col gap-3.5">
+          {groups.map((g) => (
+            <div key={g.label}>
+              <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{g.label}</div>
+              <div className="flex flex-wrap items-center gap-[7px]">
+                {g.items.map((sk) => (
+                  <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-[7px]">
+          {skills.map((sk) => (
+            <SkillPill key={sk.id ?? sk.name} skill={sk} onOpen={onOpen} />
+          ))}
+        </div>
       )}
     </SectionCard>
   );
@@ -932,7 +932,7 @@ function ExperienceCard({
       meta={experiences.length ? `${experiences.length} roles` : undefined}
       addLabel="Add role"
       onAdd={onAdd}
-      maxBody={300}
+      maxBody={380}
     >
       {experiences.length === 0 ? (
         <EmptyPrompt onClick={onAdd}>
@@ -1071,7 +1071,7 @@ function EducationCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Education" addLabel="Add education" onAdd={onAdd} maxBody={300}>
+    <SectionCard title="Education" addLabel="Add education" onAdd={onAdd} maxBody={380}>
       {education.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No education yet — <span className="font-semibold text-accent-text">add a degree</span>.
@@ -1125,7 +1125,7 @@ function LanguagesCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Languages" addLabel="Add language" onAdd={onAdd} maxBody={300}>
+    <SectionCard title="Languages" addLabel="Add language" onAdd={onAdd} maxBody={380}>
       {languages.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No languages yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1168,7 +1168,7 @@ function ProjectsCard({
       title="Projects"
       addLabel="Add project"
       onAdd={onAdd}
-      maxBody={520}
+      maxBody={600}
       headerExtra={
         <button
           type="button"
@@ -1255,7 +1255,7 @@ function CertificatesCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Certificates" addLabel="Add certificate" onAdd={onAdd} maxBody={300}>
+    <SectionCard title="Certificates" addLabel="Add certificate" onAdd={onAdd} maxBody={380}>
       {certificates.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No certificates yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1303,7 +1303,7 @@ function TrainingsCard({
       meta={trainings.length ? `${trainings.length} completed` : undefined}
       addLabel="Add training"
       onAdd={onAdd}
-      maxBody={300}
+      maxBody={380}
     >
       {trainings.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
@@ -1341,7 +1341,7 @@ function TrainingsCard({
    ══════════════════════════════════════════════════════════════════ */
 function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) => void; onAdd: () => void }) {
   return (
-    <SectionCard title="Links" addLabel="Add link" onAdd={onAdd} maxBody={300}>
+    <SectionCard title="Links" addLabel="Add link" onAdd={onAdd} maxBody={380}>
       {links.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No links yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1412,13 +1412,16 @@ function ModalShell({
 
 function ModalHeader({ icon, kicker, title }: { icon: ReactNode; kicker: string; title: string }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-4">
-      <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border-strong bg-accent-weak text-accent-text">
+    <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+      <div
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-on-accent"
+        style={{ background: "var(--accent-grad)", boxShadow: "0 8px 20px -10px var(--accent-shadow)" }}
+      >
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{kicker}</div>
-        <div className="truncate text-[15px] font-bold text-fg">{title}</div>
+        <div className="text-[10.5px] font-semibold tracking-[0.02em] text-fg-low">{kicker}</div>
+        <div className="truncate text-[15.5px] font-bold text-fg">{title}</div>
       </div>
     </div>
   );
@@ -1472,7 +1475,7 @@ function DetailModal({
   return (
     <ModalShell onClose={onClose} width={kind === "experience" || kind === "project" ? 460 : 420} title={itemTitle(kind, item)}>
       <ModalHeader icon={KIND_ICON[kind]} kicker={KIND_LABEL[kind]} title={itemTitle(kind, item)} />
-      <div className="p-4">{renderDetailBody(kind, item)}</div>
+      <div className="p-5">{renderDetailBody(kind, item)}</div>
       <DetailFooter onEdit={onEdit} onDelete={onDelete} />
     </ModalShell>
   );
@@ -1712,31 +1715,6 @@ function DetailLink({ url, mono = false }: { url: string; mono?: boolean }) {
 /* ══════════════════════════════════════════════════════════════════
    Forms
    ══════════════════════════════════════════════════════════════════ */
-function SelectInput({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-10 w-full rounded-[9px] border border-border bg-input px-3 text-[13px] text-fg outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak"
-    >
-      <option value="">—</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 function FormGrid({
   fields,
   values,
@@ -1768,7 +1746,14 @@ function FormGrid({
                   onChange={(e) => onChange(f.name, e.target.value)}
                 />
               ) : f.type === "select" ? (
-                <SelectInput value={sv(values[f.name])} options={f.options ?? []} onChange={(v) => onChange(f.name, v)} />
+                <Select
+                  value={sv(values[f.name])}
+                  options={f.options ?? []}
+                  onChange={(v) => onChange(f.name, v)}
+                  allowEmpty={!f.required}
+                />
+              ) : f.type === "month" ? (
+                <DateField value={sv(values[f.name])} onChange={(v) => onChange(f.name, v)} />
               ) : (
                 <Input
                   type={f.type === "number" ? "number" : "text"}
@@ -1854,7 +1839,7 @@ function ItemFormModal({
           kicker={`${existing ? "Edit" : "Add"} · ${KIND_LABEL[kind]}`}
           title={existing ? itemTitle(kind, existing) : `New ${KIND_LABEL[kind].toLowerCase()}`}
         />
-        <div className="max-h-[62vh] overflow-y-auto p-4">
+        <div className="max-h-[62vh] overflow-y-auto p-5">
           <FormGrid fields={fields} values={values} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} />
         </div>
         <ModalFooter onCancel={onClose} saving={saving} submitLabel={existing ? "Save changes" : "Add"} />
@@ -1903,7 +1888,7 @@ function IdentityFormModal({
     <ModalShell onClose={onClose} width={520} title="Edit identity">
       <form onSubmit={submit}>
         <ModalHeader icon={<PencilIcon size={17} />} kicker="Edit · Identity" title="Your details" />
-        <div className="max-h-[62vh] overflow-y-auto p-4">
+        <div className="max-h-[62vh] overflow-y-auto p-5">
           <FormGrid fields={IDENTITY_FIELDS} values={values} onChange={(name, value) => setValues((v) => ({ ...v, [name]: value }))} />
           <SourceRow source={identitySrc?.source} at={identitySrc?.at} detail={identitySrc?.detail} />
         </div>
