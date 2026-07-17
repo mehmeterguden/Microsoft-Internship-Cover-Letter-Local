@@ -4,7 +4,10 @@ import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Toggle } from "@/components/ui/controls";
-import { Select, DateField, Combobox } from "@/components/ui/pickers";
+import { SearchSelect, DateField, TagField } from "@/components/ui/pickers";
+import {
+  toOptions, DEGREES, SKILL_CATEGORIES, FIELDS_OF_STUDY, LANGUAGES, COUNTRIES, TECHNOLOGIES, CERT_ISSUERS, UNIVERSITIES,
+} from "@/lib/suggestions";
 import { Pill, Spinner, StatDot, type Tone } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -276,6 +279,7 @@ type FieldDesc = {
   label: string;
   type: FieldType;
   options?: { value: string; label: string }[];
+  suggestions?: string[];
   placeholder?: string;
   required?: boolean;
   full?: boolean;
@@ -288,20 +292,10 @@ const EMPLOYMENT_OPTIONS = enumOptions(["full_time", "part_time", "internship", 
 const CERT_OPTIONS = enumOptions(["professional", "course", "exam", "language", "award", "bootcamp", "other"]);
 const LANG_OPTIONS = enumOptions(["native", "fluent", "professional", "intermediate", "basic"]);
 const RATING_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} · ${LEVEL_LABEL[n]}` }));
-const asOptions = (values: readonly string[]) => values.map((v) => ({ value: v, label: v }));
-// Known-answer suggestions for combobox fields (user can still type a custom value).
-const DEGREE_OPTIONS = asOptions([
-  "Associate", "High School Diploma", "B.S.", "B.A.", "B.Sc.", "B.Eng.", "B.Tech",
-  "M.S.", "M.A.", "M.Sc.", "M.Eng.", "MBA", "Ph.D.", "Bootcamp", "Diploma",
-]);
-const CATEGORY_OPTIONS = asOptions([
-  "Languages", "Frameworks", "Libraries", "Databases", "DevOps", "Cloud",
-  "Tools", "Testing", "Data & ML", "Design", "Security", "Soft skills", "Other",
-]);
 const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
   skill: [
-    { name: "name", label: "Skill", type: "text", required: true },
-    { name: "category", label: "Category", type: "combo", options: CATEGORY_OPTIONS, placeholder: "e.g. Languages" },
+    { name: "name", label: "Skill", type: "combo", options: toOptions(TECHNOLOGIES), required: true, placeholder: "e.g. TypeScript" },
+    { name: "category", label: "Category", type: "combo", options: toOptions(SKILL_CATEGORIES), placeholder: "e.g. Languages" },
     { name: "self_rating", label: "Proficiency", type: "select", options: RATING_OPTIONS },
     { name: "years_experience", label: "Years", type: "number" },
     { name: "note", label: "Note", type: "textarea", full: true },
@@ -310,27 +304,27 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "title", label: "Title", type: "text", required: true },
     { name: "company", label: "Company", type: "text", required: true },
     { name: "employment_type", label: "Employment type", type: "select", options: EMPLOYMENT_OPTIONS },
-    { name: "location", label: "Location", type: "text" },
+    { name: "location", label: "Location", type: "combo", options: toOptions(COUNTRIES), placeholder: "e.g. Turkey" },
     { name: "start_date", label: "Start", type: "month" },
     { name: "end_date", label: "End", type: "month" },
     { name: "is_current", label: "Current role", type: "checkbox" },
     { name: "description", label: "What I did", type: "textarea", full: true },
   ],
   education: [
-    { name: "institution", label: "Institution", type: "text", required: true },
-    { name: "degree", label: "Degree", type: "combo", options: DEGREE_OPTIONS, placeholder: "e.g. B.S." },
-    { name: "field", label: "Field of study", type: "text" },
-    { name: "location", label: "Location", type: "text" },
+    { name: "institution", label: "Institution", type: "combo", options: toOptions(UNIVERSITIES), required: true, placeholder: "e.g. Boğaziçi University" },
+    { name: "degree", label: "Degree", type: "combo", options: toOptions(DEGREES), placeholder: "e.g. B.S." },
+    { name: "field", label: "Field of study", type: "combo", options: toOptions(FIELDS_OF_STUDY), placeholder: "e.g. Computer Engineering" },
+    { name: "location", label: "Location", type: "combo", options: toOptions(COUNTRIES), placeholder: "e.g. Turkey" },
     { name: "start_date", label: "Start", type: "month" },
     { name: "end_date", label: "End", type: "month" },
     { name: "is_current", label: "Currently studying", type: "checkbox" },
     { name: "gpa", label: "GPA", type: "text" },
-    { name: "courses", label: "Relevant coursework (comma-separated)", type: "tags", full: true },
+    { name: "courses", label: "Relevant coursework", type: "tags", full: true, placeholder: "Add a course and press Enter" },
   ],
   project: [
     { name: "name", label: "Project", type: "text", required: true },
     { name: "role", label: "Your role", type: "text" },
-    { name: "technologies", label: "Technologies (comma-separated)", type: "tags", full: true },
+    { name: "technologies", label: "Technologies", type: "tags", suggestions: TECHNOLOGIES, full: true, placeholder: "Add tech — pick or type, Enter" },
     { name: "url", label: "URL", type: "text", full: true },
     { name: "start_date", label: "Start", type: "month" },
     { name: "end_date", label: "End", type: "month" },
@@ -338,7 +332,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
   ],
   certificate: [
     { name: "name", label: "Certificate", type: "text", required: true },
-    { name: "issuer", label: "Issuer", type: "text" },
+    { name: "issuer", label: "Issuer", type: "combo", options: toOptions(CERT_ISSUERS), placeholder: "e.g. Coursera" },
     { name: "cert_type", label: "Type", type: "select", options: CERT_OPTIONS },
     { name: "issue_date", label: "Issued", type: "month" },
     { name: "expiry_date", label: "Expires", type: "month" },
@@ -353,7 +347,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "description", label: "Description", type: "textarea", full: true },
   ],
   language: [
-    { name: "name", label: "Language", type: "text", required: true },
+    { name: "name", label: "Language", type: "combo", options: toOptions(LANGUAGES), required: true, placeholder: "e.g. English" },
     { name: "proficiency", label: "Proficiency", type: "select", options: LANG_OPTIONS },
   ],
   link: [
@@ -1756,20 +1750,23 @@ function FormGrid({
                   onChange={(e) => onChange(f.name, e.target.value)}
                 />
               ) : f.type === "select" ? (
-                <Select
-                  value={sv(values[f.name])}
-                  options={f.options ?? []}
-                  onChange={(v) => onChange(f.name, v)}
-                  allowEmpty={!f.required}
-                />
+                <SearchSelect value={sv(values[f.name])} options={f.options ?? []} onChange={(v) => onChange(f.name, v)} />
               ) : f.type === "month" ? (
                 <DateField value={sv(values[f.name])} onChange={(v) => onChange(f.name, v)} />
               ) : f.type === "combo" ? (
-                <Combobox
+                <SearchSelect
+                  value={sv(values[f.name])}
+                  options={f.options ?? []}
+                  onChange={(v) => onChange(f.name, v)}
+                  placeholder={f.placeholder ?? "Select or type…"}
+                  allowCustom
+                />
+              ) : f.type === "tags" ? (
+                <TagField
                   value={sv(values[f.name])}
                   onChange={(v) => onChange(f.name, v)}
-                  suggestions={(f.options ?? []).map((o) => o.label)}
-                  placeholder={f.placeholder}
+                  suggestions={f.suggestions}
+                  placeholder={f.placeholder ?? "Type and press Enter"}
                 />
               ) : (
                 <Input
