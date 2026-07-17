@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Trash2, Mail, Phone, Github, Linkedin } from "lucide-react";
+import { Trash2, Mail, Phone, Github, Linkedin, Globe, Twitter, Youtube, Instagram, Gitlab } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
@@ -196,13 +196,6 @@ function SourceRow({ source, at, detail }: { source?: Source; at?: string | null
 function displayName(p: ProfileModel): string {
   const n = [p.name, p.surname].filter(Boolean).join(" ").trim();
   return n || "Your name";
-}
-
-/** A subline from the current/most-recent experience, else a gentle prompt. */
-function sublineOf(experiences: Experience[]): string {
-  const current = experiences.find((x) => x.is_current) ?? experiences[0];
-  if (!current) return "Add your experience to build your headline";
-  return [current.title, current.company].filter(Boolean).join(" · ");
 }
 
 function fieldSrc(p: ProfileModel, key: string): FieldSource | undefined {
@@ -534,7 +527,7 @@ export function Profile() {
       <AsyncBoundary state={state} skeleton={<ProfileSkeleton />}>
         {(b) => (
           <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4">
-            <IdentityCard profile={b.profile} experiences={b.experiences} onEdit={() => setEditIdentity(true)} />
+            <IdentityCard profile={b.profile} onEdit={() => setEditIdentity(true)} />
 
             <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
               <SkillsCard skills={b.skills} onOpen={(it) => openDetail("skill", it)} onAdd={() => openAdd("skill")} />
@@ -781,11 +774,9 @@ function EmptyPrompt({ children, onClick, minimal = false }: { children: ReactNo
    ══════════════════════════════════════════════════════════════════ */
 function IdentityCard({
   profile,
-  experiences,
   onEdit,
 }: {
   profile: ProfileModel;
-  experiences: Experience[];
   onEdit: () => void;
 }) {
   const { email, phone, linkedin, github } = profile;
@@ -795,8 +786,7 @@ function IdentityCard({
     <div className="cll-fade flex items-start justify-between gap-5 rounded-[12px] border border-border bg-surface px-5 py-[18px]">
       <div className="min-w-0 flex-1">
         <div className="text-[19px] font-bold text-fg">{displayName(profile)}</div>
-        <div className="mt-1 text-[13px] text-fg-mid">{sublineOf(experiences)}</div>
-        <div className="mt-[13px] flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12px]">
+        <div className="mt-3 flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12px]">
           {email ? (
             <a href={`mailto:${email}`} className={cn(contactClass, "min-w-0")}>
               <Mail size={13} strokeWidth={1.6} className="shrink-0" />
@@ -952,7 +942,7 @@ function ExperienceCard({
                 key={x.id ?? i}
                 type="button"
                 onClick={() => onOpen(x)}
-                className="-mx-2 flex gap-3.5 rounded-[10px] px-2 py-[11px] text-left transition-colors hover:bg-surface-2"
+                className="flex gap-3.5 rounded-[10px] px-2 py-[11px] text-left transition-colors hover:bg-surface-2"
               >
                 <div className="flex shrink-0 flex-col items-center pt-1">
                   <span
@@ -1141,7 +1131,7 @@ function LanguagesCard({
               key={lg.id ?? i}
               type="button"
               onClick={() => onOpen(lg)}
-              className="-mx-2 flex items-center justify-between gap-3 rounded-[9px] px-2 py-2.5 text-left transition-colors hover:bg-surface-2"
+              className="flex items-center justify-between gap-3 rounded-[9px] px-2 py-2.5 text-left transition-colors hover:bg-surface-2"
             >
               <span className="min-w-0 truncate text-[13px] text-fg">{lg.name}</span>
               <span className="shrink-0 text-[12px] font-medium text-accent-text">{langLabel(lg.proficiency)}</span>
@@ -1271,7 +1261,7 @@ function CertificatesCard({
               key={ct.id ?? i}
               type="button"
               onClick={() => onOpen(ct)}
-              className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left text-[13px] transition-colors hover:bg-surface-2"
+              className="flex items-center gap-3 rounded-[8px] p-2 text-left text-[13px] transition-colors hover:bg-surface-2"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
                 <AwardIcon size={15} />
@@ -1320,7 +1310,7 @@ function TrainingsCard({
               key={tr.id ?? i}
               type="button"
               onClick={() => onOpen(tr)}
-              className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-2"
+              className="flex items-center gap-3 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-2"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
                 <BookIcon size={15} />
@@ -1343,6 +1333,19 @@ function TrainingsCard({
 /* ══════════════════════════════════════════════════════════════════
    Links
    ══════════════════════════════════════════════════════════════════ */
+/** Brand glyph inferred from a link's url/label. */
+function LinkGlyph({ url, label }: { url: string; label: string }) {
+  const s = `${url} ${label}`.toLowerCase();
+  const p = { size: 15, strokeWidth: 1.7 } as const;
+  if (s.includes("github")) return <Github {...p} />;
+  if (s.includes("linkedin")) return <Linkedin {...p} />;
+  if (s.includes("gitlab")) return <Gitlab {...p} />;
+  if (s.includes("twitter") || s.includes("x.com")) return <Twitter {...p} />;
+  if (s.includes("youtube") || s.includes("youtu.be")) return <Youtube {...p} />;
+  if (s.includes("instagram")) return <Instagram {...p} />;
+  return <Globe {...p} />;
+}
+
 function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) => void; onAdd: () => void }) {
   return (
     <SectionCard title="Links" addLabel="Add link" onAdd={onAdd} maxBody={380}>
@@ -1357,14 +1360,14 @@ function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) 
               key={ln.id ?? i}
               type="button"
               onClick={() => onOpen(ln)}
-              className="-mx-2 flex items-center gap-3 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-2"
+              className="group flex items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-colors hover:bg-surface-2"
             >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-accent-weak text-accent-text">
-                <LinkIcon size={14} strokeWidth={1.6} />
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-border bg-surface-2 text-fg-mid transition-colors group-hover:border-border-strong group-hover:text-accent-text">
+                <LinkGlyph url={ln.url} label={ln.label} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12.5px] text-fg">{ln.label}</div>
-                <div className="truncate font-mono text-[11px] text-accent-text">{shortUrl(ln.url)}</div>
+                <div className="truncate text-[12.5px] font-medium text-fg">{ln.label}</div>
+                <div className="truncate font-mono text-[11px] text-fg-low">{shortUrl(ln.url)}</div>
               </div>
             </button>
           ))}
