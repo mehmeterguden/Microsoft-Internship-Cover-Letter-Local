@@ -15,23 +15,33 @@ function useAnchored<T extends HTMLElement>() {
   const triggerRef = useRef<T>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Pos>({ left: 0, top: 0, width: 0, up: false });
+  // Portal into the enclosing modal (if any) so the popover stays inside the
+  // dialog's focus + interaction scope; position is relative to that box.
+  const [container, setContainer] = useState<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
     if (!open) return;
     const el = triggerRef.current;
     if (!el) return;
+    const host = (el.closest('[role="dialog"]') as HTMLElement | null) ?? null;
+    setContainer(host);
     const r = el.getBoundingClientRect();
+    const c = host?.getBoundingClientRect();
+    const cLeft = c?.left ?? 0;
+    const cTop = c?.top ?? 0;
     const below = window.innerHeight - r.bottom;
     const up = below < 320 && r.top > below;
-    setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, up });
+    setPos({ left: r.left - cLeft, top: (up ? r.top : r.bottom) - cTop, width: r.width, up });
     const onScroll = (e: Event) => {
       if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
       setOpen(false);
     };
+    const onResize = () => setOpen(false);
     window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", () => setOpen(false));
+    window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
@@ -51,13 +61,25 @@ function useAnchored<T extends HTMLElement>() {
     };
   }, [open]);
 
-  return { open, setOpen, triggerRef, panelRef, pos };
+  return { open, setOpen, triggerRef, panelRef, pos, container };
 }
 
 const triggerBase =
   "flex h-10 w-full items-center gap-2 rounded-[9px] border border-border bg-input px-3 text-[13px] text-fg outline-none transition-[border-color,box-shadow] focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-weak hover:border-border-strong data-[open=true]:border-accent data-[open=true]:ring-2 data-[open=true]:ring-accent-weak";
 
-function Panel({ panelRef, pos, className, children }: { panelRef: React.RefObject<HTMLDivElement | null>; pos: Pos; className?: string; children: ReactNode }) {
+function Panel({
+  panelRef,
+  pos,
+  container,
+  className,
+  children,
+}: {
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  pos: Pos;
+  container: HTMLElement | null;
+  className?: string;
+  children: ReactNode;
+}) {
   return createPortal(
     <div
       ref={panelRef}
@@ -75,7 +97,7 @@ function Panel({ panelRef, pos, className, children }: { panelRef: React.RefObje
     >
       {children}
     </div>,
-    document.body,
+    container ?? document.body,
   );
 }
 
@@ -119,7 +141,7 @@ export function SearchSelect({
   allowCustom?: boolean;
   searchPlaceholder?: string;
 }) {
-  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored<HTMLButtonElement>();
+  const { open, setOpen, triggerRef, panelRef, pos, container } = useAnchored<HTMLButtonElement>();
   const [q, setQ] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const searchable = allowCustom || options.length > 7;
@@ -149,7 +171,7 @@ export function SearchSelect({
         <ChevronDown size={15} className={cn("shrink-0 text-fg-low transition-transform duration-200", open && "rotate-180 text-accent-text")} />
       </button>
       {open ? (
-        <Panel panelRef={panelRef} pos={pos}>
+        <Panel panelRef={panelRef} pos={pos} container={container}>
           {searchable ? (
             <div className="border-b border-border p-1.5">
               <div className="flex items-center gap-2 rounded-[8px] bg-input px-2.5">
@@ -208,7 +230,7 @@ export function TagField({
   suggestions?: string[];
   placeholder?: string;
 }) {
-  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored<HTMLDivElement>();
+  const { open, setOpen, triggerRef, panelRef, pos, container } = useAnchored<HTMLDivElement>();
   const [draft, setDraft] = useState("");
   const tags = value.split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -260,7 +282,7 @@ export function TagField({
         />
       </div>
       {open && avail.length ? (
-        <Panel panelRef={panelRef} pos={pos}>
+        <Panel panelRef={panelRef} pos={pos} container={container}>
           <div style={{ maxHeight: 224 }} className="overflow-y-auto p-1.5">
             {avail.slice(0, 60).map((s) => (
               <OptionRow key={s} label={s} selected={false} onPick={() => add(s)} />
@@ -286,7 +308,7 @@ function parseYM(v: string): { y: number; m: number } | null {
 }
 
 export function DateField({ value, onChange, placeholder = "YYYY-MM" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored<HTMLButtonElement>();
+  const { open, setOpen, triggerRef, panelRef, pos, container } = useAnchored<HTMLButtonElement>();
   const parsed = parseYM(value);
   const [year, setYear] = useState(() => parsed?.y ?? new Date().getFullYear());
 
@@ -321,7 +343,7 @@ export function DateField({ value, onChange, placeholder = "YYYY-MM" }: { value:
         ) : null}
       </button>
       {open ? (
-        <Panel panelRef={panelRef} pos={pos} className="w-[248px]">
+        <Panel panelRef={panelRef} pos={pos} container={container} className="w-[248px]">
           <div className="p-2">
             <div className="mb-1.5 flex items-center justify-between px-1">
               <button type="button" onClick={() => setYear((y) => y - 1)} aria-label="Previous year" className="grid h-7 w-7 place-items-center rounded-[8px] text-fg-mid transition-colors hover:bg-surface-3 hover:text-fg">

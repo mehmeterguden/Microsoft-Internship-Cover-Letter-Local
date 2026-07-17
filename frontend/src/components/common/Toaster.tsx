@@ -48,7 +48,7 @@ function ToastCard({ id, tone, title, description }: { id: number; tone: ToastTo
 export function Toaster() {
   const toasts = useToastStore((s) => s.toasts);
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-[60] flex flex-col gap-2.5">
+    <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2.5">
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">
           <ToastCard {...t} />
