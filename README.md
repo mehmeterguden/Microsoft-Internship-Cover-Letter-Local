@@ -1,3 +1,5 @@
+[![CI](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/actions/workflows/ci.yml/badge.svg)](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/actions/workflows/ci.yml)
+
 # Cover Letter Local
 
 A privacy-first, fully local AI job-application assistant. Learns your writing
