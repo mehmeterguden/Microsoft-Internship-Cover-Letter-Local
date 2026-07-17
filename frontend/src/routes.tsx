@@ -16,11 +16,12 @@ import { NotFound } from "@/pages/NotFound";
 
 export const router = createBrowserRouter([
   { path: "/", element: <Home />, errorElement: <RouteError /> },
+  // Full-screen first-run wizard — lives outside the app shell (no sidebar).
+  { path: "/onboarding", element: <Onboarding />, errorElement: <RouteError /> },
   {
     element: <AppShell />,
     errorElement: <RouteError />,
     children: [
-      { path: "onboarding", element: <Onboarding /> },
       { path: "profile", element: <Profile /> },
       { path: "profile/complete", element: <ProfileComplete /> },
       { path: "github", element: <Github /> },
