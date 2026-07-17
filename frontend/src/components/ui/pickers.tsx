@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
    ══════════════════════════════════════════════════════════════════ */
 type Pos = { left: number; top: number; width: number; up: boolean };
 
-function useAnchored() {
+function useAnchored<T extends HTMLElement>() {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<T>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Pos>({ left: 0, top: 0, width: 0, up: false });
 
@@ -55,6 +55,9 @@ function useAnchored() {
 const triggerBase =
   "flex h-10 w-full items-center gap-2 rounded-[9px] border border-border bg-input px-3 text-[13px] text-fg outline-none transition-[border-color,box-shadow] focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-weak hover:border-border-strong data-[open=true]:border-accent data-[open=true]:ring-2 data-[open=true]:ring-accent-weak";
 
+const inputBase =
+  "h-10 w-full rounded-[9px] border border-border bg-input pl-3 pr-9 text-[13px] text-fg placeholder:text-fg-low outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak";
+
 function Panel({ panelRef, pos, className, children }: { panelRef: React.RefObject<HTMLDivElement | null>; pos: Pos; className?: string; children: ReactNode }) {
   return createPortal(
     <div
@@ -94,7 +97,7 @@ export function Select({
   placeholder?: string;
   allowEmpty?: boolean;
 }) {
-  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored();
+  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored<HTMLButtonElement>();
   const selected = options.find((o) => o.value === value);
 
   const pick = (v: string) => {
@@ -119,6 +122,62 @@ export function Select({
         </Panel>
       ) : null}
     </>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Combobox — pick a known answer OR type your own (e.g. Degree, Category)
+   ══════════════════════════════════════════════════════════════════ */
+export function Combobox({
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+}) {
+  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored<HTMLDivElement>();
+  const q = value.trim().toLowerCase();
+  const filtered = suggestions.filter((s) => !q || s.toLowerCase().includes(q));
+  const pick = (s: string) => {
+    onChange(s);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={triggerRef} className="relative">
+      <input
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        className={inputBase}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Show options"
+        onClick={() => setOpen((o) => !o)}
+        className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-[7px] text-fg-low transition-colors hover:text-accent-text"
+      >
+        <ChevronDown size={15} className={cn("transition-transform duration-200", open && "rotate-180 text-accent-text")} />
+      </button>
+      {open && filtered.length ? (
+        <Panel panelRef={panelRef} pos={pos} className="max-h-[240px] overflow-y-auto">
+          <div style={{ minWidth: pos.width }} role="listbox">
+            {filtered.map((s) => (
+              <OptionRow key={s} label={s} selected={s.toLowerCase() === q} onPick={() => pick(s)} />
+            ))}
+          </div>
+        </Panel>
+      ) : null}
+    </div>
   );
 }
 
@@ -154,7 +213,7 @@ function parseYM(v: string): { y: number; m: number } | null {
 }
 
 export function DateField({ value, onChange, placeholder = "YYYY-MM" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored();
+  const { open, setOpen, triggerRef, panelRef, pos } = useAnchored<HTMLButtonElement>();
   const parsed = parseYM(value);
   const [year, setYear] = useState(() => parsed?.y ?? new Date().getFullYear());
 

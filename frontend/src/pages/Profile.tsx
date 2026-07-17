@@ -4,7 +4,7 @@ import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Toggle } from "@/components/ui/controls";
-import { Select, DateField } from "@/components/ui/pickers";
+import { Select, DateField, Combobox } from "@/components/ui/pickers";
 import { Pill, Spinner, StatDot, type Tone } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -270,7 +270,7 @@ const langLabel = (p?: LanguageLevel | null): string => (p ? titleCase(p) : "—
 /* ══════════════════════════════════════════════════════════════════
    Forms — descriptor-driven so the 8 entities share one renderer.
    ══════════════════════════════════════════════════════════════════ */
-type FieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "tags" | "month";
+type FieldType = "text" | "textarea" | "select" | "number" | "checkbox" | "tags" | "month" | "combo";
 type FieldDesc = {
   name: string;
   label: string;
@@ -288,10 +288,20 @@ const EMPLOYMENT_OPTIONS = enumOptions(["full_time", "part_time", "internship", 
 const CERT_OPTIONS = enumOptions(["professional", "course", "exam", "language", "award", "bootcamp", "other"]);
 const LANG_OPTIONS = enumOptions(["native", "fluent", "professional", "intermediate", "basic"]);
 const RATING_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} · ${LEVEL_LABEL[n]}` }));
+const asOptions = (values: readonly string[]) => values.map((v) => ({ value: v, label: v }));
+// Known-answer suggestions for combobox fields (user can still type a custom value).
+const DEGREE_OPTIONS = asOptions([
+  "Associate", "High School Diploma", "B.S.", "B.A.", "B.Sc.", "B.Eng.", "B.Tech",
+  "M.S.", "M.A.", "M.Sc.", "M.Eng.", "MBA", "Ph.D.", "Bootcamp", "Diploma",
+]);
+const CATEGORY_OPTIONS = asOptions([
+  "Languages", "Frameworks", "Libraries", "Databases", "DevOps", "Cloud",
+  "Tools", "Testing", "Data & ML", "Design", "Security", "Soft skills", "Other",
+]);
 const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
   skill: [
     { name: "name", label: "Skill", type: "text", required: true },
-    { name: "category", label: "Category", type: "text", placeholder: "e.g. Languages" },
+    { name: "category", label: "Category", type: "combo", options: CATEGORY_OPTIONS, placeholder: "e.g. Languages" },
     { name: "self_rating", label: "Proficiency", type: "select", options: RATING_OPTIONS },
     { name: "years_experience", label: "Years", type: "number" },
     { name: "note", label: "Note", type: "textarea", full: true },
@@ -308,7 +318,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
   ],
   education: [
     { name: "institution", label: "Institution", type: "text", required: true },
-    { name: "degree", label: "Degree", type: "text" },
+    { name: "degree", label: "Degree", type: "combo", options: DEGREE_OPTIONS, placeholder: "e.g. B.S." },
     { name: "field", label: "Field of study", type: "text" },
     { name: "location", label: "Location", type: "text" },
     { name: "start_date", label: "Start", type: "month" },
@@ -1754,6 +1764,13 @@ function FormGrid({
                 />
               ) : f.type === "month" ? (
                 <DateField value={sv(values[f.name])} onChange={(v) => onChange(f.name, v)} />
+              ) : f.type === "combo" ? (
+                <Combobox
+                  value={sv(values[f.name])}
+                  onChange={(v) => onChange(f.name, v)}
+                  suggestions={(f.options ?? []).map((o) => o.label)}
+                  placeholder={f.placeholder}
+                />
               ) : (
                 <Input
                   type={f.type === "number" ? "number" : "text"}
