@@ -10,6 +10,7 @@ import sqlite3
 
 from fastapi import APIRouter, HTTPException, status
 
+from core import errors
 from db import queries
 from models import Project
 
@@ -31,7 +32,10 @@ def create_project(project: Project) -> Project:
     try:
         new_id = queries.insert(TABLE, data)
     except sqlite3.IntegrityError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise errors.conflict(
+            f"{type(exc).__name__}: {exc}",
+            message="Couldn't add this project — its linked GitHub repo no longer exists.",
+        ) from exc
     return Project(**queries.get_by_id(TABLE, new_id))
 
 
@@ -53,7 +57,10 @@ def update_project(project_id: int, project: Project) -> Project:
     try:
         queries.update(TABLE, project_id, data)
     except sqlite3.IntegrityError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise errors.conflict(
+            f"{type(exc).__name__}: {exc}",
+            message="Couldn't update this project — its linked GitHub repo no longer exists.",
+        ) from exc
     return Project(**queries.get_by_id(TABLE, project_id))
 
 

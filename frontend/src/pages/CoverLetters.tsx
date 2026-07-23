@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { deleteJob, listJobs, updateJob } from "@/api/jobs";
-import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 import type { Job } from "@/api/types";
@@ -40,7 +39,7 @@ export function CoverLetters() {
       toast.success(next ? "Marked as completed" : "Moved back to draft");
       loaded.reload();
     } catch (err) {
-      toast.danger("Couldn't update", errorMessage(err));
+      toast.error(err, "Couldn't update");
     } finally {
       setBusyId(null);
     }
@@ -55,7 +54,7 @@ export function CoverLetters() {
       setPendingDelete(null);
       loaded.reload();
     } catch (err) {
-      toast.danger("Couldn't delete", errorMessage(err));
+      toast.error(err, "Couldn't delete");
     } finally {
       setDeleting(false);
     }

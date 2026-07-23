@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  AudioLines,
+  Fingerprint,
   Building2,
   Cpu,
   FileUp,
@@ -96,7 +96,7 @@ const TRUST = [
 
 const FEATURES = [
   { icon: FileUp, label: "CV Import", to: "/onboarding" },
-  { icon: AudioLines, label: "Writing Voice", to: "/voice" },
+  { icon: Fingerprint, label: "Writing Style", to: "/voice" },
   { icon: Building2, label: "Company Research", to: "/research" },
   { icon: PenLine, label: "Cover Letter", to: "/write" },
   { icon: LayoutGrid, label: "Cover Letters", to: "/cover-letters" },
@@ -105,7 +105,7 @@ const FEATURES = [
 
 const STEPS = [
   { icon: FileUp, title: "Import your CV", body: "Extract and structure your experience locally — nothing is uploaded.", tone: "text-accent-ink bg-accent-soft" },
-  { icon: AudioLines, title: "Learn your voice", body: "We study your past letters and build a fingerprint of how you write.", tone: "text-violet bg-violet-soft" },
+  { icon: Fingerprint, title: "Learn your style", body: "We study your past letters and build a fingerprint of how you write.", tone: "text-violet bg-violet-soft" },
   { icon: Building2, title: "Research the company", body: "Parallel agents gather a detailed, source-cited report.", tone: "text-blue bg-blue-soft" },
   { icon: PenLine, title: "Generate the letter", body: "A grounded, personalized letter streams in — in your own voice.", tone: "text-gold bg-gold-soft" },
 ];
@@ -147,7 +147,7 @@ export function Home() {
             </Reveal>
             <Reveal>
               <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-text-2">
-                Cover Letter Local learns your writing voice, profiles your skills, researches the company,
+                Cover Letter Local learns your writing style, profiles your skills, researches the company,
                 and generates a personalized letter — all on your machine, with your choice of local AI.
               </p>
             </Reveal>

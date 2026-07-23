@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import iterate_in_threadpool
 
-from core import cv_structuring, document_parser
+from core import cv_structuring, document_parser, errors
 from db import queries
 from models import CVExtraction, Document, Source
 
@@ -84,11 +84,8 @@ async def _read_and_extract(file: UploadFile) -> tuple[bytes, dict]:
 
     try:
         extraction = document_parser.extract(file.filename, file.content_type, data)
-    except Exception as exc:  # noqa: BLE001 — report a bad/corrupt file instead of 500
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Could not read the file ({type(exc).__name__}): {exc}",
-        ) from exc
+    except Exception as exc:  # noqa: BLE001 — a damaged/unreadable file, not a server bug
+        raise errors.file_corrupt(f"{type(exc).__name__}: {exc}") from exc
     return data, extraction
 
 
@@ -108,13 +105,9 @@ async def import_cv(file: UploadFile = File(...)) -> dict:
     """
     data, extraction = await _read_and_extract(file)
     text = extraction.get("text") or "\n\n".join(p["text"] for p in extraction.get("pages", []))
-    try:
-        result = cv_structuring.structure(text)
-    except Exception as exc:  # noqa: BLE001 — LLM connection/provider failure
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"LLM request failed ({type(exc).__name__}): {exc}",
-        ) from exc
+    # A provider/connection failure propagates to the global handler, which
+    # classifies it into a friendly, provider-aware error.
+    result = cv_structuring.structure(text)
 
     return {
         "filename": file.filename,
@@ -151,8 +144,8 @@ async def import_cv_stream(file: UploadFile = File(...)) -> StreamingResponse:
                 if event.get("type") == "done":
                     event["duration_s"] = round(time.monotonic() - start, 1)
                 yield f"data: {json.dumps(event)}\n\n"
-        except Exception as exc:  # noqa: BLE001 — surface a provider failure, then end the stream
-            yield f"data: {json.dumps({'type': 'fatal', 'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a classified failure, then end the stream
+            yield f"data: {json.dumps({'type': 'fatal', 'error': errors.error_dict(exc)})}\n\n"
 
     return StreamingResponse(
         event_stream(),
@@ -175,13 +168,8 @@ def structure_cv(req: StructureRequest) -> dict:
     """
     if not req.text.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No text to structure.")
-    try:
-        return cv_structuring.structure(req.text)
-    except Exception as exc:  # noqa: BLE001 — LLM connection/provider failure
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"LLM request failed ({type(exc).__name__}): {exc}",
-        ) from exc
+    # A provider/connection failure propagates to the global handler (classified).
+    return cv_structuring.structure(req.text)
 
 
 @router.post("/save")

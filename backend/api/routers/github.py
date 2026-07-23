@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from core import github, github_analysis
@@ -51,14 +51,9 @@ def github_status() -> dict:
 def fetch_repos(req: FetchRequest) -> dict:
     """Fetch a GitHub profile and its repositories (by username or connected account)."""
     token = queries.get_settings().get("github_token") or None
-    try:
-        return github.fetch(username=req.username, token=token, use_account=req.use_account)
-    except ValueError as exc:  # bad input / not found / rate limit
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001 — network/other
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, detail=f"GitHub fetch failed ({type(exc).__name__}): {exc}"
-        ) from exc
+    # Bad input / not-found / rate-limit (ValueError) and network failures propagate
+    # to the global handler, which classifies them into friendly errors.
+    return github.fetch(username=req.username, token=token, use_account=req.use_account)
 
 
 @router.post("/analyze")
@@ -71,12 +66,8 @@ def analyze_repos(req: AnalyzeRequest) -> dict:
         data["readme"] = github.fetch_readme(req.login, repo.repo_name, token)
         data["languages"] = github.fetch_languages(req.login, repo.repo_name, token)
         inputs.append(data)
-    try:
-        return github_analysis.analyze(inputs)
-    except Exception as exc:  # noqa: BLE001 — LLM/connection failure
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, detail=f"Analysis failed ({type(exc).__name__}): {exc}"
-        ) from exc
+    # An LLM/connection failure propagates to the global handler (classified).
+    return github_analysis.analyze(inputs)
 
 
 @router.post("/save")

@@ -38,7 +38,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from core import llm
+from core import errors, llm
 from core.llm.base import Message
 from core.research.schema import Source
 from core.research.tools.registry import ToolResult
@@ -157,10 +157,21 @@ class Agent(ABC):
             section = self.section_from(validated)
         except asyncio.TimeoutError:
             error = f"Timed out after {REASON_TIMEOUT:.0f}s"
-            await emit({"type": "agent_error", "agent": self.name, "error": error, "reason": "timeout"})
+            timeout_err = {
+                "code": "agent.timeout",
+                "title": "This section timed out",
+                "message": f"Researching this section took longer than {REASON_TIMEOUT:.0f}s and was "
+                "skipped. Re-run to try again.",
+                "detail": error,
+                "retryable": True,
+                "action": "retry",
+            }
+            await emit({"type": "agent_error", "agent": self.name, "error": timeout_err, "reason": "timeout"})
             return AgentResult(self.name, self.section, None, sources, ok=False, error=error)
         except Exception as exc:  # noqa: BLE001 — one bad agent must not sink the run
-            await emit({"type": "agent_error", "agent": self.name, "error": str(exc), "reason": "error"})
+            await emit(
+                {"type": "agent_error", "agent": self.name, "error": errors.error_dict(exc), "reason": "error"}
+            )
             return AgentResult(self.name, self.section, None, sources, ok=False, error=str(exc))
 
         await emit(

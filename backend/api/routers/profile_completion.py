@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from starlette.concurrency import iterate_in_threadpool
 
-from core import profile_completion
+from core import errors, profile_completion
 from db import queries
 from models import Language, Profile, Project, Skill
 
@@ -49,13 +49,8 @@ class SuggestRequest(BaseModel):
 @router.post("/suggest")
 def suggest(req: SuggestRequest) -> dict[str, Any]:
     """Propose values for all the short/factual/enumerated gaps in one call."""
-    try:
-        return profile_completion.suggest_structured(req.steps)
-    except Exception as exc:  # noqa: BLE001 — LLM connection/provider failure
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"LLM request failed ({type(exc).__name__}): {exc}",
-        ) from exc
+    # A provider/connection failure propagates to the global handler (classified).
+    return profile_completion.suggest_structured(req.steps)
 
 
 @router.post("/suggest/stream", summary="Stream one suggestion per field as generated (SSE)")
@@ -85,8 +80,8 @@ def _sse(generator) -> StreamingResponse:
         try:
             async for event in iterate_in_threadpool(generator):
                 yield f"data: {json.dumps(event)}\n\n"
-        except Exception as exc:  # noqa: BLE001 — surface a provider failure, then end
-            yield f"data: {json.dumps({'type': 'fatal', 'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a classified failure, then end
+            yield f"data: {json.dumps({'type': 'fatal', 'error': errors.error_dict(exc)})}\n\n"
 
     return StreamingResponse(
         event_stream(),

@@ -273,6 +273,13 @@ _COLUMNS_ADDED = {
         "key_switch_mode": "TEXT NOT NULL DEFAULT 'auto'",  # auto|manual on rate-limit
         "company_search_provider": "TEXT NOT NULL DEFAULT 'wikidata'",  # wikidata|brandfetch
         "brandfetch_client_id": "TEXT NOT NULL DEFAULT ''",  # public Brandfetch client id
+        # LinkedIn import — OAuth app credentials + connection state (identity prefill).
+        "linkedin_client_id": "TEXT NOT NULL DEFAULT ''",
+        "linkedin_client_secret": "TEXT NOT NULL DEFAULT ''",
+        "linkedin_access_token": "TEXT NOT NULL DEFAULT ''",
+        "linkedin_token_expires_at": "TEXT NOT NULL DEFAULT ''",
+        "linkedin_connected_name": "TEXT NOT NULL DEFAULT ''",
+        "linkedin_oauth_state": "TEXT NOT NULL DEFAULT ''",  # CSRF state for the auth-code flow
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

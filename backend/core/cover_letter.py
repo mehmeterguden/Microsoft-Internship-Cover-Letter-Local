@@ -14,15 +14,29 @@ settings — the documented opt-in.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from typing import Any
 
 from core import llm, style
-from core.prompts.cover_letter import build_messages
+from core.llm.base import Message
+from core.prompts.cover_letter import TONES, build_messages
 from core.research.orchestrator import _cache_key
 from db import queries
 
 _MAX_PROFILE_CHARS = 3500
+_SNIPPET_CHARS = 160
+
+# Inline-edit actions the /edit endpoint accepts → the instruction the model follows.
+EDIT_ACTIONS: dict[str, str] = {
+    "improve": "Rewrite the selected passage to be sharper, clearer and more compelling, "
+               "keeping the same meaning and length.",
+    "shorten": "Make the selected passage more concise — cut filler and tighten the wording "
+               "while keeping every real point.",
+    "lengthen": "Expand the selected passage with more specific, concrete detail drawn from "
+                "what it already says — do not pad with generic filler.",
+    "tone": "Rewrite the selected passage in a different tone (see below), keeping its meaning.",
+}
 
 
 def stream(
@@ -36,9 +50,32 @@ def stream(
     Raises nothing for missing data (a thin profile still produces a letter); a
     provider failure propagates to the caller, which turns it into a `fatal` event.
     """
+    started = time.monotonic()
+    steps: list[str] = []
+    context: list[dict[str, str]] = []
+
     profile_context, has_profile = _load_profile_context()
+    if has_profile:
+        steps.append("Loaded your local profile")
+        context.append({"source": "profile", "label": "Your profile", "snippet": _snippet(profile_context)})
+
     research_context = _load_research_context(company_name, role_title)
+    if research_context:
+        steps.append(f"Included cached research on {company_name}")
+        context.append({"source": "research", "label": f"{company_name} research", "snippet": _snippet(research_context)})
+
     voice = style.style_context(f"{role_title or ''} at {company_name}. {job_description or ''}")
+    if voice["guide"]:
+        steps.append("Applied your learned writing voice")
+        context.append({"source": "voice", "label": "Your writing voice", "snippet": _snippet(voice["guide"])})
+    for i, exemplar in enumerate(voice["exemplars"], 1):
+        context.append({"source": "exemplar", "label": f"Past letter excerpt {i}", "snippet": _snippet(exemplar)})
+    if voice["exemplars"]:
+        steps.append(f"Retrieved {len(voice['exemplars'])} passage(s) from your past letters")
+
+    settings = queries.get_settings()
+    provider, model = settings.get("llm_provider"), settings.get("llm_model")
+    steps.append(f"Streamed the letter from {provider}/{model}")
 
     messages = build_messages(
         profile_context, company_name, role_title, job_description, research_context, tone,
@@ -51,15 +88,79 @@ def stream(
         "used_research": research_context is not None,
         "used_style": voice["has_style"],
         "voice_samples": len(voice["exemplars"]),
-        "tone": tone if tone in {"professional", "warm", "confident", "concise"} else "professional",
+        "tone": tone if tone in TONES else "professional",
     }
 
-    words = 0
+    words, chars = 0, 0
     for token in llm.stream(messages, temperature=0.7):
         if token:
             words += token.count(" ")
+            chars += len(token)
             yield {"type": "token", "text": token}
-    yield {"type": "done", "approx_words": words}
+
+    run_meta = {
+        "model": model,
+        "provider": provider,
+        "duration_s": round(time.monotonic() - started, 2),
+        "tokens": max(round(chars / 4), words),  # rough estimate — providers don't return exact counts
+        "context": context,
+        "steps": steps,
+    }
+    yield {"type": "done", "approx_words": words, "run_meta": run_meta}
+
+
+def edit(text: str, selection: str, action: str, tone: str | None = None) -> str:
+    """Apply an inline edit to `selection` (a substring of `text`) and return the
+    rewritten passage that replaces it. Full `text` is passed for context so the edit
+    stays coherent with the rest of the letter. Never fabricates facts."""
+    if action not in EDIT_ACTIONS:
+        raise ValueError(f"Unknown edit action: {action!r}")
+    messages = _build_edit_messages(text, selection, action, tone)
+    revised = llm.complete(messages, temperature=0.4)
+    return _clean_edit(revised)
+
+
+def _build_edit_messages(text: str, selection: str, action: str, tone: str | None) -> list[Message]:
+    instruction = EDIT_ACTIONS[action]
+    system = (
+        "You are editing one passage of a job-application cover letter, in the applicant's "
+        "own voice. " + instruction + "\n\n"
+        "Rules: preserve the meaning and every real fact — never invent employers, titles, "
+        "skills, dates or numbers. Keep it consistent with the rest of the letter. "
+        "Output ONLY the revised passage — no quotes, no preamble, no explanation."
+    )
+    if action == "tone":
+        system += "\n" + TONES.get(tone or "professional", TONES["professional"])
+
+    user = "\n".join(
+        [
+            "=== FULL LETTER (context — do not rewrite) ===",
+            text.strip()[:6000],
+            "",
+            "=== PASSAGE TO REWRITE ===",
+            selection.strip(),
+        ]
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def _clean_edit(revised: str) -> str:
+    """Strip a stray wrapping quote or code fence the model may add around the passage."""
+    out = revised.strip()
+    if out.startswith("```"):
+        out = out.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    if len(out) >= 2 and out[0] in {'"', "'"} and out[-1] == out[0]:
+        out = out[1:-1].strip()
+    return out
+
+
+def _snippet(value: str) -> str:
+    """First line of a context block, collapsed and truncated for the run-meta panel."""
+    flat = " ".join(value.split())
+    return flat[:_SNIPPET_CHARS] + ("…" if len(flat) > _SNIPPET_CHARS else "")
 
 
 # ─────────────────────────────────────────────────────────────

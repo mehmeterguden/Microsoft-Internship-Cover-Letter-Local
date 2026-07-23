@@ -6,14 +6,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resetAllData } from "@/api/data";
-import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 const WIPES = [
   "Your profile, contact details & skills",
   "Experience, education, projects, certificates, languages, links",
   "Imported GitHub repositories",
-  "Past cover letters & your learned writing voice (RAG index)",
+  "Past cover letters & your learned writing style (RAG index)",
   "Saved applications & generated letters",
 ];
 
@@ -37,7 +36,7 @@ export function ResetDataDialog({ open, onOpenChange }: { open: boolean; onOpenC
       close();
       window.setTimeout(() => { window.location.href = "/"; }, 600);
     } catch (err) {
-      toast.danger("Reset failed", errorMessage(err));
+      toast.error(err, "Reset failed");
     } finally {
       setBusy(false);
     }

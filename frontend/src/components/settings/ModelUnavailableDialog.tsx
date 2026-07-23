@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { getSettings, saveSettings } from "@/api/settings";
 import { listModels } from "@/api/llm";
-import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 // Fallback list if live discovery is unavailable, most-recommended first.
@@ -68,7 +67,7 @@ export function ModelUnavailableDialog({
       onOpenChange(false);
       onSwitched(chosen);
     } catch (err) {
-      toast.danger("Couldn't switch model", errorMessage(err));
+      toast.error(err, "Couldn't switch model");
     } finally {
       setSaving(false);
     }

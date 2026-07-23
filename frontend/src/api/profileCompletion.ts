@@ -1,4 +1,5 @@
 import { client } from "./client";
+import type { AppError } from "./errors";
 import { streamSSE } from "./sse";
 
 /**
@@ -99,12 +100,12 @@ export interface SuggestResult {
 export type DraftEvent =
   | { type: "token"; text: string }
   | { type: "done"; text: string }
-  | { type: "fatal"; error: string };
+  | { type: "fatal"; error: AppError };
 
 export type SuggestionEvent =
   | { type: "suggestion"; id: string; value: unknown }
   | { type: "done"; count?: number }
-  | { type: "fatal"; error: string };
+  | { type: "fatal"; error: AppError };
 
 export interface ApplyPayload {
   profile?: Record<string, string>;

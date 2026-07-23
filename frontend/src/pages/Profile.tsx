@@ -50,7 +50,6 @@ import {
   trainingsApi,
 } from "@/api/profile";
 import { getCompletionPlan } from "@/api/profileCompletion";
-import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { useSection } from "@/lib/useSection";
 import { toast } from "@/store/toast";
@@ -177,7 +176,7 @@ export function Profile() {
       await saveProfile(profile);
       toast.success("Profile saved");
     } catch (err) {
-      toast.danger("Save failed", errorMessage(err));
+      toast.error(err, "Save failed");
     } finally {
       setSaving(false);
     }

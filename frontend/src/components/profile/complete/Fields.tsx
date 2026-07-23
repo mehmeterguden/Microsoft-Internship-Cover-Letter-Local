@@ -153,13 +153,13 @@ export function GenerativeField({
         setStreaming(false);
       } else if (e.type === "fatal") {
         setStreaming(false);
-        toast.danger("AI couldn't write this", e.error);
+        toast.error(e.error, "AI couldn't write this");
       }
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (stream as any)(body, onEvent, ac.signal).catch((err: unknown) => {
       setStreaming(false);
-      if (!ac.signal.aborted) toast.danger("AI request failed", String(err));
+      if (!ac.signal.aborted) toast.error(err, "AI request failed");
     });
   }
 

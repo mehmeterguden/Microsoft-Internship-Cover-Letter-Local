@@ -1,4 +1,5 @@
 import { API_BASE } from "./client";
+import { parseError, type AppError } from "./errors";
 
 /**
  * POST a JSON body and consume a `text/event-stream` response, invoking `onEvent`
@@ -41,7 +42,24 @@ export async function streamSSERequest<T>(
   });
 
   if (!res.ok || !res.body) {
-    throw new Error(`Stream failed (${res.status})`);
+    // A pre-stream failure (e.g. request validation) comes back as our JSON error
+    // envelope, not SSE. Parse it and tag the thrown Error so the consumer's
+    // `parseError`/`toast.error` shows the friendly message + details.
+    let appError: AppError | undefined;
+    try {
+      const body = await res.json();
+      if (body && typeof body === "object" && "error" in body) appError = parseError(body.error);
+      else if (body && typeof (body as { detail?: unknown }).detail === "string") {
+        appError = parseError({ code: "http_error", message: (body as { detail: string }).detail });
+      }
+    } catch {
+      // Non-JSON / empty body — fall through to a generic message.
+    }
+    const err = new Error(appError?.message ?? `Stream failed (${res.status})`) as Error & {
+      appError?: AppError;
+    };
+    err.appError = appError;
+    throw err;
   }
 
   const reader = res.body.getReader();

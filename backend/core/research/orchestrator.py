@@ -24,6 +24,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
 
+from core import errors
 from core.research import ammo as ammo_engine
 from core.research import fit as fit_engine
 from core.research import reconcile as reconcile_engine
@@ -101,7 +102,9 @@ async def stream_research(
         try:
             results[agent.name] = await agent.run(ctx, queue.put, queue.put_nowait)
         except Exception as exc:  # noqa: BLE001 — never let one agent sink the run
-            await queue.put({"type": "agent_error", "agent": agent.name, "error": str(exc), "reason": "error"})
+            await queue.put(
+                {"type": "agent_error", "agent": agent.name, "error": errors.error_dict(exc), "reason": "error"}
+            )
             results[agent.name] = AgentResult(agent.name, agent.section, None, [], ok=False, error=str(exc))
 
     async def runner() -> None:

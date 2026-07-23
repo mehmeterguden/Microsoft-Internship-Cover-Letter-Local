@@ -268,7 +268,7 @@ export function ProfileComplete() {
         } else if (e.type === "fatal") {
           setStreamDone(true);
           setPhase("review");
-          toast.warning("AI suggestions stopped early", e.error);
+          toast.warning("AI suggestions stopped early", e.error.message);
         }
       },
       ac.signal,
@@ -330,7 +330,7 @@ export function ProfileComplete() {
       toast.success("Profile updated", `${n} field${n === 1 ? "" : "s"} saved.`);
       navigate("/profile");
     } catch (err) {
-      toast.danger("Couldn't save", errorMessage(err));
+      toast.error(err, "Couldn't save");
     } finally {
       setSaving(false);
     }

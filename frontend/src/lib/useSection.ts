@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 export interface SectionApi<T> {
@@ -40,7 +39,7 @@ export function useSection<T extends { id?: number | null }>(
       setItems((prev) => [...prev, created]);
       return true;
     } catch (err) {
-      toast.danger(`Couldn't add ${label}`, errorMessage(err));
+      toast.error(err, `Couldn't add ${label}`);
       return false;
     } finally {
       setBusy(false);
@@ -54,7 +53,7 @@ export function useSection<T extends { id?: number | null }>(
       setItems((prev) => prev.map((x) => (x.id === id ? saved : x)));
       return true;
     } catch (err) {
-      toast.danger(`Couldn't update ${label}`, errorMessage(err));
+      toast.error(err, `Couldn't update ${label}`);
       return false;
     } finally {
       setBusy(false);
@@ -68,7 +67,7 @@ export function useSection<T extends { id?: number | null }>(
       await api.remove(id);
     } catch (err) {
       setItems(prev); // roll back
-      toast.danger(`Couldn't remove ${label}`, errorMessage(err));
+      toast.error(err, `Couldn't remove ${label}`);
     }
   }
 
@@ -81,7 +80,7 @@ export function useSection<T extends { id?: number | null }>(
       await api.update(item.id, next);
     } catch (err) {
       setItems((prev) => prev.map((x) => (x.id === item.id ? item : x)));
-      toast.danger(`Couldn't update ${label}`, errorMessage(err));
+      toast.error(err, `Couldn't update ${label}`);
     }
   }
 

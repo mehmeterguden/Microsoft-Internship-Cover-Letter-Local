@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
-import { AlertTriangle, ChevronDown, Home, RotateCw, SearchX } from "lucide-react";
+import { AlertTriangle, Home, RotateCw, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorDetails } from "@/components/common/ErrorDetails";
 import { cn } from "@/lib/utils";
 
 /** Turn any thrown value from the router into a readable title + message + stack. */
@@ -26,7 +26,6 @@ function describe(error: unknown): { notFound: boolean; title: string; message: 
 export function RouteError() {
   const error = useRouteError();
   const { notFound, title, message, stack } = describe(error);
-  const [showDetails, setShowDetails] = useState(false);
   const Icon = notFound ? SearchX : AlertTriangle;
 
   return (
@@ -56,23 +55,7 @@ export function RouteError() {
                 : "The app hit an unexpected error. Your data is safe and stays on your machine — try reloading, or head back home."}
             </p>
 
-            {!notFound && (
-              <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={() => setShowDetails((v) => !v)}
-                  className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-3 transition-colors hover:text-text-2"
-                >
-                  <ChevronDown size={14} className={cn("transition-transform", showDetails && "rotate-180")} />
-                  {showDetails ? "Hide" : "Show"} technical details
-                </button>
-                {showDetails && (
-                  <pre className="mt-2 max-h-56 overflow-auto rounded-[12px] border border-border bg-surface-2 p-3 text-[12px] leading-relaxed text-text-2">
-                    <code>{stack || message}</code>
-                  </pre>
-                )}
-              </div>
-            )}
+            {!notFound && <ErrorDetails detail={stack || message} className="mt-5" />}
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
               {!notFound && (

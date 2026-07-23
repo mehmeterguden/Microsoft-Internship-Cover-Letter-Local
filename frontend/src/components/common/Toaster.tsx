@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from "lucide-react";
-import { useToastStore, type ToastTone } from "@/store/toast";
+import { useToastStore, type Toast, type ToastTone } from "@/store/toast";
+import { ErrorDetails } from "@/components/common/ErrorDetails";
 import { cn } from "@/lib/utils";
 
 const TONE: Record<ToastTone, { icon: LucideIcon; color: string }> = {
@@ -11,19 +12,23 @@ const TONE: Record<ToastTone, { icon: LucideIcon; color: string }> = {
 };
 
 const AUTO_DISMISS_MS = 4500;
+const DANGER_DISMISS_MS = 9000; // errors linger longer so they can be read/expanded
 
-function ToastCard({ id, tone, title, description }: { id: number; tone: ToastTone; title: string; description?: string }) {
+function ToastCard({ id, tone, title, description, detail, code, action, sticky }: Toast) {
   const dismiss = useToastStore((s) => s.dismiss);
   const { icon: Icon, color } = TONE[tone];
 
+  // Errors (and anything explicitly sticky) stay until dismissed; others auto-close.
   useEffect(() => {
-    const timer = window.setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+    if (sticky) return;
+    const ms = tone === "danger" ? DANGER_DISMISS_MS : AUTO_DISMISS_MS;
+    const timer = window.setTimeout(() => dismiss(id), ms);
     return () => window.clearTimeout(timer);
-  }, [id, dismiss]);
+  }, [id, dismiss, tone, sticky]);
 
   return (
     <div
-      role="status"
+      role={tone === "danger" || tone === "warning" ? "alert" : "status"}
       className="flex w-80 items-start gap-3 rounded-[12px] border border-border bg-surface p-3.5 shadow-elevated"
       style={{ animation: "cll-rise 0.28s both" }}
     >
@@ -31,6 +36,19 @@ function ToastCard({ id, tone, title, description }: { id: number; tone: ToastTo
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-semibold text-text">{title}</p>
         {description && <p className="mt-0.5 text-[12.5px] text-text-2">{description}</p>}
+        {(detail || code) && <ErrorDetails detail={detail} code={code} className="mt-2" />}
+        {action && (
+          <button
+            type="button"
+            onClick={() => {
+              action.onClick();
+              dismiss(id);
+            }}
+            className="mt-2 text-[12.5px] font-semibold text-accent-ink transition-colors hover:text-accent"
+          >
+            {action.label}
+          </button>
+        )}
       </div>
       <button
         type="button"

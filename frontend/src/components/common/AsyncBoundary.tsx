@@ -1,6 +1,8 @@
 import { AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { ErrorDetails } from "@/components/common/ErrorDetails";
+import { parseError, type AppError } from "@/api/errors";
 
 /** Shows a spinner while loading, an error card with retry on failure, else children. */
 export function AsyncBoundary({
@@ -10,7 +12,7 @@ export function AsyncBoundary({
   children,
 }: {
   loading: boolean;
-  error: string | null;
+  error: AppError | string | null;
   onRetry?: () => void;
   children: React.ReactNode;
 }) {
@@ -23,13 +25,14 @@ export function AsyncBoundary({
     );
   }
   if (error) {
+    const e: AppError = typeof error === "string" ? parseError(error) : error;
     return (
       <div className="flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-danger/25 bg-danger-soft px-6 py-12 text-center">
         <AlertTriangle size={24} className="text-danger" />
-        <div>
-          <p className="text-[15px] font-semibold text-text">Couldn't load this</p>
-          <p className="mt-1 text-[13.5px] text-text-2">{error}</p>
-          <p className="mt-1 font-mono text-[11px] text-text-3">Is the backend running on :8000?</p>
+        <div className="max-w-md">
+          <p className="text-[15px] font-semibold text-text">{e.title}</p>
+          <p className="mt-1 text-[13.5px] text-text-2">{e.message}</p>
+          <ErrorDetails detail={e.detail} code={e.code} className="mt-3 flex flex-col items-center" />
         </div>
         {onRetry && (
           <Button variant="secondary" size="sm" onClick={onRetry}>

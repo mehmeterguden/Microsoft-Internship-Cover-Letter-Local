@@ -1,4 +1,5 @@
-import axios, { AxiosError } from "axios";
+import axios from "axios";
+import { parseError } from "./errors";
 
 /** Base URL of the FastAPI backend (all routes are under /api). */
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
@@ -8,14 +9,11 @@ export const client = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-/** Turn any thrown value into a human-readable message (FastAPI `detail` aware). */
+/**
+ * Turn any thrown value into a human-readable message. Thin wrapper over
+ * `parseError` so existing call sites keep working; prefer `parseError`/
+ * `toast.error` where you also want the title, details, and retry affordance.
+ */
 export function errorMessage(err: unknown): string {
-  if (err instanceof AxiosError) {
-    const detail = err.response?.data?.detail;
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg);
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Something went wrong";
+  return parseError(err).message;
 }

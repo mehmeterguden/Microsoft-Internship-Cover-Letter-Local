@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from core import job_posting
+from core import errors, job_posting
 from core.research.orchestrator import _cache_key, stream_research
 from core.research.schema import ResearchInput
 from core.research.tools import registry
@@ -55,14 +55,9 @@ def autofill_from_job_url(req: JobUrlRequest) -> JobUrlResponse:
     url = req.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Enter a full URL starting with http:// or https://")
-    try:
-        data = job_posting.extract_from_url(url)
-    except job_posting.JobPostingError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001 — LLM/provider failure → surface to the UI
-        raise HTTPException(
-            status_code=503, detail=f"AI request failed ({type(exc).__name__}): {exc}"
-        ) from exc
+    # A JobPostingError or provider failure propagates to the global handler, which
+    # classifies it (→ "Couldn't read that job posting" / a provider-aware message).
+    data = job_posting.extract_from_url(url)
     return JobUrlResponse(**data)
 
 
@@ -88,8 +83,8 @@ async def research_company(payload: ResearchInput) -> StreamingResponse:
                 refresh=payload.refresh,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
-        except Exception as exc:  # noqa: BLE001 — surface a fatal error to the client, then end
-            yield f"data: {json.dumps({'type': 'fatal', 'error': str(exc)})}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a classified fatal error, then end
+            yield f"data: {json.dumps({'type': 'fatal', 'error': errors.error_dict(exc)})}\n\n"
 
     return StreamingResponse(
         event_stream(),

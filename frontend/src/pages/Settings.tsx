@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, Save, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react";
+import {
+  CheckCircle2, Cpu, Eye, Globe2, HardDrive, Loader2, RefreshCw, Save, ShieldCheck,
+  SlidersHorizontal, Trash2, TriangleAlert,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ResetDataDialog } from "@/components/common/ResetDataDialog";
@@ -10,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { GeminiKeys } from "@/components/settings/GeminiKeys";
+import { FoundryModels } from "@/components/settings/FoundryModels";
 import type { GeminiKeyConfig, LLMProviderId, Settings as SettingsType } from "@/api/types";
 import { getSettings, saveSettings } from "@/api/settings";
 import { listModels } from "@/api/llm";
@@ -83,6 +87,7 @@ export function Settings() {
 
   const provider = settings ? PROVIDERS.find((p) => p.id === settings.llm_provider) : undefined;
   const isCloud = provider ? !provider.local : false;
+  const isFoundry = settings?.llm_provider === "foundry_local";
 
   function set<K extends keyof SettingsType>(key: K, value: SettingsType[K]) {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -133,7 +138,7 @@ export function Settings() {
       await saveSettings(settings);
       toast.success("Settings saved", "Stored locally in your database.");
     } catch (err) {
-      toast.danger("Save failed", errorMessage(err));
+      toast.error(err, "Save failed");
     } finally {
       setSaving(false);
     }
@@ -182,50 +187,76 @@ export function Settings() {
               </Alert>
             )}
 
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-semibold text-text">Model</span>
-                <button
-                  type="button"
-                  onClick={() => setRefreshNonce((n) => n + 1)}
-                  className="inline-flex items-center gap-1 text-[12px] font-semibold text-text-2 transition-colors hover:text-accent-ink"
-                >
-                  <RefreshCw size={12} className={discovered.loading ? "animate-spin" : undefined} /> Refresh
-                </button>
-              </div>
-              <Select
-                id="model"
-                value={isCustomModel ? CUSTOM : settings.llm_model}
-                onChange={(e) => set("llm_model", e.target.value === CUSTOM ? "" : e.target.value)}
-              >
-                {modelOptions.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-                <option value={CUSTOM}>Custom…</option>
-              </Select>
-              <p className="flex items-center gap-1.5 text-[12px] text-text-3">
-                {discovered.loading ? (
-                  <><Loader2 size={12} className="animate-spin" /> Detecting available models…</>
-                ) : discovered.error ? (
-                  <span className="flex items-center gap-1.5 text-gold"><TriangleAlert size={12} /> {discovered.error} Showing common models.</span>
-                ) : discovered.models.length ? (
-                  <span className="flex items-center gap-1.5 text-good"><CheckCircle2 size={12} /> {discovered.models.length} model{discovered.models.length > 1 ? "s" : ""} detected {provider?.local ? "on this machine" : "for your account"}.</span>
-                ) : (
-                  <>Pick a model, or choose Custom to enter one.</>
-                )}
-              </p>
-            </div>
+            {isFoundry ? (
+              <>
+                {/* Foundry Local is the private default — lead with the on-device story */}
+                <div className="flex items-start gap-3 rounded-[12px] border border-accent/30 bg-accent-soft/50 px-4 py-3.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-ink">
+                    <Cpu size={18} />
+                  </span>
+                  <div className="min-w-0 text-[13px] leading-snug text-text-2">
+                    <p className="text-[13.5px] font-semibold text-text">Runs on your device</p>
+                    <p className="mt-0.5">
+                      Powered by Microsoft Foundry Local on ONNX Runtime — no API key, no cloud. Your CV,
+                      profile, and letters never leave this machine.
+                    </p>
+                  </div>
+                </div>
 
-            {isCustomModel && (
-              <Field label="Custom model id" htmlFor="model-custom">
-                <Input
-                  id="model-custom"
-                  autoFocus
-                  value={settings.llm_model}
-                  onChange={(e) => set("llm_model", e.target.value)}
-                  placeholder={provider?.models[0] ?? "model-name"}
+                <FoundryModels
+                  baseUrl={settings.llm_base_url}
+                  selected={settings.llm_model}
+                  onSelect={(m) => set("llm_model", m)}
                 />
-              </Field>
+              </>
+            ) : (
+              <>
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-semibold text-text">Model</span>
+                    <button
+                      type="button"
+                      onClick={() => setRefreshNonce((n) => n + 1)}
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-text-2 transition-colors hover:text-accent-ink"
+                    >
+                      <RefreshCw size={12} className={discovered.loading ? "animate-spin" : undefined} /> Refresh
+                    </button>
+                  </div>
+                  <Select
+                    id="model"
+                    value={isCustomModel ? CUSTOM : settings.llm_model}
+                    onChange={(e) => set("llm_model", e.target.value === CUSTOM ? "" : e.target.value)}
+                  >
+                    {modelOptions.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                    <option value={CUSTOM}>Custom…</option>
+                  </Select>
+                  <p className="flex items-center gap-1.5 text-[12px] text-text-3">
+                    {discovered.loading ? (
+                      <><Loader2 size={12} className="animate-spin" /> Detecting available models…</>
+                    ) : discovered.error ? (
+                      <span className="flex items-center gap-1.5 text-gold"><TriangleAlert size={12} /> {discovered.error} Showing common models.</span>
+                    ) : discovered.models.length ? (
+                      <span className="flex items-center gap-1.5 text-good"><CheckCircle2 size={12} /> {discovered.models.length} model{discovered.models.length > 1 ? "s" : ""} detected {provider?.local ? "on this machine" : "for your account"}.</span>
+                    ) : (
+                      <>Pick a model, or choose Custom to enter one.</>
+                    )}
+                  </p>
+                </div>
+
+                {isCustomModel && (
+                  <Field label="Custom model id" htmlFor="model-custom">
+                    <Input
+                      id="model-custom"
+                      autoFocus
+                      value={settings.llm_model}
+                      onChange={(e) => set("llm_model", e.target.value)}
+                      placeholder={provider?.models[0] ?? "model-name"}
+                    />
+                  </Field>
+                )}
+              </>
             )}
 
             {provider?.local && (
@@ -321,6 +352,57 @@ export function Settings() {
                 </Alert>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Privacy & transparency — Responsible AI, in plain language */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <span className="flex items-center gap-2">
+                <ShieldCheck size={17} className="text-accent-ink" /> Privacy &amp; transparency
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4 text-[13px] leading-relaxed text-text-2">
+              Cover Letter Local follows Microsoft's Responsible AI principles: private by default,
+              transparent about the one thing that leaves your machine, and always under your review.
+            </p>
+            <ul className="grid gap-3.5">
+              {[
+                {
+                  icon: HardDrive,
+                  title: "On your device by default",
+                  body: "Your CV, profile, letters, embeddings, and database live only on this machine (local SQLite + vectors). Nothing is uploaded.",
+                },
+                {
+                  icon: Globe2,
+                  title: "One external call",
+                  body: "Company research sends only the company name to your search provider — never your CV, profile, or letters.",
+                },
+                {
+                  icon: Cpu,
+                  title: "Cloud models are opt-in",
+                  body: "Foundry Local and Ollama keep everything on-device. Choosing OpenAI, Claude, or Gemini sends prompts to that provider — your explicit choice, shown above.",
+                },
+                {
+                  icon: Eye,
+                  title: "You stay in control",
+                  body: "AI output is a draft, not a decision. Every letter is yours to read, edit, and approve before you use it.",
+                },
+              ].map(({ icon: Icon, title, body }) => (
+                <li key={title} className="flex gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-surface-2 text-accent-ink">
+                    <Icon size={15} />
+                  </span>
+                  <div className="min-w-0 text-[13px] leading-snug text-text-2">
+                    <p className="font-semibold text-text">{title}</p>
+                    <p className="mt-0.5">{body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
 

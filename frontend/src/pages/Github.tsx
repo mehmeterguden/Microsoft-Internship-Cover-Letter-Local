@@ -17,7 +17,6 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import type { GithubRepo, ScoredSkill } from "@/api/types";
 import { analyzeRepos, fetchRepos as apiFetchRepos, saveRepos, type AnalyzeResult, type GithubProfile } from "@/api/github";
 import { deleteSavedRepo, listSavedRepos } from "@/api/githubRepos";
-import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { langColor } from "@/lib/langColors";
 import { cn } from "@/lib/utils";
@@ -157,7 +156,7 @@ export function Github() {
       setLogin(result.profile.login ?? username);
       setPhase("loaded");
     } catch (err) {
-      toast.danger("Couldn't fetch repos", errorMessage(err));
+      toast.error(err, "Couldn't fetch repos");
       setPhase("idle");
     }
   }
@@ -208,7 +207,7 @@ export function Github() {
         detail || undefined,
       );
     } catch (err) {
-      toast.danger("Analysis failed", errorMessage(err));
+      toast.error(err, "Analysis failed");
     } finally {
       setAnalyzingSet((prev) => {
         const next = new Set(prev);
@@ -235,7 +234,7 @@ export function Github() {
       setPendingDelete(null);
       saved.reload();
     } catch (err) {
-      toast.danger("Couldn't remove", errorMessage(err));
+      toast.error(err, "Couldn't remove");
     }
   }
 

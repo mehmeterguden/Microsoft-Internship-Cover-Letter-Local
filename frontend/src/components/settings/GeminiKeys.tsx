@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Check, Eye, EyeOff, KeyRound, Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { errorMessage } from "@/api/client";
 import {
   addGeminiKey,
   removeGeminiKey,
@@ -56,7 +55,7 @@ export function GeminiKeys({
       onChange(await fn());
       if (ok) toast.success(ok[0], ok[1]);
     } catch (err) {
-      toast.danger("Something went wrong", errorMessage(err));
+      toast.error(err, "Something went wrong");
     } finally {
       setBusy(null);
     }

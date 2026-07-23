@@ -1,4 +1,5 @@
 import { client } from "./client";
+import type { AppError } from "./errors";
 import { streamSSE } from "./sse";
 import type { CompanyIntelReport } from "./types";
 
@@ -16,10 +17,10 @@ export type ResearchEvent =
   | { type: "source"; agent: string; source: string; ok: boolean }
   | { type: "agent_progress"; agent: string; text: string }
   | { type: "agent_done"; agent: string; section: string; data: unknown; sources: { label?: string; source?: string; url?: string; ok: boolean }[] }
-  | { type: "agent_error"; agent: string; error: string }
+  | { type: "agent_error"; agent: string; error: AppError; reason?: string }
   | { type: "cached"; cached_at: string }
   | { type: "done"; report: CompanyIntelReport; duration_s: number }
-  | { type: "fatal"; error: string };
+  | { type: "fatal"; error: AppError };
 
 export function streamResearch(
   input: ResearchInput,

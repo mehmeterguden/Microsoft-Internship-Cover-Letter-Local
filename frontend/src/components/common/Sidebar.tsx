@@ -16,6 +16,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   gemini: "Gemini",
 };
 const LOCAL = new Set(["foundry_local", "ollama"]);
+const MICROSOFT = new Set(["foundry_local", "azure_openai"]);
 
 function NavRow({ item }: { item: NavItem }) {
   const { to, label, hint, icon: Icon } = item;
@@ -116,13 +117,20 @@ export function Sidebar() {
             <Cpu size={17} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-text-3">Current model</span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-text-3">Current model</span>
+              {MICROSOFT.has(provider) && (
+                <span className="rounded-full bg-accent-soft px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-accent-ink">
+                  Microsoft
+                </span>
+              )}
+            </span>
             <span className="block truncate text-[13px] font-semibold text-text">
               {model || (settings.loading ? "…" : "Not set")}
             </span>
             {provider && (
               <span className="block text-[11px] text-text-3">
-                {providerLabel} · {LOCAL.has(provider) ? "local" : "cloud"}
+                {providerLabel} · {LOCAL.has(provider) ? "on-device" : "cloud"}
               </span>
             )}
           </span>

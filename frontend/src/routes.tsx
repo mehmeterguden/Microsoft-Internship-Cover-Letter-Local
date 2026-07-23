@@ -6,10 +6,12 @@ import { Onboarding } from "@/pages/Onboarding";
 import { Profile } from "@/pages/Profile";
 import { ProfileComplete } from "@/pages/ProfileComplete";
 import { Github } from "@/pages/Github";
+import { LinkedIn } from "@/pages/LinkedIn";
 import { Voice } from "@/pages/Voice";
 import { Research } from "@/pages/Research";
 import { Write } from "@/pages/Write";
 import { CoverLetters } from "@/pages/CoverLetters";
+import { ResponsibleAI } from "@/pages/ResponsibleAI";
 import { Settings } from "@/pages/Settings";
 import { ComponentsShowcase } from "@/pages/ComponentsShowcase";
 import { NotFound } from "@/pages/NotFound";
@@ -25,10 +27,12 @@ export const router = createBrowserRouter([
       { path: "profile", element: <Profile /> },
       { path: "profile/complete", element: <ProfileComplete /> },
       { path: "github", element: <Github /> },
+      { path: "linkedin", element: <LinkedIn /> },
       { path: "voice", element: <Voice /> },
       { path: "research", element: <Research /> },
       { path: "write", element: <Write /> },
       { path: "cover-letters", element: <CoverLetters /> },
+      { path: "responsible-ai", element: <ResponsibleAI /> },
       { path: "settings", element: <Settings /> },
       { path: "dev/components", element: <ComponentsShowcase /> },
       { path: "*", element: <NotFound /> },

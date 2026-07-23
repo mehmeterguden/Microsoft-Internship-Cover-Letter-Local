@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { errorMessage } from "@/api/client";
+import { parseError, type AppError } from "@/api/errors";
 
 type AsyncState<T> = {
   data: T | null;
   loading: boolean;
-  error: string | null;
+  error: AppError | null;
   reload: () => void;
 };
 
@@ -12,7 +12,7 @@ type AsyncState<T> = {
 export function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
   const [nonce, setNonce] = useState(0);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -24,7 +24,7 @@ export function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []): Asy
     setError(null);
     run()
       .then((result) => alive && setData(result))
-      .catch((err) => alive && setError(errorMessage(err)))
+      .catch((err) => alive && setError(parseError(err)))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;

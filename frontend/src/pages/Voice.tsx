@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioLines, Ban, Database, Expand, FileText, Plus, Quote, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { AlignLeft, Ban, BookOpen, Database, Expand, FileText, Fingerprint, Plus, Quote, Sparkles, Target, Trash2, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState } from "@/components/common/EmptyState";
 import { ModelUnavailableDialog } from "@/components/settings/ModelUnavailableDialog";
 import { FileDropzone } from "@/components/common/FileDropzone";
 import { DevInspector } from "@/components/common/DevInspector";
@@ -25,7 +24,6 @@ import {
   updatePastLetter,
 } from "@/api/style";
 import { parseDocument } from "@/api/cv";
-import { errorMessage } from "@/api/client";
 import { useAsync } from "@/lib/useAsync";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
@@ -209,6 +207,36 @@ function PastLetterCard({
   );
 }
 
+// The traits we distil from the letters — shown as a preview before anything is
+// learned, so the page tells its own story even when empty.
+const LEARN_DIMENSIONS: { icon: typeof Quote; label: string; desc: string }[] = [
+  { icon: Quote, label: "Tone & formality", desc: "Warm, confident, or formal — how you come across" },
+  { icon: Sparkles, label: "Signature phrases", desc: "The exact lines you reach for again and again" },
+  { icon: Target, label: "Themes & strengths", desc: "What you keep returning to and foreground" },
+  { icon: BookOpen, label: "Vocabulary", desc: "The words and turns of phrase you favor" },
+  { icon: AlignLeft, label: "Structure", desc: "How you open, build the case, and close" },
+  { icon: Ban, label: "What you avoid", desc: "Clichés and words you never use" },
+];
+
+/** A calm grid of the traits we'll learn — `dim` for the not-yet-learned teaser. */
+function LearnPreview({ dim = false }: { dim?: boolean }) {
+  return (
+    <div className={cn("grid gap-3 sm:grid-cols-2", dim && "opacity-80")}>
+      {LEARN_DIMENSIONS.map(({ icon: Icon, label, desc }) => (
+        <div key={label} className="flex items-start gap-3 rounded-[13px] border border-border bg-surface p-3.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-ink">
+            <Icon size={17} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-semibold text-text">{label}</p>
+            <p className="mt-0.5 text-[12px] leading-snug text-text-3">{desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Voice() {
   const loaded = useAsync(
     async () => {
@@ -248,7 +276,7 @@ export function Voice() {
       setDraft("");
       toast.success("Letter added");
     } catch (err) {
-      toast.danger("Couldn't add letter", errorMessage(err));
+      toast.error(err, "Couldn't add letter");
     } finally {
       setAdding(false);
     }
@@ -267,7 +295,7 @@ export function Voice() {
         toast.success("Text extracted", "Review it below, then add.");
       }
     } catch (err) {
-      toast.danger("Couldn't read file", errorMessage(err));
+      toast.error(err, "Couldn't read file");
     } finally {
       setParsing(false);
     }
@@ -279,7 +307,7 @@ export function Voice() {
     try {
       await updatePastLetter(letter.id, { ...letter, user_rating: value });
     } catch (err) {
-      toast.danger("Couldn't save rating", errorMessage(err));
+      toast.error(err, "Couldn't save rating");
     }
   }
 
@@ -288,7 +316,7 @@ export function Voice() {
       await deletePastLetter(id);
       setLetters((prev) => prev.filter((x) => x.id !== id));
     } catch (err) {
-      toast.danger("Couldn't delete", errorMessage(err));
+      toast.error(err, "Couldn't delete");
     }
   }
 
@@ -303,136 +331,181 @@ export function Voice() {
           setModelDialog({ open: true, model: result.model ?? "" });
         } else {
           toast.warning(
-            "Couldn't analyze your voice",
+            "Couldn't analyze your style",
             result.llm_analyzed
               ? "The model didn't respond, so we kept your previous profile. Please try again."
               : "The model didn't respond fully — only basic metrics were saved. Please try again.",
           );
         }
       } else {
-        toast.success("Voice learned", `Analyzed ${result.samples} letters.`);
+        toast.success("Style learned", `Analyzed ${result.samples} letters.`);
       }
     } catch (err) {
-      toast.danger("Learning failed", errorMessage(err));
+      toast.error(err, "Learning failed");
     } finally {
       setLearning(false);
     }
   }
 
+  const addPanel = (
+    <Tabs value={tab} onValueChange={setTab}>
+      <TabsList className="w-full">
+        <TabsTrigger value="upload" className="flex-1"><FileText size={14} /> Upload PDF</TabsTrigger>
+        <TabsTrigger value="paste" className="flex-1"><Quote size={14} /> Paste text</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="paste" className="grid gap-3">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Paste a cover letter you're proud of…"
+          className="min-h-40"
+        />
+        <Button onClick={addLetter} loading={adding} disabled={draft.trim().length < 40} className="justify-center">
+          <Plus size={15} /> Add letter
+        </Button>
+      </TabsContent>
+
+      <TabsContent value="upload">
+        {parsing ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <Spinner size={30} />
+            <p className="text-[13.5px] text-text-2">Reading your file…</p>
+          </div>
+        ) : (
+          <FileDropzone
+            accept=".pdf,.docx,.png,.jpg,.jpeg"
+            hint="PDF, DOCX or image · we extract the text locally"
+            onFile={handleFile}
+          />
+        )}
+      </TabsContent>
+    </Tabs>
+  );
+
   return (
     <>
       <PageHeader
         eyebrow="Build your profile"
-        title="Writing voice"
-        icon={AudioLines}
-        description="Add letters you've written. We reverse-engineer how you write and think, so new letters read as if you wrote them."
+        title="Writing style"
+        icon={Fingerprint}
+        description="Add a few cover letters you've written. We learn how you write — your tone, phrasing, and structure — so new letters sound like you."
         actions={
           <Button onClick={learn} loading={learning} disabled={letters.length === 0}>
-            <Sparkles size={16} /> Learn my voice
+            <Sparkles size={16} /> Learn my style
           </Button>
         }
       />
 
       <AsyncBoundary loading={loaded.loading} error={loaded.error} onRetry={loaded.reload}>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add a past cover letter</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="upload" className="flex-1"><FileText size={14} /> Upload PDF</TabsTrigger>
-                  <TabsTrigger value="paste" className="flex-1"><Quote size={14} /> Paste text</TabsTrigger>
-                </TabsList>
+        {letters.length === 0 ? (
+          // ── First run: an inviting onboarding, not two empty boxes ──
+          <div className="mx-auto grid max-w-3xl gap-6">
+            <Card>
+              <CardContent className="grid gap-6 pt-6">
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <span className="grid h-14 w-14 place-items-center rounded-[16px] bg-accent-soft text-accent-ink">
+                    <Fingerprint size={26} />
+                  </span>
+                  <h2 className="text-[20px] font-bold text-text">Teach the AI how you write</h2>
+                  <p className="max-w-md text-[13.5px] leading-relaxed text-text-2">
+                    Paste or upload one or two cover letters you're proud of. We study your style and reuse
+                    it — everything stays on your device.
+                  </p>
+                </div>
+                {addPanel}
+              </CardContent>
+            </Card>
+            <div>
+              <p className="mb-3 flex items-center gap-1.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-text-3">
+                <Sparkles size={12} /> What we'll learn from them
+              </p>
+              <LearnPreview dim />
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left: add + manage the letters we learn from */}
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add a cover letter</CardTitle>
+                </CardHeader>
+                <CardContent>{addPanel}</CardContent>
+              </Card>
 
-                <TabsContent value="paste" className="grid gap-3">
-                  <Textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Paste a cover letter you're proud of…"
-                    className="min-h-40"
-                  />
-                  <Button onClick={addLetter} loading={adding} disabled={draft.trim().length < 40} className="justify-center">
-                    <Plus size={15} /> Add letter
-                  </Button>
-                </TabsContent>
+              <p className="px-1 text-[12px] font-semibold uppercase tracking-wide text-text-3">
+                {letters.length} letter{letters.length > 1 ? "s" : ""}
+              </p>
+              {letters.map((l, i) => (
+                <PastLetterCard
+                  key={l.id}
+                  index={i + 1}
+                  letter={l}
+                  onRate={(v) => rate(l, v)}
+                  onRemove={() => l.id != null && remove(l.id)}
+                />
+              ))}
+            </div>
 
-                <TabsContent value="upload">
-                  {parsing ? (
-                    <div className="flex flex-col items-center gap-3 py-10 text-center">
-                      <Spinner size={30} />
-                      <p className="text-[13.5px] text-text-2">Reading your file…</p>
+            {/* Right: the fingerprint — or the state on the way to it */}
+            <div className="grid gap-4">
+              {learning ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                    <Spinner size={34} />
+                    <p className="text-[14px] text-text-2">Studying your letters…</p>
+                    <p className="text-[12.5px] text-text-3">Distilling tone, phrasing, and structure.</p>
+                  </CardContent>
+                </Card>
+              ) : voice && voice.enough_signal === false ? (
+                <Card>
+                  <CardContent className="pt-5">
+                    <Alert tone="warning" title="Not enough to learn a style">
+                      {voice.summary || "This text doesn't look like real cover letters."} Add a couple of
+                      genuine letters (paste or upload a PDF), then press “Learn my style” again.
+                    </Alert>
+                  </CardContent>
+                </Card>
+              ) : voice ? (
+                <>
+                  <VoiceFingerprint v={voice} letters={letters.length} embeddings={embeddingsOn} />
+                  <Alert tone="info" title="How this is used">
+                    Every letter you generate is guided by this fingerprint, and — with RAG — your most
+                    relevant past passages are retrieved from a local vector store and woven in, so new
+                    letters read like you. All on your device.
+                  </Alert>
+                  <DevInspector json={voice} title="Developer · view style profile (JSON)" />
+                </>
+              ) : (
+                // Has letters, nothing learned yet — a real CTA, not an empty box.
+                <Card>
+                  <CardContent className="grid gap-5 pt-6">
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <span className="grid h-12 w-12 place-items-center rounded-[14px] bg-accent-soft text-accent-ink">
+                        <Wand2 size={22} />
+                      </span>
+                      <h3 className="text-[17px] font-bold text-text">Ready to learn your style</h3>
+                      <p className="max-w-sm text-[13px] leading-relaxed text-text-2">
+                        You've added {letters.length} letter{letters.length > 1 ? "s" : ""}. Analyze{" "}
+                        {letters.length > 1 ? "them" : "it"} to build your writing fingerprint.
+                      </p>
                     </div>
-                  ) : (
-                    <FileDropzone
-                      accept=".pdf,.docx,.png,.jpg,.jpeg"
-                      hint="PDF, DOCX or image · we extract the text locally"
-                      onFile={handleFile}
-                    />
-                  )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          {letters.length > 0 && (
-            <p className="px-1 text-[12px] font-semibold uppercase tracking-wide text-text-3">
-              {letters.length} letter{letters.length > 1 ? "s" : ""}
-            </p>
-          )}
-
-          {letters.length === 0 ? (
-            <EmptyState icon={Quote} title="No letters yet" description="Paste or upload at least one to learn your voice." />
-          ) : (
-            letters.map((l, i) => (
-              <PastLetterCard
-                key={l.id}
-                index={i + 1}
-                letter={l}
-                onRate={(v) => rate(l, v)}
-                onRemove={() => l.id != null && remove(l.id)}
-              />
-            ))
-          )}
-        </div>
-
-        <div>
-          {learning ? (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-                <Spinner size={34} />
-                <p className="text-[14px] text-text-2">Studying your letters…</p>
-              </CardContent>
-            </Card>
-          ) : voice && voice.enough_signal === false ? (
-            <Card>
-              <CardContent className="pt-5">
-                <Alert tone="warning" title="Not enough to learn a voice">
-                  {voice.summary || "This text doesn't look like real cover letters."} Add a couple of genuine letters (paste or upload a PDF), then press “Learn my voice” again.
-                </Alert>
-              </CardContent>
-            </Card>
-          ) : voice ? (
-            <VoiceFingerprint v={voice} letters={letters.length} embeddings={embeddingsOn} />
-          ) : (
-            <EmptyState
-              icon={Wand2}
-              title="No voice learned yet"
-              description="Add letters and press “Learn my voice” to see your fingerprint."
-            />
-          )}
-          {voice && (
-            <Alert tone="info" title="How this is used" className="mt-4">
-              Every letter you generate is guided by this fingerprint, and — with RAG —
-              your most relevant past passages are retrieved from a local vector store and
-              woven in, so new letters read like you. All on your device.
-            </Alert>
-          )}
-          {voice && <DevInspector json={voice} title="Developer · view voice profile (JSON)" />}
-        </div>
-      </div>
+                    <Button onClick={learn} loading={learning} className="justify-center">
+                      <Sparkles size={16} /> Learn my style
+                    </Button>
+                    <div className="border-t border-line pt-4">
+                      <p className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-text-3">
+                        What you'll get
+                      </p>
+                      <LearnPreview dim />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
       </AsyncBoundary>
 
       <ModelUnavailableDialog

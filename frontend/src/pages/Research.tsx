@@ -20,7 +20,6 @@ import { DevInspector } from "@/components/common/DevInspector";
 import { Reveal, Stagger } from "@/lib/motion";
 import type { CompanyIntelReport } from "@/api/types";
 import { autofillFromJobUrl, streamResearch } from "@/api/research";
-import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 
 type AgentState = "pending" | "running" | "done" | "error";
@@ -104,7 +103,7 @@ export function Research() {
       const filled = [res.company && "company", res.role && "role", res.job_description && "description"].filter(Boolean);
       toast.success("Filled from the posting", filled.length ? `Got the ${filled.join(", ")}. Review, then research.` : "Review the fields, then research.");
     } catch (err) {
-      toast.danger("Couldn't read that link", errorMessage(err));
+      toast.error(err, "Couldn't read that link");
     } finally {
       setImporting(false);
     }
@@ -163,7 +162,12 @@ export function Research() {
               break;
             case "agent_error":
               setStates((s) => ({ ...s, [event.agent]: "error" }));
-              setOutputs((o) => ({ ...o, [event.agent]: `// Error\n${event.error}` }));
+              setOutputs((o) => ({
+                ...o,
+                [event.agent]: `// ${event.error.title}\n${event.error.message}${
+                  event.error.detail ? `\n\n${event.error.detail}` : ""
+                }`,
+              }));
               break;
             case "cached":
               toast.info("Loaded from cache", "This company was researched recently.");
@@ -175,7 +179,7 @@ export function Research() {
               break;
             case "fatal":
               stopTimer();
-              toast.danger("Research failed", event.error);
+              toast.error(event.error, "Research failed");
               setRunning(false);
               break;
           }
@@ -184,9 +188,7 @@ export function Research() {
       );
     } catch (err) {
       stopTimer();
-      if (!controller.signal.aborted) {
-        toast.danger("Research failed", err instanceof Error ? err.message : "Stream error");
-      }
+      if (!controller.signal.aborted) toast.error(err, "Research failed");
       setRunning(false);
     }
   }

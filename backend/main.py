@@ -13,12 +13,15 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import config
 from api import api_router
+from core import errors
 from core.vector_store import init_collections
 from db.schema import init_db
 
@@ -47,6 +50,46 @@ def _load_mcp_tools() -> None:
 
 app = FastAPI(title="Cover Letter Local", version="0.1.0", lifespan=lifespan)
 
+
+class ClassifyErrorsMiddleware:
+    """Catch any exception that escapes a route and return the unified error envelope.
+
+    A pure-ASGI middleware (not `BaseHTTPMiddleware`, which buffers and would break
+    our SSE streams). It sits *inside* CORS so even a truly-unexpected 500 comes back
+    with the right CORS headers — otherwise the browser blocks the body cross-origin
+    and the user sees nothing useful. If the response has already started (e.g. a
+    failure mid-stream) it can't be replaced, so we let it propagate.
+    """
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def send_wrapper(message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        except Exception as exc:  # noqa: BLE001 — last resort: classify, never leak a raw 500
+            if started:
+                raise
+            err = errors.classify(exc)
+            await JSONResponse(status_code=err.status, content=errors.to_payload(err))(scope, receive, send)
+
+
+# Order matters: add the classifier FIRST so CORS is added LAST and ends up the
+# OUTERMOST layer — the classifier's error responses then flow out through CORS
+# and pick up the required headers.
+app.add_middleware(ClassifyErrorsMiddleware)
+
 # Frontend runs on a different port — CORS is mandatory.
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +98,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Unified error handling ────────────────────────────────────────────
+# Every failure leaves the API as one shape: {"detail": <friendly>, "error": {...}}.
+# The friendly message is safe to show as-is; the raw technical string only ever
+# lives in `error.detail`, behind the frontend's "Show details" toggle.
+@app.exception_handler(errors.AppError)
+async def _handle_app_error(request: Request, exc: errors.AppError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status, content=errors.to_payload(exc))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _handle_http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    err = errors.http_error(exc.status_code, exc.detail)
+    return JSONResponse(status_code=err.status, content=errors.to_payload(err), headers=exc.headers)
+
+
+@app.exception_handler(RequestValidationError)
+async def _handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    err = errors.from_validation_errors(exc.errors())
+    return JSONResponse(status_code=err.status, content=errors.to_payload(err))
+
+
+@app.exception_handler(Exception)
+async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
+    # Last line of defense: classify anything that escaped a router so no raw
+    # traceback or SDK string ever reaches the client as a bare 500.
+    err = errors.classify(exc)
+    return JSONResponse(status_code=err.status, content=errors.to_payload(err))
 
 
 @app.get("/", include_in_schema=False)

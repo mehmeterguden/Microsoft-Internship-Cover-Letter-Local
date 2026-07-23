@@ -35,10 +35,17 @@ class LLMProvider(ABC):
         """Yield the reply token by token as the model generates it."""
 
     def health(self) -> dict[str, object]:
-        """Ping the model with a tiny prompt. Reports status; never raises."""
+        """Ping the model with a tiny prompt. Reports status; never raises.
+
+        On failure the `detail` is a friendly, classified message (safe to show as-is)
+        and `error` carries the full structured error (with the raw string tucked in
+        `error.detail`) so the UI can offer a "Show details" toggle."""
         info: dict[str, object] = {"provider": self.provider_id, "model": self.model}
         try:
             reply = self.complete([{"role": "user", "content": "ping"}], max_tokens=5)
             return {**info, "ok": True, "detail": reply.strip()[:60] or "ok"}
-        except Exception as exc:  # noqa: BLE001 — surface any connection/auth/model error to the UI
-            return {**info, "ok": False, "detail": f"{type(exc).__name__}: {exc}"}
+        except Exception as exc:  # noqa: BLE001 — classify any connection/auth/model error for the UI
+            from core import errors  # local import avoids an import cycle at module load
+
+            app_error = errors.classify(exc, provider=self.provider_id, model=self.model)
+            return {**info, "ok": False, "detail": app_error.message, "error": app_error.to_dict()}

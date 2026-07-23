@@ -12,10 +12,11 @@ import json
 import urllib.error
 import urllib.request
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from core import llm
+from core.llm import foundry_catalog
 from core.llm.gemini import effective_key
 from db import queries
 
@@ -78,6 +79,35 @@ def list_models(provider: str | None = None, base_url: str | None = None) -> dic
     return {"provider": prov, "models": models, "error": error}
 
 
+# ── Foundry Local — on-device model management ───────────────────
+# Foundry Local runs models on the user's machine via ONNX Runtime. These power
+# the Settings "on-device models" panel: list what's installed, and (with the
+# optional foundry-local-sdk) download a catalog model with one click.
+
+
+@router.get("/foundry/models")
+def foundry_models(base_url: str | None = None) -> dict[str, object]:
+    """Installed on-device models plus the downloadable catalog and capabilities."""
+    settings = queries.get_settings()
+    base = base_url if base_url is not None else settings["llm_base_url"]
+    return foundry_catalog.models_overview(base)
+
+
+class FoundryDownload(BaseModel):
+    alias: str = Field(..., min_length=1, description="Catalog alias to download on-device")
+
+
+@router.post("/foundry/download")
+def foundry_download(body: FoundryDownload) -> dict[str, object]:
+    """Download a catalog model on-device, then return the refreshed overview."""
+    try:
+        foundry_catalog.download(body.alias)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    settings = queries.get_settings()
+    return foundry_catalog.models_overview(settings["llm_base_url"])
+
+
 class ChatRequest(BaseModel):
     """A one-off prompt for manual testing from /docs."""
 
@@ -103,19 +133,13 @@ def llm_chat(req: ChatRequest) -> ChatResponse:
     """Send a message to the model and return its full reply.
 
     Use this from /docs to sanity-check the LLM: type a message, Execute, read the
-    reply. 502 if Foundry Local is unreachable (start it and try again).
+    reply. A provider/connection failure propagates to the global handler, which
+    turns it into a friendly, provider-aware error.
     """
     messages: list[dict[str, str]] = []
     if req.system:
         messages.append({"role": "system", "content": req.system})
     messages.append({"role": "user", "content": req.message})
 
-    try:
-        reply = llm.complete(messages, temperature=req.temperature, max_tokens=req.max_tokens)
-    except Exception as exc:  # noqa: BLE001 — surface the upstream error to the caller
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            detail=f"LLM request failed ({type(exc).__name__}): {exc}",
-        ) from exc
-
+    reply = llm.complete(messages, temperature=req.temperature, max_tokens=req.max_tokens)
     return ChatResponse(reply=reply, model=queries.get_settings()["llm_model"])

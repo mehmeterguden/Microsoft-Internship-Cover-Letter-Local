@@ -4,9 +4,11 @@ import {
   Building2,
   UserRound,
   Github,
-  AudioLines,
+  Linkedin,
+  Fingerprint,
   PenLine,
   LayoutGrid,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,16 +24,18 @@ export type NavItem = {
 
 /**
  * Primary navigation, split into two clear stages:
- *  • Setup — one-time: add your CV, profile, GitHub, and writing voice.
+ *  • Setup — one-time: add your CV, profile, GitHub, and writing style.
  *  • Write & apply — the ongoing loop: research, generate, track applications.
  */
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Home", hint: "Overview", icon: Home, group: "home" },
+  { to: "/responsible-ai", label: "Responsible AI", hint: "Our principles", icon: ShieldCheck, group: "home" },
 
   { to: "/onboarding", label: "CV", hint: "Your CV", icon: FileUp, group: "setup" },
   { to: "/profile", label: "Profile & Skills", hint: "Your details", icon: UserRound, group: "setup" },
   { to: "/github", label: "GitHub", hint: "Import projects", icon: Github, group: "setup" },
-  { to: "/voice", label: "Writing Voice", hint: "Learn your style", icon: AudioLines, group: "setup" },
+  { to: "/linkedin", label: "LinkedIn", hint: "Import profile", icon: Linkedin, group: "setup" },
+  { to: "/voice", label: "Writing Style", hint: "Learn how you write", icon: Fingerprint, group: "setup" },
 
   { to: "/research", label: "Company Research", hint: "Research a role", icon: Building2, group: "create" },
   { to: "/write", label: "Write Cover Letter", hint: "Generate & edit", icon: PenLine, group: "create" },

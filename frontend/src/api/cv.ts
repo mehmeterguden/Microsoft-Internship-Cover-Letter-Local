@@ -1,4 +1,5 @@
 import { client } from "./client";
+import type { AppError } from "./errors";
 import { streamSSERequest } from "./sse";
 import type { CVExtraction } from "./types";
 
@@ -28,7 +29,7 @@ export type CvImportEvent =
   | { type: "meta"; filename: string; source_type: string; num_pages: number; char_count: number }
   | { type: "token"; text: string }
   | { type: "done"; ok: boolean; structured?: CVExtraction; error?: string; raw_output: string; duration_s: number }
-  | { type: "fatal"; error: string };
+  | { type: "fatal"; error: AppError };
 
 /** Upload a CV and stream the structuring output token by token. */
 export function streamImportCv(

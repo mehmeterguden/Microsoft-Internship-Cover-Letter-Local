@@ -15,6 +15,7 @@ import sqlite3
 
 from fastapi import APIRouter, HTTPException, status
 
+from core import errors
 from db import queries
 from models import SkillLink
 
@@ -36,7 +37,10 @@ def create_skill_link(link: SkillLink) -> SkillLink:
     try:
         new_id = queries.insert(TABLE, data)
     except sqlite3.IntegrityError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise errors.conflict(
+            f"{type(exc).__name__}: {exc}",
+            message="Couldn't link this skill — the skill is missing, or the link already exists.",
+        ) from exc
     return SkillLink(**queries.get_by_id(TABLE, new_id))
 
 
