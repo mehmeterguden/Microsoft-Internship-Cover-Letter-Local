@@ -20,12 +20,14 @@ from api.routers import (
     github_repos,
     jobs,
     languages,
+    linkedin,
     links,
     llm,
     past_cover_letters,
     profile,
     profile_completion,
     projects,
+    reconcile,
     research,
     settings,
     skill_links,
@@ -42,6 +44,8 @@ api_router.include_router(llm.router)
 api_router.include_router(companies.router)  # company-name autocomplete
 api_router.include_router(cv.router)
 api_router.include_router(github.router)
+api_router.include_router(linkedin.router)  # LinkedIn import (export ZIP / paste / OAuth)
+api_router.include_router(reconcile.router)  # non-destructive merge plan for imports
 api_router.include_router(research.router)  # dev demo for Phase 1 tools
 api_router.include_router(cover_letter.router)  # streaming cover-letter generation
 api_router.include_router(style.router)  # writing-style learning

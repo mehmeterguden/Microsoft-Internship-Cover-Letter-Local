@@ -41,6 +41,8 @@ import { streamImportCv, saveExtraction, type CvImportEvent } from "@/api/cv";
 import { getSettings } from "@/api/settings";
 import { getProfile } from "@/api/profile";
 import { errorMessage } from "@/api/client";
+import { planReconcile, type ReconcilePlan } from "@/api/reconcile";
+import { ReconcileReview } from "@/components/common/ReconcileReview";
 import type { CVExtraction, Profile } from "@/api/types";
 import { toast } from "@/store/toast";
 
@@ -96,6 +98,7 @@ export function Onboarding() {
   const accRef = useRef("");
 
   const [saveMode, setSaveMode] = useState<SaveMode>("replace");
+  const [plan, setPlan] = useState<ReconcilePlan | null>(null);
   const [saving, setSaving] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -215,14 +218,15 @@ export function Onboarding() {
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      const res = await saveExtraction(draft, saveMode === "replace", meta?.filename);
+      if (saveMode === "merge") {
+        // Smart merge: compare with the saved profile and let the user resolve
+        // conflicts (never blindly overwrite). Opens the reconcile review below.
+        setPlan(await planReconcile(draft));
+        return;
+      }
+      const res = await saveExtraction(draft, true, meta?.filename);
       const total = Object.values(res.saved).reduce((a, b) => a + b, 0);
-      toast.success(
-        "Saved to profile",
-        saveMode === "replace"
-          ? `Replaced your profile with ${total} item${total === 1 ? "" : "s"}.`
-          : `Merged ${total} item${total === 1 ? "" : "s"} into your profile.`,
-      );
+      toast.success("Saved to profile", `Replaced your profile with ${total} item${total === 1 ? "" : "s"}.`);
       setState("ready");
     } catch (err) {
       toast.danger("Couldn't save", errorMessage(err));
@@ -252,7 +256,20 @@ export function Onboarding() {
           <UploadState onChoose={startStream} ocrEnabled={ocrEnabled} existing={existing} />
         ) : null}
 
-        {state === "review" ? (
+        {state === "review" && plan ? (
+          <div className="mx-auto w-full max-w-[760px]">
+            <ReconcileReview
+              plan={plan}
+              source="cv"
+              sourceDetail={meta?.filename}
+              onApplied={() => {
+                setPlan(null);
+                setState("ready");
+              }}
+              onDiscard={() => setPlan(null)}
+            />
+          </div>
+        ) : state === "review" ? (
           <ReviewState
             draft={draft}
             streamText={streamText}
@@ -732,7 +749,9 @@ function ReviewState({
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-fg">Saving mode</div>
           <div className="mt-1 text-[12px] leading-[1.5] text-fg-mid">
-            {mode === "replace" ? "Replace your profile with this CV." : "Merge into your profile, keeping current entries."}
+            {mode === "replace"
+              ? "Replace your profile with this CV."
+              : "Compare with your profile and review each change before saving."}
           </div>
         </div>
         <Segmented
@@ -756,7 +775,7 @@ function ReviewState({
           {parsing ? "Cancel" : "Try another file"}
         </button>
         <Button variant="primary" onClick={onSave} loading={saving} disabled={saving || parsing || !has}>
-          {saving ? "Saving…" : "Save & finish"}
+          {saving ? "Working…" : mode === "merge" ? "Review changes" : "Save & finish"}
           {!saving ? <Check size={15} /> : null}
         </Button>
       </div>

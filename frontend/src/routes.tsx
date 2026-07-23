@@ -5,6 +5,7 @@ import { Home } from "@/pages/Home";
 import { Onboarding } from "@/pages/Onboarding";
 import { Profile } from "@/pages/Profile";
 import { Github } from "@/pages/Github";
+import { LinkedIn } from "@/pages/LinkedIn";
 import { Voice } from "@/pages/Voice";
 import { Research } from "@/pages/Research";
 import { Write } from "@/pages/Write";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "onboarding", element: <Onboarding /> },
       { path: "voice", element: <Voice /> },
       { path: "github", element: <Github /> },
+      { path: "linkedin", element: <LinkedIn /> },
       { path: "settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },
     ],
