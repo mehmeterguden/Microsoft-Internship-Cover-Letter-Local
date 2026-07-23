@@ -16,7 +16,7 @@ export type ResearchEvent =
   | { type: "source"; agent: string; source: string; ok: boolean }
   | { type: "agent_progress"; agent: string; text: string }
   | { type: "agent_done"; agent: string; section: string; data: unknown; sources: { label?: string; source?: string; url?: string; ok: boolean }[] }
-  | { type: "agent_error"; agent: string; error: string }
+  | { type: "agent_error"; agent: string; error: string; reason?: "timeout" | "error" }
   | { type: "cached"; cached_at: string }
   | { type: "done"; report: CompanyIntelReport; duration_s: number }
   | { type: "fatal"; error: string };

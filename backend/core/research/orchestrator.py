@@ -29,6 +29,7 @@ from core.research import fit as fit_engine
 from core.research import reconcile as reconcile_engine
 from core.research.agent_base import Agent, AgentContext, AgentResult
 from core.research.agents import FLEET
+from core.research.tools.registry import ToolBudget, tool_budget
 from db import queries
 from core.research.schema import (
     CompanyIntelReport,
@@ -41,6 +42,10 @@ from core.research.schema import (
 )
 
 _DONE = object()  # queue sentinel: all agents have finished
+
+# Cap total external tool/search calls per run so one run can't blow up cost/time.
+# Sized with headroom over a normal run (~8 agents × ~2 tools); retries count too.
+_TOOL_BUDGET = 40
 
 
 async def stream_research(
@@ -70,6 +75,12 @@ async def stream_research(
     fleet = agents if agents is not None else [cls() for cls in FLEET]
     started_at = time.perf_counter()
 
+    # One shared tool budget for the whole run. Setting it here means every agent's
+    # gather thread inherits it (asyncio.to_thread copies the context), so all their
+    # tool calls draw down the same cap.
+    budget = ToolBudget(_TOOL_BUDGET)
+    tool_budget.set(budget)
+
     yield {
         "type": "phase",
         "phase": "gather",
@@ -84,7 +95,16 @@ async def stream_research(
     async def worker(agent: Agent) -> None:
         # queue.put_nowait is the thread-safe sink for streamed progress; the base
         # only ever calls it via loop.call_soon_threadsafe, so it runs on this loop.
-        results[agent.name] = await agent.run(ctx, queue.put, queue.put_nowait)
+        # agent.run() already never raises (it catches timeouts/errors and returns a
+        # failed AgentResult); this guard is belt-and-suspenders so a worker can never
+        # break asyncio.gather and turn one bad agent into a whole-run crash.
+        try:
+            results[agent.name] = await agent.run(ctx, queue.put, queue.put_nowait)
+        except Exception as exc:  # noqa: BLE001 — never let one agent sink the run
+            await queue.put(
+                {"type": "agent_error", "agent": agent.name, "error": str(exc), "reason": "error"}
+            )
+            results[agent.name] = AgentResult(agent.name, agent.section, None, [], ok=False, error=str(exc))
 
     async def runner() -> None:
         await asyncio.gather(*(worker(a) for a in fleet))
@@ -100,7 +120,7 @@ async def stream_research(
     finally:
         await driver  # propagate any unexpected error from the runner
 
-    report = _assemble(company_name, role_title, results, started_at)
+    report = _assemble(company_name, role_title, results, started_at, budget)
 
     # Reconcile: dedupe, score confidence/completeness, note missing sections.
     reconcile_engine.reconcile(report)
@@ -143,8 +163,12 @@ def _assemble(
     role_title: str | None,
     results: dict[str, AgentResult],
     started_at: float,
+    budget: ToolBudget | None = None,
 ) -> CompanyIntelReport:
-    """Fold successful agent sections into one report; missing sections stay empty."""
+    """Fold successful agent sections into one report; missing sections stay empty.
+
+    Failed agents are recorded in `meta.failed` and flip `meta.partial` — the report
+    is always complete-but-partial, never dropped just because a section failed."""
     sources: list[Source] = []
     section_sources: dict[str, list[Source]] = {}
     for result in results.values():
@@ -155,6 +179,8 @@ def _assemble(
     def section(name: str, default: Any) -> Any:
         result = results.get(name)
         return result.data if result and result.ok and result.data is not None else default
+
+    failed = [name for name, r in results.items() if not r.ok]
 
     return CompanyIntelReport(
         company_name=company_name,
@@ -174,6 +200,9 @@ def _assemble(
             gathered_at=datetime.now(timezone.utc).isoformat(),
             duration_s=round(time.perf_counter() - started_at, 2),
             agents=[name for name, r in results.items() if r.ok],
+            failed=failed,
+            partial=bool(failed),
+            tool_calls=budget.used if budget is not None else 0,
         ),
     )
 
