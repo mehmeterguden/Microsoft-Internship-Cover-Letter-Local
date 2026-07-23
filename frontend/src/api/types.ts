@@ -388,3 +388,16 @@ export interface CompanyIntelReport {
   ammo: LetterHook[];
   meta: ReportMeta;
 }
+
+// ── Research resilience (backend core/research/orchestrator.py) ──
+// Appended, not inlined, per AGENTS.md: shared files are only added to at the end.
+// TypeScript merges this into the `ReportMeta` declared above. A run that loses a
+// section still returns a report — these fields say which sections were lost.
+export interface ReportMeta {
+  /** Agents that errored or timed out; their section is unavailable. */
+  failed: string[];
+  /** True when at least one agent failed — the report is complete-but-partial. */
+  partial: boolean;
+  /** External tool/search calls this run made, against the per-run budget. */
+  tool_calls: number;
+}
