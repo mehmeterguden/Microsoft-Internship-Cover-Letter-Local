@@ -9,7 +9,7 @@
  * Icons are rendered in the Sidebar (keyed by `icon`) to stay faithful to
  * the design's custom glyphs.
  */
-export type NavIcon = "home" | "profile" | "letters" | "addcv" | "voice" | "github";
+export type NavIcon = "home" | "profile" | "letters" | "addcv" | "voice" | "github" | "linkedin";
 
 export type NavItem = {
   to: string;
@@ -29,4 +29,5 @@ export const SETUP_NAV: NavItem[] = [
   { to: "/onboarding", label: "Add CV", icon: "addcv" },
   { to: "/voice", label: "Writing Voice", icon: "voice" },
   { to: "/github", label: "GitHub Import", icon: "github" },
+  { to: "/linkedin", label: "LinkedIn Import", icon: "linkedin" },
 ];
