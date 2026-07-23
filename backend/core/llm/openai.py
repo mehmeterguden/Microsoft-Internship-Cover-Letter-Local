@@ -13,7 +13,7 @@ from collections.abc import Iterator
 
 from openai import OpenAI  # the installed SDK (absolute import, not this module)
 
-from core.llm.base import LLMProvider, Message
+from core.llm.base import LLMProvider, Message, ResponseFormat
 
 
 class OpenAIProvider(LLMProvider):
@@ -27,15 +27,30 @@ class OpenAIProvider(LLMProvider):
     def model(self) -> str:
         return self._model
 
-    def complete(self, messages: list[Message], *, temperature: float = 0.7, max_tokens: int | None = None) -> str:
+    def complete(
+        self,
+        messages: list[Message],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        response_format: ResponseFormat = None,
+    ) -> str:
+        kwargs: dict[str, object] = {}
+        if response_format:  # OpenAI accepts the response_format shape verbatim
+            kwargs["response_format"] = response_format
         response = self._client.chat.completions.create(
-            model=self._model, messages=messages, temperature=temperature, max_tokens=max_tokens
+            model=self._model, messages=messages, temperature=temperature, max_tokens=max_tokens, **kwargs
         )
         return response.choices[0].message.content or ""
 
-    def stream(self, messages: list[Message], *, temperature: float = 0.7) -> Iterator[str]:
+    def stream(
+        self, messages: list[Message], *, temperature: float = 0.7, response_format: ResponseFormat = None
+    ) -> Iterator[str]:
+        kwargs: dict[str, object] = {}
+        if response_format:
+            kwargs["response_format"] = response_format
         for chunk in self._client.chat.completions.create(
-            model=self._model, messages=messages, temperature=temperature, stream=True
+            model=self._model, messages=messages, temperature=temperature, stream=True, **kwargs
         ):
             delta = chunk.choices[0].delta.content
             if delta:

@@ -33,13 +33,18 @@ CREATE TABLE IF NOT EXISTS settings (
     llm_model         TEXT NOT NULL,                        -- model name/id to request
     openai_api_key    TEXT NOT NULL DEFAULT '',             -- key for the OpenAI provider
     anthropic_api_key TEXT NOT NULL DEFAULT '',             -- key for the Claude provider
+    azure_openai_api_key TEXT NOT NULL DEFAULT '',          -- key for the Azure OpenAI resource
+    azure_openai_endpoint TEXT NOT NULL DEFAULT '',         -- https://<resource>.openai.azure.com
+    azure_openai_api_version TEXT NOT NULL DEFAULT '2024-10-21', -- Azure OpenAI REST API version
     gemini_api_key    TEXT NOT NULL DEFAULT '',             -- legacy single Gemini key (superseded by gemini_api_keys)
     gemini_api_keys   TEXT NOT NULL DEFAULT '[]',           -- JSON: [{"id","key","label"}] rotating Gemini key pool
     gemini_active_key_id TEXT NOT NULL DEFAULT '',          -- id of the Gemini key currently in use / manually selected
     key_switch_mode   TEXT NOT NULL DEFAULT 'auto',         -- auto|manual — what to do when a key hits its rate limit
     company_search_provider TEXT NOT NULL DEFAULT 'wikidata', -- wikidata (free, keyless) | brandfetch (needs client id)
     brandfetch_client_id TEXT NOT NULL DEFAULT '',          -- public Brandfetch client id (only used when provider=brandfetch)
-    embedding_model   TEXT NOT NULL,                        -- sentence-transformers model (later phases)
+    embedding_provider TEXT NOT NULL DEFAULT 'sentence_transformers', -- sentence_transformers | foundry_local
+    embedding_model   TEXT NOT NULL,                        -- embedding model id (ST model or Foundry model)
+    embedding_base_url TEXT NOT NULL DEFAULT 'http://localhost:5273/v1', -- Foundry Local endpoint for embeddings
     tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
     ocr_enabled       INTEGER NOT NULL DEFAULT 0,           -- optional: read images via OCR (needs tesseract)
     github_token      TEXT NOT NULL DEFAULT '',             -- optional: connect GitHub account (PAT) for repo import
@@ -277,6 +282,12 @@ _COLUMNS_ADDED = {
         "research_cache_retention": "TEXT NOT NULL DEFAULT '7_days'",  # off|7_days|30_days|forever|last_10
         "pii_shield": "TEXT NOT NULL DEFAULT 'risky_only'",  # off|risky_only|on — warn about personal data in letters
         "rag_rerank": "INTEGER NOT NULL DEFAULT 0",  # cross-encoder rerank on exemplar retrieval (needs a model)
+        # Microsoft-first LLM (Azure OpenAI) + on-device embeddings option.
+        "azure_openai_api_key": "TEXT NOT NULL DEFAULT ''",
+        "azure_openai_endpoint": "TEXT NOT NULL DEFAULT ''",
+        "azure_openai_api_version": "TEXT NOT NULL DEFAULT '2024-10-21'",
+        "embedding_provider": "TEXT NOT NULL DEFAULT 'sentence_transformers'",  # sentence_transformers|foundry_local
+        "embedding_base_url": "TEXT NOT NULL DEFAULT 'http://localhost:5273/v1'",  # Foundry Local embeddings endpoint
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

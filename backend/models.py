@@ -78,7 +78,8 @@ class JobStatus(str, Enum):
 class LLMProvider(str, Enum):
     """Which LLM backend the user has selected."""
 
-    foundry_local = "foundry_local"   # local, private (default)
+    foundry_local = "foundry_local"   # Microsoft · on-device, private (default)
+    azure_openai = "azure_openai"     # Microsoft · cloud (managed OpenAI)
     ollama = "ollama"                 # local, private
     lm_studio = "lm_studio"           # local, OpenAI-compatible
     openai = "openai"                 # cloud
@@ -176,6 +177,12 @@ KeySwitchMode = Literal["auto", "manual"]
 #: client id but gives cleaner brand results + logos.
 CompanySearchProvider = Literal["wikidata", "brandfetch"]
 
+#: Which backend produces text embeddings.
+#: "sentence_transformers" runs a local model (default); "foundry_local" calls a
+#: Foundry Local embedding model over its OpenAI-compatible API, with automatic
+#: fallback to sentence-transformers if it's unreachable.
+EmbeddingProvider = Literal["sentence_transformers", "foundry_local"]
+
 
 class CompanySuggestion(BaseModel):
     """One autocomplete result for the company-name field."""
@@ -210,16 +217,21 @@ class Settings(BaseModel):
 
     llm_provider: LLMProvider = LLMProvider.foundry_local  # which backend to use
     llm_base_url: str                    # base URL for local providers (Foundry/Ollama)
-    llm_model: str                       # model name/id to request
+    llm_model: str                       # model name/id to request (Azure: the deployment name)
     openai_api_key: str = ""             # key for the OpenAI provider
     anthropic_api_key: str = ""          # key for the Claude provider
+    azure_openai_api_key: str = ""       # key for the Azure OpenAI resource
+    azure_openai_endpoint: str = ""      # e.g. https://my-resource.openai.azure.com
+    azure_openai_api_version: str = "2024-10-21"  # Azure OpenAI REST API version
     gemini_api_key: str = ""             # legacy single Gemini key (kept for migration)
     gemini_api_keys: list[GeminiKey] = []  # rotating Gemini key pool
     gemini_active_key_id: str = ""       # id of the active/selected key in the pool
     key_switch_mode: KeySwitchMode = "auto"  # auto-rotate vs manual on rate limit
     company_search_provider: CompanySearchProvider = "wikidata"  # company autocomplete source
     brandfetch_client_id: str = ""       # public Brandfetch client id (for provider=brandfetch)
-    embedding_model: str                 # sentence-transformers model (later phases)
+    embedding_provider: EmbeddingProvider = "sentence_transformers"  # which embedding backend
+    embedding_model: str                 # embedding model id (sentence-transformers or Foundry model)
+    embedding_base_url: str = "http://localhost:5273/v1"  # Foundry Local endpoint for embeddings
     tavily_api_key: str = ""             # company research key (only external call)
     ocr_enabled: bool = False            # optional feature: read images via OCR (needs tesseract)
     github_token: str = ""               # optional: GitHub PAT to import repos from the connected account

@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core import llm
+from core.llm import foundry_local
 from core.llm.gemini import effective_key
 from db import queries
 
@@ -60,6 +61,15 @@ def _discover_models(provider: str, base_url: str, settings: dict) -> tuple[list
             names = [m["name"].split("/")[-1] for m in data.get("models", [])
                      if "generateContent" in m.get("supportedGenerationMethods", [])]
             return sorted(n for n in names if n.startswith("gemini")), None
+        if provider == "azure_openai":
+            endpoint = (settings.get("azure_openai_endpoint") or "").rstrip("/")
+            key = settings.get("azure_openai_api_key") or ""
+            version = settings.get("azure_openai_api_version") or "2024-10-21"
+            if not endpoint or not key:
+                return [], "Add your Azure OpenAI endpoint and key to list deployments."
+            data = _get_json(f"{endpoint}/openai/deployments?api-version={version}", {"api-key": key})
+            # Azure lists *deployments* (what you actually call), not base models.
+            return sorted(d["id"] for d in data.get("data", []) if d.get("id")), None
     except (urllib.error.URLError, TimeoutError, OSError):
         return [], f"Couldn't reach {provider} at {base or provider}. Is it running?"
     except Exception as exc:  # noqa: BLE001 — surface parse/HTTP issues to the UI
@@ -76,6 +86,46 @@ def list_models(provider: str | None = None, base_url: str | None = None) -> dic
     base = base_url if base_url is not None else settings["llm_base_url"]
     models, error = _discover_models(prov, base, settings)
     return {"provider": prov, "models": models, "error": error}
+
+
+# ── Foundry Local model management (Microsoft-first on-device path) ──
+
+@router.get("/foundry/models")
+def foundry_models(base_url: str | None = None) -> dict[str, object]:
+    """The Foundry Local model surface for Settings: what's installed on-device now,
+    the downloadable catalog, and whether one-click download is available (SDK)."""
+    settings = queries.get_settings()
+    base = base_url if base_url is not None else settings["llm_base_url"]
+    installed, error = _discover_models("foundry_local", base, settings)
+    catalog, from_sdk = foundry_local.catalog_models()
+    return {
+        "installed": installed,
+        "catalog": catalog,
+        "can_download": foundry_local.sdk_available(),
+        "catalog_live": from_sdk,   # False -> curated fallback (SDK/service absent)
+        "error": error,             # non-null when the local server isn't reachable
+    }
+
+
+class FoundryDownloadRequest(BaseModel):
+    alias: str = Field(..., min_length=1, description="Foundry model alias to download")
+
+
+@router.post("/foundry/download")
+def foundry_download(req: FoundryDownloadRequest) -> dict[str, object]:
+    """Download a Foundry Local model by alias (needs the Foundry Local SDK).
+
+    Sync `def` so FastAPI runs the (potentially long) download in its threadpool.
+    Returns the updated installed list; 400 with guidance when the SDK is absent."""
+    try:
+        installed = foundry_local.download_model(req.alias)
+    except RuntimeError as exc:  # SDK missing -> actionable message
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 — surface a download/service failure
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail=f"Download failed ({type(exc).__name__}): {exc}"
+        ) from exc
+    return {"alias": req.alias, "installed": installed}
 
 
 class ChatRequest(BaseModel):

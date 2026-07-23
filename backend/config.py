@@ -26,8 +26,11 @@ FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
 # ── Seed defaults for the `settings` table (the choices WE make by default) ──
 # Default to the local, private provider: Microsoft Foundry Local.
-DEFAULT_LLM_PROVIDER = "foundry_local"  # foundry_local | ollama | openai | anthropic | gemini
+DEFAULT_LLM_PROVIDER = "foundry_local"  # foundry_local | azure_openai | ollama | openai | anthropic | gemini
 DEFAULT_LLM_BASE_URL = "http://localhost:5273/v1"
 DEFAULT_LLM_MODEL = "phi-4-mini"
+DEFAULT_EMBEDDING_PROVIDER = "sentence_transformers"  # sentence_transformers | foundry_local
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_EMBEDDING_BASE_URL = DEFAULT_LLM_BASE_URL  # Foundry Local endpoint for embeddings
+DEFAULT_AZURE_OPENAI_API_VERSION = "2024-10-21"
 DEFAULT_TAVILY_API_KEY = ""
