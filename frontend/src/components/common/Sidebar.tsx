@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 /** Provider labels for the footer model chip (cloud = data leaves the device). */
 const PROVIDER_META: Record<LLMProviderId, { name: string; cloud: boolean }> = {
   foundry_local: { name: "Foundry Local", cloud: false },
+  azure_openai: { name: "Azure OpenAI", cloud: true },
   ollama: { name: "Ollama", cloud: false },
   lm_studio: { name: "LM Studio", cloud: false },
   openai: { name: "OpenAI", cloud: true },
