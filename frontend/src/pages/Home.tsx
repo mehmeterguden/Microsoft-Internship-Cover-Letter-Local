@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, PenLine, FileText, AudioLines, Github, Target, ShieldCheck, AudioWaveform, Star } from "lucide-react";
+import { Check, PenLine, FileText, AudioLines, Github, Target, ShieldCheck, AudioWaveform, Star } from "lucide-react";
 import { Page } from "@/components/common/Page";
-import { OpenSourceBanner } from "@/components/common/OpenSourceBanner";
+import { ProjectBadge } from "@/components/common/ProjectBadge";
 import { Button } from "@/components/ui/button";
 import { Pill, StatDot, Skeleton, Spinner } from "@/components/ui/feedback";
 import { useAsync } from "@/lib/useAsync";
@@ -15,18 +15,10 @@ import type { Job } from "@/api/types";
 import { cn } from "@/lib/utils";
 
 /* ── State model ─────────────────────────────────────────────────
-   The state is DERIVED from real data (has CV / voice / repos / letters).
-   The "PREVIEW STATE" switcher survives as a dev-only override — when its
-   value is null (the default) we render the derived state. */
+   Which home you get is DERIVED from your real data — CV/profile, writing
+   voice, imported repos, and letters — and nothing else. There is no manual
+   override: the page always shows where you actually are. */
 type HomeState = "welcome" | "cv" | "ready" | "active" | "clean";
-
-const STATE_OPTIONS: { value: HomeState; label: string; desc: string }[] = [
-  { value: "welcome", label: "First run", desc: "Nothing set up yet" },
-  { value: "cv", label: "CV added", desc: "Mid-setup, voice pending" },
-  { value: "ready", label: "Ready to write", desc: "Profile, voice, GitHub done" },
-  { value: "active", label: "Draft in progress", desc: "A letter is underway" },
-  { value: "clean", label: "All caught up", desc: "Everything sent" },
-];
 
 /* ── Rail ────────────────────────────────────────────────────────── */
 type RailStatus = "done" | "active" | "todo" | "warn";
@@ -262,7 +254,6 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
             </div>
           ))}
         </div>
-        <OpenSourceBanner />
       </>
     );
   }
@@ -292,7 +283,6 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
           ]}
         />
         <SetupChecklist header="Finish setting up" count={`${d.setupDone} of 4`} pct={Math.max(4, Math.round((d.setupDone / 4) * 100))} items={d.setupItems} />
-        <OpenSourceBanner />
       </>
     );
   }
@@ -338,7 +328,6 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
             <Button asChild size="md"><Link to="/write"><PenLine size={15} /> Write a letter</Link></Button>
           </div>
         </div>
-        <OpenSourceBanner />
       </>
     );
   }
@@ -392,7 +381,6 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
             </div>
           </div>
         </div>
-        <OpenSourceBanner />
       </>
     );
   }
@@ -448,7 +436,6 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
           </div>
         </div>
       </div>
-      <OpenSourceBanner />
     </>
   );
 }
@@ -464,65 +451,6 @@ function HomeSkeleton() {
       <Skeleton className="h-[168px] w-full rounded-[15px]" />
       <Skeleton className="h-[74px] w-full rounded-[14px]" />
       <Skeleton className="h-[210px] w-full rounded-[14px]" />
-    </div>
-  );
-}
-
-/* ── Preview-state switcher (dev override) ───────────────────────── */
-function StateSwitcher({ derived, override, onPick }: { derived: HomeState; override: HomeState | null; onPick: (s: HomeState | null) => void }) {
-  const [open, setOpen] = useState(false);
-  const derivedOption = STATE_OPTIONS.find((o) => o.value === derived)!;
-  const overrideOption = override ? STATE_OPTIONS.find((o) => o.value === override)! : null;
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2.5 rounded-[10px] border border-border-strong bg-surface px-3 py-2 transition-colors hover:border-accent"
-      >
-        <StatDot tone="accent" glow size={7} />
-        <span className="text-left leading-tight">
-          <span className="block text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Preview state</span>
-          <span className="mt-px block text-[12.5px] font-semibold text-fg">{overrideOption ? overrideOption.label : `Auto · ${derivedOption.label}`}</span>
-        </span>
-        <ChevronDown size={15} className="text-fg-mid" />
-      </button>
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div
-            className="absolute right-0 top-[calc(100%+8px)] z-40 w-[290px] rounded-[13px] border border-border-strong bg-surface-3 p-1.5 shadow-[0_24px_54px_-20px_rgba(0,0,0,.8)]"
-            style={{ animation: "cll-menu .16s ease" }}
-          >
-            <button
-              type="button"
-              onClick={() => { onPick(null); setOpen(false); }}
-              className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-[12.5px] font-semibold text-fg">Auto (live data)</div>
-                <div className="mt-px text-[11px] text-fg-mid">Follow your real setup — {derivedOption.label}</div>
-              </div>
-              {override === null ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
-            </button>
-            <div className="my-1 h-px bg-border" />
-            {STATE_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => { onPick(o.value); setOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-[9px] px-2.5 py-2 text-left transition-colors hover:bg-accent-weak"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12.5px] font-semibold text-fg">{o.label}</div>
-                  <div className="mt-px text-[11px] text-fg-mid">{o.desc}</div>
-                </div>
-                {o.value === override ? <Check size={14} strokeWidth={2.4} className="shrink-0 text-accent-text" /> : null}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
     </div>
   );
 }
@@ -543,8 +471,6 @@ function stepStatuses(flags: boolean[]): Status3[] {
 }
 
 export function Home() {
-  const [override, setOverride] = useState<HomeState | null>(null);
-
   const profile = useAsync(getProfile);
   const style = useAsync(getStyle);
   const repos = useAsync(listSavedRepos);
@@ -663,8 +589,7 @@ export function Home() {
     },
   ];
 
-  const derived: HomeState = !hasProfile ? "welcome" : hasLetters ? (allCompleted ? "clean" : "active") : hasVoice && hasRepos ? "ready" : "cv";
-  const effective = override ?? derived;
+  const state: HomeState = !hasProfile ? "welcome" : hasLetters ? (allCompleted ? "clean" : "active") : hasVoice && hasRepos ? "ready" : "cv";
 
   const d: Derived = {
     name: p?.name ?? null,
@@ -693,9 +618,9 @@ export function Home() {
   };
 
   return (
-    <Page eyebrow="Workspace / Home" title="Home" actions={<StateSwitcher derived={derived} override={override} onPick={setOverride} />} bodyClassName="px-7 py-5">
+    <Page eyebrow="Workspace / Home" title="Home" actions={<ProjectBadge />} bodyClassName="px-7 py-5">
       <div className="flex flex-col gap-3.5">
-        {loading ? <HomeSkeleton /> : <StateBody state={effective} d={d} />}
+        {loading ? <HomeSkeleton /> : <StateBody state={state} d={d} />}
       </div>
     </Page>
   );

@@ -1,15 +1,12 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
 import { useAsync } from "@/lib/useAsync";
 import { getSettings } from "@/api/settings";
+import { listJobs } from "@/api/jobs";
 import type { LLMProviderId } from "@/api/types";
 import { MAIN_NAV, SETUP_NAV, type NavIcon, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
-const REPO_URL = "https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local";
-
-// TODO(backend wiring): replace with a live jobs count.
-const LETTERS_COUNT = 3;
 
 /** Provider labels for the footer model chip (cloud = data leaves the device). */
 const PROVIDER_META: Record<LLMProviderId, { name: string; cloud: boolean }> = {
@@ -80,7 +77,7 @@ function NavGlyph({ name }: { name: NavIcon }) {
   }
 }
 
-function NavRow({ item }: { item: NavItem }) {
+function NavRow({ item, lettersCount }: { item: NavItem; lettersCount: number }) {
   return (
     <NavLink to={item.to} end={item.to === "/"} className="block outline-none">
       {({ isActive }) => (
@@ -100,9 +97,9 @@ function NavRow({ item }: { item: NavItem }) {
             <NavGlyph name={item.icon} />
           </span>
           <span className="flex-1 truncate">{item.label}</span>
-          {item.count === "letters" && LETTERS_COUNT > 0 ? (
+          {item.count === "letters" && lettersCount > 0 ? (
             <span className="rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-fg-low">
-              {LETTERS_COUNT}
+              {lettersCount}
             </span>
           ) : null}
         </span>
@@ -114,6 +111,11 @@ function NavRow({ item }: { item: NavItem }) {
 export function Sidebar() {
   const { theme, toggle } = useTheme();
   const settings = useAsync(getSettings, []);
+  // The letters badge follows the real jobs table; re-read on navigation so it
+  // stays honest after a letter is created or deleted on another page.
+  const { pathname } = useLocation();
+  const jobs = useAsync(listJobs, [pathname]);
+  const lettersCount = jobs.data?.length ?? 0;
   const provider = settings.data ? PROVIDER_META[settings.data.llm_provider] : undefined;
   const modelName = settings.data?.llm_model?.trim() || (settings.loading ? "Loading…" : "Not configured");
   const isCloud = provider?.cloud ?? false;
@@ -172,60 +174,20 @@ export function Sidebar() {
       <nav className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label="Primary">
         <div className="flex flex-col gap-0.5">
           {MAIN_NAV.map((item) => (
-            <NavRow key={item.to} item={item} />
+            <NavRow key={item.to} item={item} lettersCount={lettersCount} />
           ))}
         </div>
         <div className="mx-1 my-3.5 h-px bg-border" />
         <div className="mb-2 px-[11px] text-[11px] font-semibold tracking-[0.01em] text-fg-low">Setup</div>
         <div className="flex flex-col gap-0.5">
           {SETUP_NAV.map((item) => (
-            <NavRow key={item.to} item={item} />
+            <NavRow key={item.to} item={item} lettersCount={lettersCount} />
           ))}
         </div>
       </nav>
 
       {/* footer */}
       <div className="relative mt-3 flex flex-col gap-2.5">
-        {/* star on github */}
-        <a
-          href={REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative flex items-center gap-3 overflow-hidden rounded-[13px] border border-border-strong px-3 py-3 no-underline transition hover:-translate-y-px hover:border-accent"
-          style={{ background: "linear-gradient(135deg, var(--surface-2), var(--surface))" }}
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-5 -top-8 h-24 w-28 rounded-full transition-opacity group-hover:opacity-100"
-            style={{ background: "var(--glow-2)", opacity: 0.18, filter: "blur(32px)" }}
-          />
-          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border-strong bg-input text-fg transition-transform duration-200 group-hover:scale-105">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-            </svg>
-          </span>
-          <span className="relative min-w-0 flex-1 leading-tight">
-            <span className="flex items-center gap-1.5">
-              <span className="text-[12.5px] font-semibold text-fg">Star on GitHub</span>
-              <svg width="12" height="12" viewBox="0 0 20 20" fill="var(--warning)" stroke="var(--warning)" strokeWidth="1.2" strokeLinejoin="round" className="transition-transform duration-200 group-hover:rotate-[12deg] group-hover:scale-110">
-                <path d="M10 3l2 4.5 5 .5-3.8 3.3 1.2 4.9L10 13.7 5.6 16.2l1.2-4.9L3 8l5-.5z" />
-              </svg>
-            </span>
-            <span className="mt-[5px] inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 py-[1.5px] pl-[5px] pr-[7px]">
-              <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden>
-                <rect x="0" y="0" width="4.4" height="4.4" fill="#F25022" />
-                <rect x="5.6" y="0" width="4.4" height="4.4" fill="#7FBA00" />
-                <rect x="0" y="5.6" width="4.4" height="4.4" fill="#00A4EF" />
-                <rect x="5.6" y="5.6" width="4.4" height="4.4" fill="#FFB900" />
-              </svg>
-              <span className="text-[9px] font-semibold text-fg-mid">Microsoft internship</span>
-            </span>
-          </span>
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="relative shrink-0 text-fg-low transition duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent-text">
-            <path d="M7 5h8v8M15 5l-9 9" />
-          </svg>
-        </a>
-
         {/* current model → settings (compact, live) */}
         <NavLink
           to="/settings"
