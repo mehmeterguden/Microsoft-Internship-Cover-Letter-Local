@@ -1,0 +1,12 @@
+#!/bin/sh
+# Refuse to push straight to main — everything ships via a PR (see AGENTS.md).
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "pre-push: direct pushes to main are blocked. Open a PR:" >&2
+      echo "  git push -u origin feat/<slug> && gh pr create --base main" >&2
+      exit 1
+      ;;
+  esac
+done
+exit 0
