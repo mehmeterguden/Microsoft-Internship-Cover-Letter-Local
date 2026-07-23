@@ -15,7 +15,7 @@ import urllib.request
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-from core import llm
+from core import llm, llm_metrics
 from core.llm import foundry_local
 from core.llm.gemini import effective_key
 from db import queries
@@ -169,3 +169,19 @@ def llm_chat(req: ChatRequest) -> ChatResponse:
         ) from exc
 
     return ChatResponse(reply=reply, model=queries.get_settings()["llm_model"])
+
+
+@router.get("/usage")
+def llm_usage(limit: int = 20) -> dict[str, object]:
+    """Recent LLM runs, today's totals, and whether any call is in flight.
+
+    Powers the global "AI usage" meter. `running` > 0 means a generation is
+    currently streaming/completing (covers SSE calls too, via the gateway's
+    in-flight counter)."""
+    recent = queries.recent_llm_runs(limit)
+    return {
+        "running": llm_metrics.running(),
+        "recent": recent,
+        "last": recent[0] if recent else None,
+        "today": queries.llm_usage_today(),
+    }

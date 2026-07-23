@@ -238,6 +238,7 @@ class Settings(BaseModel):
     research_cache_retention: Literal["off", "7_days", "30_days", "forever", "last_10"] = "7_days"  # keep cached company research for…
     pii_shield: Literal["off", "risky_only", "on"] = "risky_only"  # warn about personal data in generated letters
     rag_rerank: bool = False  # cross-encoder rerank on exemplar retrieval (higher precision; needs a model download)
+    pii_shield_cloud: bool = True         # redact contact-level PII before sending to a cloud provider
 
 
 # ─────────────────────────────────────────────────────────────
