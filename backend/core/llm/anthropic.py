@@ -17,7 +17,7 @@ from collections.abc import Iterator
 
 import anthropic
 
-from core.llm.base import LLMProvider, Message
+from core.llm.base import LLMProvider, Message, ResponseFormat
 
 DEFAULT_MAX_TOKENS = 4096  # Anthropic requires max_tokens; used when the caller gives none
 
@@ -39,7 +39,14 @@ class ClaudeProvider(LLMProvider):
         # garbage-collected mid-call and close its underlying HTTP client).
         self._client = anthropic.Anthropic(api_key=settings["anthropic_api_key"] or "not-set")
 
-    def complete(self, messages, *, temperature=0.7, max_tokens=None) -> str:
+    @property
+    def model(self) -> str:
+        return self._model
+
+    def complete(self, messages, *, temperature=0.7, max_tokens=None, response_format: ResponseFormat = None) -> str:
+        # `response_format` is accepted for interface parity but not applied: Claude
+        # has no response_format param (structured output is done via tools). Ignoring
+        # it keeps callers working; the reply is still plain text.
         system, conversation = _split_system(messages)
         kwargs: dict[str, object] = {
             "model": self._model,
@@ -51,7 +58,7 @@ class ClaudeProvider(LLMProvider):
         response = self._client.messages.create(**kwargs)
         return "".join(block.text for block in response.content if block.type == "text")
 
-    def stream(self, messages, *, temperature=0.7) -> Iterator[str]:
+    def stream(self, messages, *, temperature=0.7, response_format: ResponseFormat = None) -> Iterator[str]:
         system, conversation = _split_system(messages)
         kwargs: dict[str, object] = {
             "model": self._model,

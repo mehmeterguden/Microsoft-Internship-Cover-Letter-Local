@@ -9,17 +9,40 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Literal
+from typing import Any, Literal
+
+from collections.abc import Iterator
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
-from core import cover_letter, export, pii
+from core import cover_letter, export, pii, verification
 from db import queries
 
 router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
+
+
+def _sse(generator: Iterator[dict[str, Any]]) -> StreamingResponse:
+    """Drive a blocking event generator through the threadpool as SSE.
+
+    Each event flushes to the client as it arrives; a provider failure is surfaced
+    as a final `fatal` event and then the stream ends.
+    """
+
+    async def event_stream():
+        try:
+            async for event in iterate_in_threadpool(generator):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a provider failure, then end
+            yield f"data: {json.dumps({'type': 'fatal', 'error': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class CoverLetterRequest(BaseModel):
@@ -51,6 +74,25 @@ _SENDER_FIELDS = ("name", "surname", "email", "phone", "linkedin", "github")
 def _slug(value: str | None) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", (value or "draft").lower()).strip("-")
     return slug or "draft"
+
+
+class VerifyRequest(BaseModel):
+    content: str = Field(min_length=1)
+    company_name: str = Field(min_length=1, max_length=200)
+    role_title: str | None = Field(default=None, max_length=200)
+
+
+class Claim(BaseModel):
+    text: str
+    status: str = "partly"
+    note: str = ""
+
+
+class ReviseRequest(BaseModel):
+    content: str = Field(min_length=1)
+    company_name: str = Field(min_length=1, max_length=200)
+    role_title: str | None = Field(default=None, max_length=200)
+    flagged: list[Claim] = Field(default_factory=list)
 
 
 @router.post("/generate", summary="Stream a generated cover letter (SSE)")
@@ -127,3 +169,14 @@ async def export_letter(payload: ExportRequest) -> Response:
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+@router.post("/verify", summary="Audit a letter's groundedness against the profile (SSE)")
+async def verify(payload: VerifyRequest) -> StreamingResponse:
+    """Run the always-on groundedness check: stream progress, then a per-claim verdict."""
+    return _sse(verification.verify_stream(payload.content, payload.company_name, payload.role_title))
+
+
+@router.post("/revise", summary="Rewrite a letter to fix only its flagged claims (SSE)")
+async def revise(payload: ReviseRequest) -> StreamingResponse:
+    """Stream a grounded revision that removes/softens only the flagged claims."""
+    flagged = [c.model_dump() for c in payload.flagged]
+    return _sse(verification.revise_stream(payload.content, payload.company_name, payload.role_title, flagged))

@@ -81,3 +81,62 @@ export async function exportLetter(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ── Groundedness verification ─────────────────────────────────────
+
+export type ClaimStatus = "supported" | "partly" | "unsupported";
+
+export interface VerifyClaim {
+  text: string;
+  status: ClaimStatus;
+  note: string;
+}
+
+export interface Verification {
+  verdict: "grounded" | "review" | "error";
+  summary: string;
+  claims: VerifyClaim[];
+}
+
+export interface VerifyRequest {
+  content: string;
+  company_name: string;
+  role_title?: string | null;
+}
+
+/** SSE events from POST /cover-letter/verify — `token`s drive a progress indicator; `done` carries the verdict. */
+export type VerifyEvent =
+  | { type: "start"; has_profile: boolean; used_research: boolean }
+  | { type: "token"; text: string }
+  | ({ type: "done" } & Verification)
+  | { type: "fatal"; error: string };
+
+export function streamVerify(
+  req: VerifyRequest,
+  onEvent: (event: VerifyEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamSSE<VerifyEvent>("/cover-letter/verify", req, onEvent, signal);
+}
+
+export interface ReviseRequest {
+  content: string;
+  company_name: string;
+  role_title?: string | null;
+  flagged: VerifyClaim[];
+}
+
+/** SSE events from POST /cover-letter/revise — streams the corrected letter token by token. */
+export type ReviseEvent =
+  | { type: "start" }
+  | { type: "token"; text: string }
+  | { type: "done"; text: string }
+  | { type: "fatal"; error: string };
+
+export function streamRevise(
+  req: ReviseRequest,
+  onEvent: (event: ReviseEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  return streamSSE<ReviseEvent>("/cover-letter/revise", req, onEvent, signal);
+}

@@ -23,7 +23,7 @@ from collections.abc import Iterator
 from google import genai
 from google.genai import errors, types
 
-from core.llm.base import LLMProvider, Message
+from core.llm.base import LLMProvider, Message, ResponseFormat, json_schema_of
 
 # Bound every request so a stalled connection can't hang the app indefinitely.
 _HTTP = types.HttpOptions(timeout=120_000)  # milliseconds
@@ -39,6 +39,18 @@ class GeminiUnavailable(RuntimeError):
     def __init__(self, message: str, *, reasons: set[str] | None = None) -> None:
         super().__init__(message)
         self.reasons: set[str] = reasons or set()
+
+
+def _json_config(response_format: ResponseFormat) -> dict[str, object]:
+    """Map our OpenAI-style response_format to Gemini's config keys: request JSON
+    output, plus a response_schema when a JSON schema is supplied. Empty when off."""
+    if not response_format:
+        return {}
+    cfg: dict[str, object] = {"response_mime_type": "application/json"}
+    schema = json_schema_of(response_format)
+    if schema is not None:
+        cfg["response_schema"] = schema
+    return cfg
 
 
 def _to_gemini(messages: list[Message]) -> tuple[str | None, list[types.Content]]:
@@ -232,13 +244,14 @@ class GeminiProvider(LLMProvider):
         )
 
     # ── generation ───────────────────────────────────────────────
-    def complete(self, messages, *, temperature=0.7, max_tokens=None) -> str:
+    def complete(self, messages, *, temperature=0.7, max_tokens=None, response_format: ResponseFormat = None) -> str:
         system, contents = _to_gemini(messages)
         config = types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
             system_instruction=system,
             thinking_config=types.ThinkingConfig(thinking_budget=0),  # skip reasoning → full budget to the answer
+            **_json_config(response_format),
         )
 
         candidates = self._candidates()
@@ -268,12 +281,13 @@ class GeminiProvider(LLMProvider):
 
         raise self._exhausted_error(reasons) from last_exc
 
-    def stream(self, messages, *, temperature=0.7) -> Iterator[str]:
+    def stream(self, messages, *, temperature=0.7, response_format: ResponseFormat = None) -> Iterator[str]:
         system, contents = _to_gemini(messages)
         config = types.GenerateContentConfig(
             temperature=temperature,
             system_instruction=system,
             thinking_config=types.ThinkingConfig(thinking_budget=0),
+            **_json_config(response_format),
         )
 
         candidates = self._candidates()

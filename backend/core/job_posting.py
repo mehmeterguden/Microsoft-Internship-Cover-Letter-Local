@@ -12,8 +12,10 @@ import json
 
 from core import llm
 from core.research.tools import web_fetch
+from core.sanitize import notice, sanitize_untrusted, wrap_untrusted
 
 _MAX_CHARS = 12_000  # cap the page text we send to the model
+_TAG = "page"        # the untrusted-data block the scraped page is wrapped in
 
 
 class JobPostingError(RuntimeError):
@@ -28,7 +30,8 @@ _SYSTEM = (
     '  "job_description": a clean, readable plain-text version of the posting — '
     "responsibilities, requirements, and relevant details. Strip nav, cookie "
     "banners, and boilerplate. Keep line breaks between paragraphs.\n"
-    "If a field is genuinely absent, use an empty string. Output JSON only."
+    "If a field is genuinely absent, use an empty string. Output JSON only.\n"
+    + notice(_TAG)
 )
 
 
@@ -47,13 +50,15 @@ def extract_from_url(url: str) -> dict[str, str]:
     if not result.ok or not result.data:
         raise JobPostingError(result.error or "Could not read that page.")
 
-    text = (result.data.get("text") or "")[:_MAX_CHARS]
+    # The page text is untrusted third-party content: neutralize injection, then
+    # fence it so the model treats it as data, not instructions.
+    text = sanitize_untrusted(result.data.get("text") or "", max_chars=_MAX_CHARS)
     if not text.strip():
         raise JobPostingError("No readable job posting found on that page.")
 
     messages = [
         {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": f"Job posting page ({url}):\n\n{text}"},
+        {"role": "user", "content": f"Job posting page ({url}):\n\n{wrap_untrusted(text, _TAG)}"},
     ]
     raw = llm.complete(messages, temperature=0.0, max_tokens=1800)
     try:

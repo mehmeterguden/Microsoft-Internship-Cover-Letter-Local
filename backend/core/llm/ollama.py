@@ -15,9 +15,18 @@ import json
 import urllib.request
 from collections.abc import Iterator
 
-from core.llm.base import LLMProvider, Message
+from core.llm.base import LLMProvider, Message, ResponseFormat, json_schema_of
 
 NUM_CTX = 8192  # context window cap — keeps the KV cache small enough for ~16GB machines
+
+
+def _ollama_format(response_format: ResponseFormat) -> object | None:
+    """Map our OpenAI-style response_format to Ollama's native `format`:
+    a JSON schema object when one is given, else "json" for any-JSON, else None."""
+    if not response_format:
+        return None
+    schema = json_schema_of(response_format)
+    return schema if schema is not None else "json"
 
 
 class OllamaProvider(LLMProvider):
@@ -34,25 +43,50 @@ class OllamaProvider(LLMProvider):
     def model(self) -> str:
         return self._model
 
-    def _open(self, messages: list[Message], *, stream: bool, temperature: float, max_tokens: int | None):
+    def _open(
+        self,
+        messages: list[Message],
+        *,
+        stream: bool,
+        temperature: float,
+        max_tokens: int | None,
+        response_format: ResponseFormat = None,
+    ):
         options: dict[str, object] = {"num_ctx": NUM_CTX, "temperature": temperature}
         if max_tokens:
             options["num_predict"] = max_tokens
-        body = json.dumps(
-            {"model": self._model, "messages": messages, "stream": stream, "think": False, "options": options}
-        ).encode()
+        payload: dict[str, object] = {
+            "model": self._model, "messages": messages, "stream": stream, "think": False, "options": options
+        }
+        fmt = _ollama_format(response_format)
+        if fmt is not None:
+            payload["format"] = fmt
+        body = json.dumps(payload).encode()
         request = urllib.request.Request(
             self._chat_url, data=body, headers={"Content-Type": "application/json"}
         )
         return urllib.request.urlopen(request)
 
-    def complete(self, messages: list[Message], *, temperature: float = 0.7, max_tokens: int | None = None) -> str:
-        with self._open(messages, stream=False, temperature=temperature, max_tokens=max_tokens) as resp:
+    def complete(
+        self,
+        messages: list[Message],
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        response_format: ResponseFormat = None,
+    ) -> str:
+        with self._open(
+            messages, stream=False, temperature=temperature, max_tokens=max_tokens, response_format=response_format
+        ) as resp:
             obj = json.loads(resp.read())
         return obj.get("message", {}).get("content", "") or ""
 
-    def stream(self, messages: list[Message], *, temperature: float = 0.7) -> Iterator[str]:
-        with self._open(messages, stream=True, temperature=temperature, max_tokens=None) as resp:
+    def stream(
+        self, messages: list[Message], *, temperature: float = 0.7, response_format: ResponseFormat = None
+    ) -> Iterator[str]:
+        with self._open(
+            messages, stream=True, temperature=temperature, max_tokens=None, response_format=response_format
+        ) as resp:
             for line in resp:
                 line = line.strip()
                 if not line:

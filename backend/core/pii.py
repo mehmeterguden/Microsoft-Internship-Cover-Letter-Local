@@ -15,6 +15,8 @@ safe to show in the UI without re-exposing the raw value.
 from __future__ import annotations
 
 import re
+
+from core.llm.base import Message
 from typing import Any, Literal
 
 Mode = Literal["off", "risky_only", "on"]
@@ -111,3 +113,65 @@ def scan(text: str, mode: Mode = "on") -> list[dict[str, Any]]:
 
 def _ordered(findings: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(findings.values(), key=lambda f: (_SEVERITY_RANK[f["severity"]], f["type"]))
+
+
+# ══════════════════════════════════════════════════════════════════
+# Gateway redaction — strip contact-level PII before it leaves the device.
+# Applied by the LLM gateway ONLY for cloud providers; local providers always
+# receive the original text. Professional substance is deliberately preserved.
+# ══════════════════════════════════════════════════════════════════
+
+EMAIL = "[redacted-email]"
+PHONE = "[redacted-phone]"
+ADDRESS = "[redacted-address]"
+ID = "[redacted-id]"
+
+# ── Email ──
+_EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
+
+# ── Street address: number + (optional street words) + a street-type suffix,
+#    plus an optional unit. Case-insensitive; abbreviations allowed with a dot. ──
+_STREET_RE = re.compile(
+    r"\b\d{1,6}\s+(?:[A-Za-z0-9.'\-]+\s+){0,4}"
+    r"(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|"
+    r"Way|Terrace|Ter|Place|Pl|Square|Sq|Highway|Hwy|Parkway|Pkwy|Close|Crescent)\b\.?"
+    r"(?:\s*(?:#|Apt\.?|Suite|Ste\.?|Unit|Floor|Fl\.?)\s*[\w\-]+)?",
+    re.IGNORECASE,
+)
+
+# ── Long precise IDs (credit-card / passport-like: 13–19 digits, maybe grouped) ──
+_LONG_ID_RE = re.compile(r"(?<![\w.])\d(?:[\d \-]{11,17})\d(?![\w.])")
+
+# ── Phone candidate: a run of digits with common separators. Validated below. ──
+_PHONE_RE = re.compile(r"(?<![\w])(\+?\(?\d[\d\s().\-]{5,}\d)(?![\w])")
+
+
+def _phone_sub(match: re.Match[str]) -> str:
+    raw = match.group(0)
+    digits = re.sub(r"\D", "", raw)
+    has_marker = raw.lstrip().startswith("+") or "(" in raw
+    has_separator = bool(re.search(r"[ ().\-]", raw))
+    # Real phone: 7–15 digits AND either an explicit +/area-code marker, or a
+    # formatted run (>= 9 digits with separators). This keeps 8-digit year ranges
+    # ("2019-2023") and bare large metrics ("1000000000 downloads") from matching.
+    if 7 <= len(digits) <= 15 and (has_marker or (len(digits) >= 9 and has_separator)):
+        return PHONE
+    return raw
+
+
+def redact_text(text: str) -> str:
+    """Return `text` with contact-level PII replaced by stable placeholders."""
+    if not text:
+        return text
+    text = _EMAIL_RE.sub(EMAIL, text)
+    text = _STREET_RE.sub(ADDRESS, text)
+    text = _PHONE_RE.sub(_phone_sub, text)
+    text = _LONG_ID_RE.sub(ID, text)  # contiguous credit-card / passport-like IDs
+    return text
+
+
+def redact_messages(messages: list[Message]) -> list[Message]:
+    """Return a NEW message list with each message's content redacted.
+
+    Roles are preserved; the caller's list/messages are never mutated."""
+    return [{**m, "content": redact_text(m.get("content", ""))} for m in messages]

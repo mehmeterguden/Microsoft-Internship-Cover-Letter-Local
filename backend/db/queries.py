@@ -417,3 +417,54 @@ def save_research(
         conn.commit()
     finally:
         conn.close()
+
+
+# ── LLM usage log (metering) ─────────────────────────────────────
+# One row per metered complete/stream call. Written by core/llm_metrics.record;
+# read by GET /api/llm/usage. Self-contained (not via the generic CRUD allowlist).
+
+_LLM_RUN_COLUMNS = (
+    "created_at", "provider", "model", "prompt_tokens", "completion_tokens",
+    "total_tokens", "latency_ms", "cost_usd", "kind",
+)
+
+
+def record_llm_run(row: dict[str, Any]) -> None:
+    """Insert one usage row. Best-effort — callers must not let metering break a call."""
+    conn = get_connection()
+    try:
+        placeholders = ", ".join("?" for _ in _LLM_RUN_COLUMNS)
+        conn.execute(
+            f"INSERT INTO llm_runs ({', '.join(_LLM_RUN_COLUMNS)}) VALUES ({placeholders})",
+            tuple(row.get(c) for c in _LLM_RUN_COLUMNS),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def recent_llm_runs(limit: int = 20) -> list[dict[str, Any]]:
+    """The most recent usage rows, newest first."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM llm_runs ORDER BY id DESC LIMIT ?", (max(1, int(limit)),)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def llm_usage_today() -> dict[str, Any]:
+    """Aggregate calls / tokens / estimated cost since the start of today (UTC)."""
+    start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00")
+    conn = get_connection()
+    try:
+        r = conn.execute(
+            "SELECT COUNT(*) AS calls, COALESCE(SUM(total_tokens), 0) AS tokens, "
+            "COALESCE(SUM(cost_usd), 0) AS cost_usd FROM llm_runs WHERE created_at >= ?",
+            (start,),
+        ).fetchone()
+        return {"calls": r["calls"], "tokens": r["tokens"], "cost_usd": round(r["cost_usd"], 6)}
+    finally:
+        conn.close()

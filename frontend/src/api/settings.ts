@@ -39,3 +39,27 @@ export async function setKeySwitchMode(mode: KeySwitchMode): Promise<GeminiKeyCo
   const { data } = await client.put<GeminiKeyConfig>("/settings/gemini-keys/mode", { mode });
   return data;
 }
+
+// ── Foundry Local model management ────────────────────────────
+// The on-device Microsoft path: list installed + downloadable models, and (when
+// the Foundry Local SDK is present) download one with a single click.
+
+export interface FoundryModels {
+  installed: string[];
+  catalog: string[];
+  can_download: boolean; // true when the Foundry Local SDK is installed
+  catalog_live: boolean; // false → curated fallback list (SDK/service absent)
+  error: string | null; // set when the local server isn't reachable
+}
+
+export async function getFoundryModels(baseUrl?: string): Promise<FoundryModels> {
+  const { data } = await client.get<FoundryModels>("/llm/foundry/models", {
+    params: baseUrl != null ? { base_url: baseUrl } : undefined,
+  });
+  return data;
+}
+
+export async function downloadFoundryModel(alias: string): Promise<{ alias: string; installed: string[] }> {
+  const { data } = await client.post<{ alias: string; installed: string[] }>("/llm/foundry/download", { alias });
+  return data;
+}
