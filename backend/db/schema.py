@@ -277,13 +277,16 @@ _SOURCED_TABLES = (
     "projects", "certificates", "trainings", "links",
 )
 
-# Columns added to a table after it first shipped. ALTER ADD COLUMN backfills
-# existing rows with the DEFAULT, so older local DBs upgrade in place.
-_COLUMNS_ADDED = {
+# Non-provenance columns added to a table after it first shipped. Kept apart from
+# `_SOURCE_COLUMNS`, then MERGED into `_COLUMNS_ADDED` below — because `projects`
+# and `education` are ALSO sourced tables. A single dict literal listing them in
+# both places would silently drop one set of columns (a later key overwrites the
+# earlier), which is exactly the bug that left those two tables without a `source`
+# column and made a CV save crash. Merging keeps both.
+_TABLE_COLUMNS_ADDED = {
     "profile": {
         "field_sources": "TEXT",  # JSON: {field: {source, detail, at}} — per-field provenance
     },
-    **{table: dict(_SOURCE_COLUMNS) for table in _SOURCED_TABLES},
     "settings": {
         "llm_provider": "TEXT NOT NULL DEFAULT 'foundry_local'",
         "openai_api_key": "TEXT NOT NULL DEFAULT ''",
@@ -332,6 +335,21 @@ _COLUMNS_ADDED = {
         "updated_at": "TEXT",  # ISO8601 UTC — bumped on every write
     },
 }
+
+
+def _build_columns_added() -> dict[str, dict[str, str]]:
+    """Every post-ship column, per table: the shared provenance columns for each
+    sourced table, MERGED with that table's own extras. Merging (not a literal
+    with duplicate keys) is what lets a table be both sourced and have extras."""
+    merged: dict[str, dict[str, str]] = {t: dict(_SOURCE_COLUMNS) for t in _SOURCED_TABLES}
+    for table, columns in _TABLE_COLUMNS_ADDED.items():
+        merged.setdefault(table, {}).update(columns)
+    return merged
+
+
+# Columns added to a table after it first shipped. ALTER ADD COLUMN backfills
+# existing rows with the DEFAULT, so older local DBs upgrade in place.
+_COLUMNS_ADDED = _build_columns_added()
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
