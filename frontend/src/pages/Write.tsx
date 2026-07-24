@@ -1165,10 +1165,32 @@ export function Write() {
     setImportingUrl(true);
     try {
       const data = await autofillFromJobUrl(url);
-      if (data.company) setCompanyRaw(data.company);
-      if (data.role) setRole(data.role);
-      if (data.job_description) setJobPosting(data.job_description);
-      toast.success("Job details imported!", "Company, role, and description updated from link.");
+      const updated: string[] = [];
+
+      if (data.company && data.company.trim()) {
+        setCompany(data.company.trim());
+        updated.push("company");
+      }
+      if (data.role && data.role.trim()) {
+        setRole(data.role.trim());
+        updated.push("role");
+      }
+      if (data.job_description && data.job_description.trim()) {
+        setJobPosting(data.job_description.trim());
+        updated.push("description");
+      }
+
+      if (updated.length > 0) {
+        toast.success(
+          "Job details imported!",
+          `Updated: ${updated.join(", ")} from link.`
+        );
+      } else {
+        toast.warning(
+          "No details extracted",
+          "Could not identify company or role from that URL. Try pasting the description directly."
+        );
+      }
     } catch (err: unknown) {
       toast.danger("Couldn't import job link", errorMessage(err));
     } finally {
