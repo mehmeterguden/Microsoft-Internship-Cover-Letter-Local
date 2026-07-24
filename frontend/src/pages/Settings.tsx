@@ -1049,6 +1049,12 @@ function LanguageSelect({ value, onChange }: { value: string; onChange: (v: stri
     BUILTIN_LANGUAGES.some((l) => l.value === value) ? "" : value
   );
 
+  useEffect(() => {
+    if (!BUILTIN_LANGUAGES.some((l) => l.value === value)) {
+      setCustomInput(value);
+    }
+  }, [value]);
+
   const currentLabel =
     BUILTIN_LANGUAGES.find((l) => l.value === value)?.label ||
     (value ? `Custom (${value})` : "English");
@@ -1069,7 +1075,7 @@ function LanguageSelect({ value, onChange }: { value: string; onChange: (v: stri
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div
-            className="absolute right-0 top-[calc(100%+6px)] z-40 w-[240px] overflow-hidden rounded-[12px] border border-border-strong bg-surface-2 p-1.5 shadow-[0_20px_44px_-18px_rgba(0,0,0,.7)]"
+            className="absolute right-0 bottom-[calc(100%+6px)] z-40 w-[245px] overflow-hidden rounded-[12px] border border-border-strong bg-surface-2 p-1.5 shadow-[0_24px_48px_-12px_rgba(0,0,0,.85)]"
             style={{ animation: "cll-menu .18s ease" }}
           >
             <div className="max-h-[260px] overflow-y-auto space-y-0.5">

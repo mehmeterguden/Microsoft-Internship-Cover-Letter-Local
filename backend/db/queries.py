@@ -250,10 +250,14 @@ def save_settings(data: dict[str, Any]) -> None:
     for col in _SETTINGS_JSON_COLUMNS:
         if col in data and not isinstance(data[col], str):
             data[col] = json.dumps(data[col])
-    cols = list(data.keys())
-    assignments = ", ".join(f"{c} = ?" for c in cols)
     conn = get_connection()
     try:
+        cursor = conn.execute("PRAGMA table_info(settings)")
+        valid_cols = {row["name"] for row in cursor.fetchall()}
+        cols = [c for c in data.keys() if c in valid_cols]
+        if not cols:
+            return
+        assignments = ", ".join(f"{c} = ?" for c in cols)
         conn.execute(
             f"UPDATE settings SET {assignments} WHERE id = 1",
             tuple(data[c] for c in cols),
