@@ -27,7 +27,7 @@ from db.schema import get_connection
 _TABLES = frozenset({
     "profile", "links", "languages", "skills", "github_repos", "projects",
     "experiences", "education", "trainings", "certificates", "skill_links",
-    "past_cover_letters", "documents", "jobs",
+    "past_cover_letters", "documents", "jobs", "interview_sessions",
 })
 
 # Columns stored as JSON text — (de)serialized transparently.
@@ -37,6 +37,7 @@ _JSON_COLUMNS: dict[str, set[str]] = {
     "projects": {"technologies"},
     "education": {"courses"},
     "jobs": {"match_breakdown", "company_research", "letter"},
+    "interview_sessions": {"questions", "answers", "applied_updates"},
 }
 
 # Tables whose rows carry server-managed created_at / updated_at timestamps.

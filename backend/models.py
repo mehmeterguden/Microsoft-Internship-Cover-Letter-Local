@@ -474,3 +474,32 @@ class CVExtraction(BaseModel):
     trainings: list[Training] = []
     languages: list[Language] = []
     links: list[Link] = []
+
+
+# ─────────────────────────────────────────────────────────────
+#  AI Profile Interview Models
+# ─────────────────────────────────────────────────────────────
+
+class InterviewSetupRequest(BaseModel):
+    count: int = Field(default=5, ge=1, le=15)
+    focus: str = Field(default="all")  # all | projects | experiences | skills | challenges
+
+
+class SynthesisDiffItem(BaseModel):
+    id: str
+    target_type: str                  # project | experience | skill | general
+    target_id: int | None = None
+    target_name: str
+    current_text: str
+    proposed_text: str
+    approved: bool = True
+
+
+class SynthesisPreviewResponse(BaseModel):
+    diffs: list[SynthesisDiffItem] = []
+
+
+class ApplySynthesisRequest(BaseModel):
+    approved_diffs: list[SynthesisDiffItem]
+    session_info: dict[str, Any] | None = None
+

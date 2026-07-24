@@ -1,15 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/feedback";
-import { Sparkles, ArrowRight, SkipForward, CheckCircle2, Star, HelpCircle } from "lucide-react";
 import {
-  getNextInterviewQuestion,
-  synthesizeInterviewAnswers,
+  Sparkles,
+  ArrowRight,
+  SkipForward,
+  CheckCircle2,
+  Star,
+  HelpCircle,
+  Code2,
+  Briefcase,
+  Wrench,
+  Flame,
+  Layers,
+  CheckSquare,
+  Square,
+  ArrowRightLeft,
+} from "lucide-react";
+import {
+  generateBatchQuestions,
+  previewSynthesis,
+  applySynthesis,
   type InterviewQuestion,
-  type QuestionHistoryItem,
   type AnswerItem,
+  type FocusArea,
+  type SynthesisDiffItem,
 } from "@/api/interview";
 import { toast } from "@/store/toast";
 
@@ -19,13 +36,23 @@ interface ProfileInterviewModalProps {
   onProfileUpdated?: () => void;
 }
 
+type ModalStep = "setup" | "interview" | "preview" | "done";
+
 export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: ProfileInterviewModalProps) {
-  const [loadingQuestion, setLoadingQuestion] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState<InterviewQuestion | null>(null);
-  const [history, setHistory] = useState<QuestionHistoryItem[]>([]);
+  // Wizard Step State
+  const [step, setStep] = useState<ModalStep>("setup");
+
+  // Setup Parameters
+  const [questionCount, setQuestionCount] = useState<number>(5);
+  const [focusArea, setFocusArea] = useState<FocusArea>("all");
+
+  // Interview Questions & Answers
+  const [loadingBatch, setLoadingBatch] = useState(false);
+  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [collectedAnswers, setCollectedAnswers] = useState<AnswerItem[]>([]);
 
-  // Current question answer state
+  // Current Question Inputs
   const [boolValue, setBoolValue] = useState<boolean | null>(null);
   const [singleValue, setSingleValue] = useState<string>("");
   const [multiValues, setMultiValues] = useState<string[]>([]);
@@ -33,24 +60,23 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   const [textValue, setTextValue] = useState<string>("");
 
-  const [isSynthesizing, setIsSynthesizing] = useState(false);
-  const [synthesisDone, setSynthesisDone] = useState(false);
-  const [updateStats, setUpdateStats] = useState<{ updated_count: number } | null>(null);
+  // Synthesis Diff Preview
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [diffItems, setDiffItems] = useState<SynthesisDiffItem[]>([]);
 
-  // Fetch first question on open
-  useEffect(() => {
-    if (isOpen) {
-      resetState();
-      fetchNextQuestion([]);
-    }
-  }, [isOpen]);
+  // Application Status
+  const [isApplying, setIsApplying] = useState(false);
+  const [appliedCount, setAppliedCount] = useState<number>(0);
 
-  const resetState = () => {
-    setHistory([]);
+  const resetAll = () => {
+    setStep("setup");
+    setQuestionCount(5);
+    setFocusArea("all");
+    setQuestions([]);
+    setCurrentIndex(0);
     setCollectedAnswers([]);
-    setCurrentQuestion(null);
-    setSynthesisDone(false);
-    setUpdateStats(null);
+    setDiffItems([]);
+    setAppliedCount(0);
     clearCurrentInput();
   };
 
@@ -63,18 +89,28 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
     setTextValue("");
   };
 
-  const fetchNextQuestion = async (hist: QuestionHistoryItem[]) => {
-    setLoadingQuestion(true);
-    clearCurrentInput();
+  // Step 1 -> Start Interview Batch
+  const handleStartInterview = async () => {
+    setLoadingBatch(true);
     try {
-      const q = await getNextInterviewQuestion(hist);
-      setCurrentQuestion(q);
+      const batch = await generateBatchQuestions(questionCount, focusArea);
+      if (!batch || batch.length === 0) {
+        toast.danger("Could not generate interview questions. Please try again.");
+        return;
+      }
+      setQuestions(batch);
+      setCurrentIndex(0);
+      setCollectedAnswers([]);
+      clearCurrentInput();
+      setStep("interview");
     } catch (err) {
-      toast.danger("Failed to load question. Please try again.");
+      toast.danger("Failed to load interview setup. Please try again.");
     } finally {
-      setLoadingQuestion(false);
+      setLoadingBatch(false);
     }
   };
+
+  const currentQuestion = questions[currentIndex] || null;
 
   const getCurrentFormattedAnswer = (): unknown | null => {
     if (!currentQuestion) return null;
@@ -99,7 +135,8 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
     }
   };
 
-  const handleNext = async () => {
+  // Step 2 -> Next Question or Finish Early
+  const handleNextQuestion = async () => {
     if (!currentQuestion) return;
     const ans = getCurrentFormattedAnswer();
 
@@ -108,46 +145,37 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
       return;
     }
 
-    const historyItem: QuestionHistoryItem = {
-      id: currentQuestion.id,
-      question: currentQuestion.question,
-      answer: ans,
-    };
-
     const answerItem: AnswerItem = {
       question_id: currentQuestion.id,
       target_type: currentQuestion.target_type,
       target_id: currentQuestion.target_id,
+      target_name: currentQuestion.target_name,
       question: currentQuestion.question,
       answer: ans,
     };
 
-    const newHistory = [...history, historyItem];
     const newAnswers = [...collectedAnswers, answerItem];
-
-    setHistory(newHistory);
     setCollectedAnswers(newAnswers);
 
-    await fetchNextQuestion(newHistory);
+    if (currentIndex + 1 < questions.length) {
+      setCurrentIndex((prev) => prev + 1);
+      clearCurrentInput();
+    } else {
+      await generateSynthesisPreview(newAnswers);
+    }
   };
 
-  const handleSkip = async () => {
-    if (!currentQuestion) return;
-
-    const historyItem: QuestionHistoryItem = {
-      id: currentQuestion.id,
-      question: currentQuestion.question,
-      answer: "(Skipped)",
-    };
-
-    const newHistory = [...history, historyItem];
-    setHistory(newHistory);
-
-    await fetchNextQuestion(newHistory);
+  const handleSkipQuestion = async () => {
+    if (currentIndex + 1 < questions.length) {
+      setCurrentIndex((prev) => prev + 1);
+      clearCurrentInput();
+    } else {
+      await generateSynthesisPreview(collectedAnswers);
+    }
   };
 
-  const handleFinishAndSynthesize = async () => {
-    // If there is an unsaved answer in the current question, include it
+  // Finish Early & Generate Diff Preview
+  const handleFinishEarly = async () => {
     let finalAnswers = [...collectedAnswers];
     const currentAns = getCurrentFormattedAnswer();
     if (currentQuestion && currentAns !== null && currentAns !== "") {
@@ -155,6 +183,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
         question_id: currentQuestion.id,
         target_type: currentQuestion.target_type,
         target_id: currentQuestion.target_id,
+        target_name: currentQuestion.target_name,
         question: currentQuestion.question,
         answer: currentAns,
       });
@@ -165,19 +194,59 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
       return;
     }
 
-    setIsSynthesizing(true);
+    await generateSynthesisPreview(finalAnswers);
+  };
+
+  // Step 3 -> Generate Before/After Diff Preview
+  const generateSynthesisPreview = async (answers: AnswerItem[]) => {
+    setIsGeneratingPreview(true);
+    setStep("preview");
     try {
-      const res = await synthesizeInterviewAnswers(finalAnswers);
-      setUpdateStats({ updated_count: res.updated_count });
-      setSynthesisDone(true);
+      const diffs = await previewSynthesis(answers);
+      setDiffItems(diffs);
+    } catch (err) {
+      toast.danger("Failed to generate preview diffs.");
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
+  const toggleDiffApproval = (id: string) => {
+    setDiffItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, approved: !item.approved } : item))
+    );
+  };
+
+  const toggleAllDiffs = (approve: boolean) => {
+    setDiffItems((prev) => prev.map((item) => ({ ...item, approved: approve })));
+  };
+
+  // Step 4 -> Apply Approved Diffs to DB
+  const handleApplySynthesis = async () => {
+    const approved = diffItems.filter((d) => d.approved);
+    if (approved.length === 0) {
+      toast.danger("Please select at least one update proposal to apply.");
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      const res = await applySynthesis(approved, {
+        count: questions.length,
+        focus: focusArea,
+        questions,
+        answers: collectedAnswers,
+      });
+      setAppliedCount(res.updated_count);
+      setStep("done");
       toast.success("Profile successfully enriched!");
       if (onProfileUpdated) {
         onProfileUpdated();
       }
     } catch (err) {
-      toast.danger("Failed to process answers.");
+      toast.danger("Failed to apply profile updates.");
     } finally {
-      setIsSynthesizing(false);
+      setIsApplying(false);
     }
   };
 
@@ -188,54 +257,135 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl w-full bg-slate-900 border border-slate-800 text-slate-100 p-6 rounded-2xl shadow-2xl">
-        <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-white border-b border-slate-800 pb-3">
-          <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-          AI Profile Interview & Context Generator
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        resetAll();
+        onClose();
+      }
+    }}>
+      <DialogContent className="max-w-2xl w-full bg-slate-900 border border-slate-800 text-slate-100 p-6 rounded-2xl shadow-2xl overflow-y-auto max-h-[85vh]">
+        <DialogTitle className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2 text-xl font-semibold text-white">
+            <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+            AI Profile Interview & Context Generator
+          </div>
+          {step === "interview" && (
+            <span className="text-xs font-medium text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+              {currentIndex + 1} / {questions.length} Questions
+            </span>
+          )}
         </DialogTitle>
 
-        {synthesisDone ? (
-          <div className="py-8 text-center space-y-4">
-            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
-              <CheckCircle2 className="w-10 h-10" />
+        {/* STEP 1: SETUP QUESTIONNAIRE */}
+        {step === "setup" && (
+          <div className="space-y-6 pt-2">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-white">Customize Your Interview Session</h3>
+              <p className="text-xs text-slate-400">
+                Choose how many questions to answer and select a focus area to extract deep technical context for your profile.
+              </p>
             </div>
-            <h3 className="text-2xl font-bold text-white">Interview Completed!</h3>
-            <p className="text-slate-400 max-w-md mx-auto text-sm">
-              Your {collectedAnswers.length} responses have been analyzed, enriching your projects, experiences, and skills with rich technical narrative context.
-            </p>
-            {updateStats && (
-              <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3 text-xs text-indigo-300 font-medium inline-block">
-                {updateStats.updated_count} profile items updated and enriched.
+
+            {/* Question Count Option */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-300">How many questions would you like to answer?</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[3, 5, 10].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setQuestionCount(num)}
+                    className={`py-3 px-4 rounded-xl border text-sm font-semibold transition-all flex flex-col items-center gap-1 ${
+                      questionCount === num
+                        ? "bg-indigo-600/25 border-indigo-500 text-indigo-200 shadow-lg shadow-indigo-500/10"
+                        : "bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800"
+                    }`}
+                  >
+                    <span className="text-lg">{num} Questions</span>
+                    <span className="text-[10px] text-slate-500 font-normal">
+                      {num === 3 ? "~2 min quick check" : num === 5 ? "~4 min standard" : "~8 min deep dive"}
+                    </span>
+                  </button>
+                ))}
               </div>
-            )}
-            <div className="pt-4">
-              <Button onClick={onClose} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-xl">
-                Complete & Return to Profile
+            </div>
+
+            {/* Focus Area Option */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-300">Select Focus Area for Questions</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  { id: "all", label: "All / Mixed Profile", desc: "Balanced check across projects & skills", icon: Layers },
+                  { id: "projects", label: "Projects & Architecture", desc: "System design, stacks, scaling", icon: Code2 },
+                  { id: "experiences", label: "Career & Experience", desc: "Team impact, leadership, scope", icon: Briefcase },
+                  { id: "skills", label: "Technical Skills", desc: "Tool mastery & production depth", icon: Wrench },
+                  { id: "challenges", label: "Obstacles & Challenges", desc: "Debugging, trade-offs, learnings", icon: Flame },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const selected = focusArea === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setFocusArea(item.id as FocusArea)}
+                      className={`text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                        selected
+                          ? "bg-indigo-600/20 border-indigo-500 text-white"
+                          : "bg-slate-800/30 border-slate-700/50 text-slate-300 hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg ${selected ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-white">{item.label}</div>
+                        <div className="text-[11px] text-slate-400 leading-tight mt-0.5">{item.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 flex justify-end">
+              <Button
+                onClick={handleStartInterview}
+                disabled={loadingBatch}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2"
+              >
+                {loadingBatch ? (
+                  <>
+                    <Spinner className="w-4 h-4 text-white" />
+                    Generating Questions...
+                  </>
+                ) : (
+                  <>
+                    Start AI Profile Interview
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
-        ) : isSynthesizing ? (
-          <div className="py-12 text-center space-y-4">
-            <Spinner className="w-10 h-10 mx-auto text-indigo-400" />
-            <h3 className="text-lg font-semibold text-white">Processing Answers...</h3>
-            <p className="text-slate-400 text-xs max-w-sm mx-auto">
-              AI is analyzing your interview responses to synthesize deep technical narrative context for your profile items.
-            </p>
-          </div>
-        ) : loadingQuestion ? (
-          <div className="py-12 text-center space-y-3">
-            <Spinner className="w-8 h-8 mx-auto text-indigo-400" />
-            <p className="text-slate-400 text-xs">Generating customized question for your profile...</p>
-          </div>
-        ) : currentQuestion ? (
+        )}
+
+        {/* STEP 2: INTERVIEW Q&A */}
+        {step === "interview" && currentQuestion && (
           <div className="space-y-5 pt-2">
-            {/* Target indicator */}
+            {/* Target indicator & Finish early header */}
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span className="flex items-center gap-1.5 font-medium text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
                 Target: {currentQuestion.target_name || currentQuestion.target_type}
               </span>
-              <span>Question #{history.length + 1} ({collectedAnswers.length} answered)</span>
+              {collectedAnswers.length > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={handleFinishEarly}
+                  className="text-xs text-indigo-300 hover:text-white"
+                >
+                  Finish & Review Early ({collectedAnswers.length} answered)
+                </Button>
+              )}
             </div>
 
             {/* Question title */}
@@ -251,9 +401,8 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
               )}
             </div>
 
-            {/* Render Question Inputs based on Question Type */}
+            {/* Render Question Inputs */}
             <div className="py-2 space-y-3">
-              {/* Type 1: Boolean */}
               {currentQuestion.type === "boolean" && (
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -281,7 +430,6 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                 </div>
               )}
 
-              {/* Type 2: Single Choice */}
               {currentQuestion.type === "single_choice" && (
                 <div className="space-y-2">
                   {(currentQuestion.options || []).map((opt) => (
@@ -318,7 +466,6 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                 </div>
               )}
 
-              {/* Type 3: Multi Select */}
               {currentQuestion.type === "multi_select" && (
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-2">
@@ -341,20 +488,19 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                     })}
                   </div>
                   {currentQuestion.allow_custom && (
-                    <div className="pt-1 flex gap-2">
+                    <div className="pt-1">
                       <input
                         type="text"
                         placeholder="Option not listed? Add custom option..."
                         value={customValue}
                         onChange={(e) => setCustomValue(e.target.value)}
-                        className="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Type 4: Rating (1-5) */}
               {currentQuestion.type === "rating" && (
                 <div className="flex justify-between items-center gap-2 py-2">
                   {[1, 2, 3, 4, 5].map((val) => (
@@ -375,7 +521,6 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                 </div>
               )}
 
-              {/* Type 5: Open Text */}
               {currentQuestion.type === "text" && (
                 <Textarea
                   placeholder="Enter detailed response..."
@@ -391,35 +536,175 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
             <div className="flex items-center justify-between border-t border-slate-800 pt-4 mt-4">
               <Button
                 variant="ghost"
-                onClick={handleSkip}
+                onClick={handleSkipQuestion}
                 className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
               >
                 <SkipForward className="w-3.5 h-3.5" />
                 Skip Question
               </Button>
 
-              <div className="flex items-center gap-2">
-                {collectedAnswers.length > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={handleFinishAndSynthesize}
-                    className="text-xs border-slate-700 hover:bg-slate-800 text-indigo-300"
-                  >
-                    Finish & Enrich ({collectedAnswers.length})
-                  </Button>
-                )}
-
-                <Button
-                  onClick={handleNext}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-1.5"
-                >
-                  Next Question
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
+              <Button
+                onClick={handleNextQuestion}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-1.5"
+              >
+                {currentIndex + 1 < questions.length ? "Next Question" : "Review Updates"}
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
             </div>
           </div>
-        ) : null}
+        )}
+
+        {/* STEP 3: BEFORE & AFTER DIFF PREVIEW */}
+        {step === "preview" && (
+          <div className="space-y-5 pt-2">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <ArrowRightLeft className="w-4 h-4 text-indigo-400" />
+                  Review Proposed Profile Enrichments
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Select which enriched narratives to apply to your profile database.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAllDiffs(true)}
+                  className="text-[11px] text-indigo-300 hover:underline"
+                >
+                  Select All
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  type="button"
+                  onClick={() => toggleAllDiffs(false)}
+                  className="text-[11px] text-slate-400 hover:underline"
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
+
+            {isGeneratingPreview ? (
+              <div className="py-12 text-center space-y-3">
+                <Spinner className="w-8 h-8 mx-auto text-indigo-400" />
+                <p className="text-slate-400 text-xs">Synthesizing answers into Before/After proposals...</p>
+              </div>
+            ) : diffItems.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-sm">
+                No updates were synthesized from the responses provided.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {diffItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-4 rounded-xl border transition-all ${
+                      item.approved
+                        ? "bg-slate-800/50 border-indigo-500/40"
+                        : "bg-slate-900 border-slate-800 opacity-60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleDiffApproval(item.id)}
+                          className="text-indigo-400 hover:text-indigo-300"
+                        >
+                          {item.approved ? (
+                            <CheckSquare className="w-5 h-5 text-indigo-400" />
+                          ) : (
+                            <Square className="w-5 h-5 text-slate-500" />
+                          )}
+                        </button>
+                        <span className="font-medium text-sm text-white">{item.target_name}</span>
+                        <span className="text-[10px] text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 uppercase font-mono">
+                          {item.target_type}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Diff comparison view */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {/* Current text */}
+                      <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-3 space-y-1">
+                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                          Current Description
+                        </div>
+                        <div className="text-slate-400 leading-relaxed font-mono">
+                          {item.current_text || "(Empty)"}
+                        </div>
+                      </div>
+
+                      {/* Proposed text */}
+                      <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-lg p-3 space-y-1">
+                        <div className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                          Proposed Enriched Description
+                        </div>
+                        <div className="text-emerald-100 leading-relaxed font-mono">
+                          {item.proposed_text}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+              <Button variant="ghost" onClick={() => setStep("setup")} className="text-xs text-slate-400">
+                Cancel / Restart
+              </Button>
+
+              <Button
+                onClick={handleApplySynthesis}
+                disabled={isApplying || diffItems.filter((d) => d.approved).length === 0}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-5 py-2.5 rounded-xl flex items-center gap-2"
+              >
+                {isApplying ? (
+                  <>
+                    <Spinner className="w-3.5 h-3.5 text-white" />
+                    Applying Updates...
+                  </>
+                ) : (
+                  <>
+                    Confirm & Apply {diffItems.filter((d) => d.approved).length} Updates
+                    <CheckCircle2 className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: DONE */}
+        {step === "done" && (
+          <div className="py-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+            <h3 className="text-2xl font-bold text-white">Profile Successfully Enriched!</h3>
+            <p className="text-slate-400 max-w-md mx-auto text-sm">
+              Your profile has been updated with rich technical narrative context and logged into the interview database.
+            </p>
+            <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3 text-xs text-indigo-300 font-medium inline-block">
+              {appliedCount} profile items updated and logged in database.
+            </div>
+            <div className="pt-4">
+              <Button
+                onClick={() => {
+                  resetAll();
+                  onClose();
+                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-xl"
+              >
+                Complete & Return to Profile
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

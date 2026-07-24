@@ -29,8 +29,23 @@ def test_get_next_question_fallback():
     assert "allow_custom" in q
 
 
-def test_synthesize_answers_fallback():
-    """Test synthesis fallback correctly updates project descriptions in DB."""
+def test_generate_batch_questions():
+    """Test generating a batch of questions based on count and focus area."""
+    queries.insert("projects", {
+        "name": "Project Gamma",
+        "description": "System architecture demo",
+        "technologies": ["Go", "Docker"],
+    })
+
+    batch = interview.generate_batch_questions(count=3, focus="projects")
+    assert isinstance(batch, list)
+    assert len(batch) > 0
+    assert "question" in batch[0]
+    assert "type" in batch[0]
+
+
+def test_preview_and_apply_synthesis():
+    """Test previewing synthesis diffs and applying approved diffs to DB with session recording."""
     pid = queries.insert("projects", {
         "name": "Project Beta",
         "description": "Base description.",
@@ -42,14 +57,30 @@ def test_synthesize_answers_fallback():
             "question_id": "q1",
             "target_type": "project",
             "target_id": pid,
+            "target_name": "Project Beta",
             "question": "What database was used?",
             "answer": "PostgreSQL with connection pooling",
         }
     ]
 
-    res = interview.synthesize_answers(answers)
-    assert res["ok"] is True
-    assert res["updated_count"] > 0
+    # Preview diffs
+    preview = interview.preview_synthesis(answers)
+    assert "diffs" in preview
+    assert len(preview["diffs"]) > 0
+
+    diff = preview["diffs"][0]
+    assert diff["target_type"] == "project"
+    assert diff["target_id"] == pid
+    assert "proposed_text" in diff
+
+    # Apply approved diff
+    apply_res = interview.apply_synthesis(
+        approved_diffs=[diff],
+        session_info={"count": 1, "focus": "projects", "questions": [], "answers": answers},
+    )
+    assert apply_res["ok"] is True
+    assert apply_res["updated_count"] == 1
+    assert apply_res["session_id"] is not None
 
     updated_proj = queries.get_by_id("projects", pid)
-    assert "PostgreSQL with connection pooling" in updated_proj["description"]
+    assert "PostgreSQL" in updated_proj["description"]

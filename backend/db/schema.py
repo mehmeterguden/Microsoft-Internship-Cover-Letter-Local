@@ -249,10 +249,22 @@ CREATE TABLE IF NOT EXISTS company_research_cache (
     expires_at   TEXT NOT NULL                            -- ISO timestamp
 );
 
+-- ── AI Profile Interview Sessions ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS interview_sessions (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at       TEXT NOT NULL,                        -- ISO-8601 UTC timestamp
+    focus_area       TEXT NOT NULL,                        -- all|projects|experiences|skills|challenges
+    question_count   INTEGER NOT NULL DEFAULT 5,
+    questions        TEXT NOT NULL DEFAULT '[]',           -- JSON: list[InterviewQuestion]
+    answers          TEXT NOT NULL DEFAULT '[]',           -- JSON: list[AnswerItem]
+    applied_updates  TEXT NOT NULL DEFAULT '[]'            -- JSON: list[SynthesisDiffItem]
+);
+
 CREATE INDEX IF NOT EXISTS idx_llm_runs_created ON llm_runs(created_at);
 CREATE INDEX IF NOT EXISTS idx_cover_letters_job ON cover_letters(job_id);
 CREATE INDEX IF NOT EXISTS idx_skill_links_skill ON skill_links(skill_id);
 CREATE INDEX IF NOT EXISTS idx_skill_links_entity ON skill_links(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_interview_sessions_created ON interview_sessions(created_at);
 """
 
 

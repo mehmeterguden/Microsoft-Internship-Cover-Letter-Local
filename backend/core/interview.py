@@ -1,20 +1,22 @@
 """AI Profile Interview & Context Generator Core Engine.
 
-Gathers candidate profile context, invokes LLM to generate dynamic, typed interview
-questions (boolean, single_choice, multi_select, rating, text), and synthesizes user
-answers into rich technical narratives in the database.
+Supports:
+1. Batch question generation conditioned by question count and focus area (all, projects, experiences, skills, challenges).
+2. Before-and-After Diff Preview synthesis generation for candidate review.
+3. Database persistence of approved updates and interview session tracking in `interview_sessions`.
 """
 
 from __future__ import annotations
 
+import datetime
 import json
 import uuid
 from typing import Any
 
 from core import llm
 from core.prompts.interview import (
-    build_question_messages,
-    build_synthesis_messages,
+    build_batch_question_messages,
+    build_synthesis_diff_messages,
 )
 from db import queries
 
@@ -58,240 +60,293 @@ def _format_context(ctx: dict[str, Any]) -> str:
 
     if ctx["skills"]:
         lines.append("\n-- SKILLS --")
-        skill_names = [f"{s.get('name')} (Rating: {s.get('self_rating', '?')}/5)" for s in ctx["skills"]]
-        lines.append(", ".join(skill_names))
+        skill_names = [f"ID {s.get('id')}: {s.get('name')} (Rating: {s.get('self_rating', '?')}/5) - {s.get('note') or ''}" for s in ctx["skills"]]
+        lines.append("\n".join(skill_names))
 
     return "\n".join(lines)
 
 
-def get_next_question(history: list[dict[str, Any]]) -> dict[str, Any]:
-    """Generate the next dynamic interview question based on profile context & history.
-
-    Returns a typed question dict matching schema:
-    {
-      "id": str,
-      "target_type": "project" | "experience" | "skill" | "general",
-      "target_id": int | None,
-      "target_name": str,
-      "question": str,
-      "type": "boolean" | "single_choice" | "multi_select" | "rating" | "text",
-      "options": list[str] | None,
-      "allow_custom": bool,
-      "hint": str
-    }
-    """
+def generate_batch_questions(count: int = 5, focus: str = "all") -> list[dict[str, Any]]:
+    """Generate a batch of N targeted interview questions based on candidate context and focus area."""
     ctx = gather_context()
     context_str = _format_context(ctx)
 
-    history_str = ""
-    asked_questions: set[str] = set()
-    if history:
-        history_lines = []
-        for item in history:
-            q_text = item.get("question", "")
-            if q_text:
-                asked_questions.add(q_text)
-                ans_text = item.get("answer", "(Skipped)")
-                history_lines.append(f"Q: {q_text} -> A: {ans_text}")
-        history_str = "\n".join(history_lines)
-
-    messages = build_question_messages(context_str, history_str)
+    messages = build_batch_question_messages(context_str, count, focus)
 
     try:
-        raw = llm.complete(messages, temperature=0.5, max_tokens=1000)
+        raw = llm.complete(messages, temperature=0.5, max_tokens=2000)
         start, end = raw.find("{"), raw.rfind("}")
         if start != -1 and end > start:
             data = json.loads(raw[start : end + 1])
-            # Ensure required fields exist
-            if data.get("question") and data.get("type"):
-                data["id"] = data.get("id") or f"q_{uuid.uuid4().hex[:8]}"
-                if data["type"] in ("single_choice", "multi_select") and not data.get("options"):
-                    data["options"] = ["Option A", "Option B", "Option C"]
-                data["allow_custom"] = bool(data.get("allow_custom", True))
-                return data
+            questions = data.get("questions") or []
+            if isinstance(questions, list) and len(questions) > 0:
+                validated = []
+                for idx, q in enumerate(questions[:count]):
+                    q["id"] = q.get("id") or f"q_{idx+1}_{uuid.uuid4().hex[:6]}"
+                    if q.get("type") in ("single_choice", "multi_select") and not q.get("options"):
+                        q["options"] = ["Option A", "Option B", "Option C"]
+                    q["allow_custom"] = bool(q.get("allow_custom", True))
+                    validated.append(q)
+                if validated:
+                    return validated
     except Exception:
-        pass  # Fallback logic if LLM call or parsing fails
+        pass
 
-    # Robust fallback questions if LLM fails or profile is minimal
-    return _generate_fallback_question(ctx, asked_questions)
+    return _generate_fallback_batch(ctx, count, focus)
 
 
-def _generate_fallback_question(ctx: dict[str, Any], asked_questions: set[str]) -> dict[str, Any]:
-    """Produce deterministic fallback questions if LLM generation is unavailable."""
+def _generate_fallback_batch(ctx: dict[str, Any], count: int, focus: str) -> list[dict[str, Any]]:
+    """Deterministic fallback generator for question batches."""
     projects = ctx.get("projects") or []
     experiences = ctx.get("experiences") or []
+    skills = ctx.get("skills") or []
 
+    pool: list[dict[str, Any]] = []
+
+    # Project questions
     for proj in projects:
-        q1 = f"What was your biggest technical challenge in {proj.get('name')}?"
-        if q1 not in asked_questions:
-            return {
-                "id": f"q_fallback_proj_{proj.get('id')}",
-                "target_type": "project",
-                "target_id": proj.get("id"),
-                "target_name": proj.get("name"),
-                "question": q1,
-                "type": "text",
-                "options": None,
-                "allow_custom": True,
-                "hint": "Describe the technical hurdle, how you solved it, and what you learned.",
-            }
+        pool.append({
+            "id": f"q_proj_arch_{proj.get('id')}",
+            "target_type": "project",
+            "target_id": proj.get("id"),
+            "target_name": proj.get("name"),
+            "question": f"What was your primary technical role & architecture contribution in {proj.get('name')}?",
+            "type": "text",
+            "options": None,
+            "allow_custom": True,
+            "hint": "Describe system design, database choices, or component structure.",
+        })
+        pool.append({
+            "id": f"q_proj_bool_{proj.get('id')}",
+            "target_type": "project",
+            "target_id": proj.get("id"),
+            "target_name": proj.get("name"),
+            "question": f"Did {proj.get('name')} implement automated testing or CI/CD pipelines?",
+            "type": "boolean",
+            "options": None,
+            "allow_custom": False,
+            "hint": "Select Yes or No.",
+        })
 
-        q2 = f"Did {proj.get('name')} involve automated testing or CI/CD pipelines?"
-        if q2 not in asked_questions:
-            return {
-                "id": f"q_fallback_proj_bool_{proj.get('id')}",
-                "target_type": "project",
-                "target_id": proj.get("id"),
-                "target_name": proj.get("name"),
-                "question": q2,
-                "type": "boolean",
-                "options": ["Yes, full CI/CD", "No, manual testing"],
-                "allow_custom": False,
-                "hint": "Select your testing/deployment setup.",
-            }
-
+    # Experience questions
     for exp in experiences:
-        q_exp = f"Which key technologies did you use most during your role at {exp.get('company')}?"
-        if q_exp not in asked_questions:
-            return {
-                "id": f"q_fallback_exp_{exp.get('id')}",
-                "target_type": "experience",
-                "target_id": exp.get("id"),
-                "target_name": f"{exp.get('title')} at {exp.get('company')}",
-                "question": q_exp,
-                "type": "multi_select",
-                "options": ["Python", "JavaScript / TypeScript", "Docker", "PostgreSQL", "React", "Git"],
-                "allow_custom": True,
-                "hint": "Select all that apply or add your own in 'Other'.",
-            }
+        pool.append({
+            "id": f"q_exp_tech_{exp.get('id')}",
+            "target_type": "experience",
+            "target_id": exp.get("id"),
+            "target_name": f"{exp.get('title')} at {exp.get('company')}",
+            "question": f"Which core technologies did you work with most during your role at {exp.get('company')}?",
+            "type": "multi_select",
+            "options": ["Python", "TypeScript / React", "Docker", "PostgreSQL", "REST APIs", "Git"],
+            "allow_custom": True,
+            "hint": "Select all that apply or add custom tech.",
+        })
 
-    # General fallback
-    return {
-        "id": f"q_fallback_gen_{uuid.uuid4().hex[:4]}",
+    # Skill questions
+    for sk in skills[:3]:
+        pool.append({
+            "id": f"q_sk_rate_{sk.get('id')}",
+            "target_type": "skill",
+            "target_id": sk.get("id"),
+            "target_name": sk.get("name"),
+            "question": f"How would you rate your hands-on production proficiency with {sk.get('name')}?",
+            "type": "rating",
+            "options": None,
+            "allow_custom": False,
+            "hint": "Scale 1 (Basic) to 5 (Expert / Production Mastery).",
+        })
+
+    # General / Challenge question
+    pool.append({
+        "id": "q_gen_challenge",
         "target_type": "general",
         "target_id": None,
-        "target_name": "General Career Context",
-        "question": "What is the primary technical skill or domain you want to highlight for upcoming roles?",
+        "target_name": "Technical Problem Solving",
+        "question": "What is a memorable technical bug or obstacle you encountered and successfully resolved?",
         "type": "text",
         "options": None,
         "allow_custom": True,
-        "hint": "e.g. Full-Stack System Architecture, AI/ML Infrastructure, Cloud DevOps",
-    }
+        "hint": "Explain the symptom, root cause, and how you fixed it.",
+    })
+
+    # Filter pool based on focus if applicable
+    if focus == "projects":
+        filtered = [q for q in pool if q["target_type"] == "project"]
+    elif focus == "experiences":
+        filtered = [q for q in pool if q["target_type"] == "experience"]
+    elif focus == "skills":
+        filtered = [q for q in pool if q["target_type"] == "skill"]
+    elif focus == "challenges":
+        filtered = [q for q in pool if q["type"] == "text" or "challenge" in q["id"]]
+    else:
+        filtered = pool
+
+    res = filtered if len(filtered) >= count else pool
+    return res[:count]
 
 
-def synthesize_answers(answers: list[dict[str, Any]]) -> dict[str, Any]:
-    """Synthesize collected Q&A pairs into rich technical descriptions and update DB.
-
-    `answers` is a list of:
-    {
-       "question_id": str,
-       "target_type": "project" | "experience" | "skill" | "general",
-       "target_id": int | None,
-       "question": str,
-       "answer": str | list[str] | bool | int
-    }
-    """
+def preview_synthesis(answers: list[dict[str, Any]]) -> dict[str, Any]:
+    """Generate Before-and-After synthesis diff proposals for user review."""
     if not answers:
-        return {"ok": True, "updated_count": 0, "updates": {}}
+        return {"diffs": []}
 
     ctx = gather_context()
     context_str = _format_context(ctx)
 
     qa_lines = []
     for a in answers:
-        q_txt = a.get("question", "")
+        q_text = a.get("question", "")
+        t_name = a.get("target_name") or a.get("target_type") or "General"
         ans_val = a.get("answer")
         if isinstance(ans_val, list):
-            ans_str = ", ".join(str(x) for x in ans_val)
+            ans_str = ", ".join(map(str, ans_val))
         else:
             ans_str = str(ans_val)
-        qa_lines.append(f"Target [{a.get('target_type')}:{a.get('target_id')}]: Question: '{q_txt}' -> Answer: '{ans_str}'")
+        qa_lines.append(f"• Target [{t_name}]: Q: {q_text} -> Answer: {ans_str}")
 
     qa_pairs_str = "\n".join(qa_lines)
-    messages = build_synthesis_messages(context_str, qa_pairs_str)
+    messages = build_synthesis_diff_messages(context_str, qa_pairs_str)
 
     try:
-        raw = llm.complete(messages, temperature=0.3, max_tokens=2000)
+        raw = llm.complete(messages, temperature=0.4, max_tokens=2000)
         start, end = raw.find("{"), raw.rfind("}")
         if start != -1 and end > start:
             data = json.loads(raw[start : end + 1])
-            return _apply_synthesis_updates(data)
-    except Exception as exc:
-        # Fallback: direct string append if LLM synthesis fails
-        return _apply_fallback_updates(answers)
+            diffs = data.get("diffs") or []
+            if isinstance(diffs, list) and len(diffs) > 0:
+                validated_diffs = []
+                for item in diffs:
+                    item["id"] = item.get("id") or f"diff_{uuid.uuid4().hex[:6]}"
+                    item["approved"] = True
+                    validated_diffs.append(item)
+                return {"diffs": validated_diffs}
+    except Exception:
+        pass
 
-    return {"ok": True, "updated_count": 0, "updates": {}}
-
-
-def _apply_synthesis_updates(data: dict[str, Any]) -> dict[str, Any]:
-    """Apply structured updates from LLM synthesis to DB rows."""
-    updated_count = 0
-    updates_applied: dict[str, list[int]] = {"projects": [], "experiences": [], "skills": []}
-
-    for p in data.get("updated_projects") or []:
-        pid, desc = p.get("id"), p.get("description")
-        if pid and desc:
-            if queries.update("projects", pid, {"description": desc}):
-                updated_count += 1
-                updates_applied["projects"].append(pid)
-
-    for e in data.get("updated_experiences") or []:
-        eid, desc = e.get("id"), e.get("description")
-        if eid and desc:
-            if queries.update("experiences", eid, {"description": desc}):
-                updated_count += 1
-                updates_applied["experiences"].append(eid)
-
-    for s in data.get("updated_skills") or []:
-        sid, note = s.get("id"), s.get("note")
-        if sid and note:
-            if queries.update("skills", sid, {"note": note}):
-                updated_count += 1
-                updates_applied["skills"].append(sid)
-
-    return {"ok": True, "updated_count": updated_count, "updates": updates_applied}
+    return _generate_fallback_diffs(ctx, answers)
 
 
-def _apply_fallback_updates(answers: list[dict[str, Any]]) -> dict[str, Any]:
-    """Fallback if LLM fails: directly append key Q&A information to items."""
-    updated_count = 0
-    updates_applied: dict[str, list[int]] = {"projects": [], "experiences": [], "skills": []}
+def _generate_fallback_diffs(ctx: dict[str, Any], answers: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fallback generator for synthesis diff proposals."""
+    grouped: dict[str, list[str]] = {}
+    targets_info: dict[str, dict[str, Any]] = {}
 
     for a in answers:
-        ttype = a.get("target_type")
-        tid = a.get("target_id")
-        ans = a.get("answer")
-        if not ttype or not tid or ans is None:
+        t_type = a.get("target_type") or "general"
+        t_id = a.get("target_id")
+        key = f"{t_type}_{t_id}"
+        targets_info[key] = {
+            "type": t_type,
+            "id": t_id,
+            "name": a.get("target_name") or t_type.capitalize(),
+        }
+
+        ans_val = a.get("answer")
+        if ans_val and ans_val != "(Skipped)":
+            if isinstance(ans_val, list):
+                ans_str = ", ".join(map(str, ans_val))
+            else:
+                ans_str = str(ans_val)
+            grouped.setdefault(key, []).append(f"{a.get('question')}: {ans_str}")
+
+    diffs: list[dict[str, Any]] = []
+    projects_map = {p["id"]: p for p in ctx.get("projects") or []}
+    experiences_map = {e["id"]: e for e in ctx.get("experiences") or []}
+    skills_map = {s["id"]: s for s in ctx.get("skills") or []}
+
+    for key, notes in grouped.items():
+        info = targets_info[key]
+        t_type, t_id, t_name = info["type"], info["id"], info["name"]
+        combined_notes = "; ".join(notes)
+
+        current_text = ""
+        proposed_text = ""
+
+        if t_type == "project" and t_id in projects_map:
+            orig = projects_map[t_id].get("description") or ""
+            current_text = orig or "(No description recorded)"
+            proposed_text = f"{orig} | Key details & technical context: {combined_notes}".strip(" | ")
+        elif t_type == "experience" and t_id in experiences_map:
+            orig = experiences_map[t_id].get("description") or ""
+            current_text = orig or "(No description recorded)"
+            proposed_text = f"{orig} | Key responsibilities & outcomes: {combined_notes}".strip(" | ")
+        elif t_type == "skill" and t_id in skills_map:
+            orig = skills_map[t_id].get("note") or ""
+            current_text = orig or "(No note recorded)"
+            proposed_text = f"{orig} | Context: {combined_notes}".strip(" | ")
+        else:
+            current_text = "(General Career Profile)"
+            proposed_text = f"Additional Career Context: {combined_notes}"
+
+        diffs.append({
+            "id": f"diff_{key}_{uuid.uuid4().hex[:4]}",
+            "target_type": t_type,
+            "target_id": t_id,
+            "target_name": t_name,
+            "current_text": current_text,
+            "proposed_text": proposed_text,
+            "approved": True,
+        })
+
+    return {"diffs": diffs}
+
+
+def apply_synthesis(approved_diffs: list[dict[str, Any]], session_info: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Persist approved diff updates into database and log interview session."""
+    updated_count = 0
+
+    for item in approved_diffs:
+        if not item.get("approved", True):
             continue
 
-        ans_str = ", ".join(ans) if isinstance(ans, list) else str(ans)
-        entry_note = f"\n• Interview insight: {a.get('question')} -> {ans_str}"
+        t_type = item.get("target_type")
+        t_id = item.get("target_id")
+        new_text = item.get("proposed_text")
 
-        if ttype == "project":
-            row = queries.get_by_id("projects", tid)
-            if row:
-                old_desc = row.get("description") or ""
-                new_desc = (old_desc + entry_note).strip()
-                if queries.update("projects", tid, {"description": new_desc}):
-                    updated_count += 1
-                    updates_applied["projects"].append(tid)
+        if not t_id or not new_text:
+            continue
 
-        elif ttype == "experience":
-            row = queries.get_by_id("experiences", tid)
-            if row:
-                old_desc = row.get("description") or ""
-                new_desc = (old_desc + entry_note).strip()
-                if queries.update("experiences", tid, {"description": new_desc}):
-                    updated_count += 1
-                    updates_applied["experiences"].append(tid)
+        if t_type == "project":
+            queries.update("projects", t_id, {"description": new_text})
+            updated_count += 1
+        elif t_type == "experience":
+            queries.update("experiences", t_id, {"description": new_text})
+            updated_count += 1
+        elif t_type == "skill":
+            queries.update("skills", t_id, {"note": new_text})
+            updated_count += 1
 
-        elif ttype == "skill":
-            row = queries.get_by_id("skills", tid)
-            if row:
-                old_note = row.get("note") or ""
-                new_note = (old_note + entry_note).strip()
-                if queries.update("skills", tid, {"note": new_note}):
-                    updated_count += 1
-                    updates_applied["skills"].append(tid)
+    # Log session in DB
+    session_id = None
+    if session_info:
+        try:
+            sess_row = {
+                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "focus_area": session_info.get("focus", "all"),
+                "question_count": session_info.get("count", 5),
+                "questions": json.dumps(session_info.get("questions", [])),
+                "answers": json.dumps(session_info.get("answers", [])),
+                "applied_updates": json.dumps(approved_diffs),
+            }
+            session_id = queries.insert("interview_sessions", sess_row)
+        except Exception:
+            pass
 
-    return {"ok": True, "updated_count": updated_count, "updates": updates_applied}
+    return {
+        "ok": True,
+        "updated_count": updated_count,
+        "session_id": session_id,
+    }
+
+
+def get_next_question(history: list[dict[str, Any]]) -> dict[str, Any]:
+    """Legacy alias for generating next question."""
+    batch = generate_batch_questions(count=1, focus="all")
+    return batch[0] if batch else {}
+
+
+def synthesize_answers(answers: list[dict[str, Any]]) -> dict[str, Any]:
+    """Legacy alias for direct synthesis and DB update."""
+    preview = preview_synthesis(answers)
+    return apply_synthesis(preview.get("diffs", []))
+
