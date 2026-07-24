@@ -202,15 +202,10 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
      in the async `error`; we surface both. Base URL is committed on blur / Test
      so typing doesn't fire a request per keystroke. */
   const [discoBaseUrl, setDiscoBaseUrl] = useState(initial.llm_base_url);
-  // Azure lists ~all base models the resource *could* serve, not your actual
-  // deployments — auto-picking one calls a model that doesn't exist. So we skip
-  // discovery for Azure: the deployment name is entered by hand and verified with
-  // Test connection (a real ping), which is what actually matters.
+  // For Azure this lists your real *deployments* (see the llm router); for local
+  // providers it lists installed models; for other cloud providers, their models.
   const discovery = useAsync<ModelsResult>(
-    () =>
-      draft.llm_provider === "azure_openai"
-        ? Promise.resolve({ provider: draft.llm_provider, models: [], error: null })
-        : listModels(draft.llm_provider, discoBaseUrl || undefined),
+    () => listModels(draft.llm_provider, discoBaseUrl || undefined),
     [draft.llm_provider, discoBaseUrl],
   );
   const discoveredModels = discovery.data?.models ?? [];
