@@ -177,6 +177,12 @@ def _assemble(
         if result.ok and result.sources:
             section_sources[result.section] = result.sources
 
+    def section(sec_name: str, default: Any = None) -> Any:
+        res = results.get(sec_name)
+        if res and res.ok and res.data is not None:
+            return res.data
+        return default
+
     profile = section("company_profile", None)
     firmographics = (
         getattr(profile, "firmographics", Firmographics())
