@@ -24,7 +24,8 @@ _VERIFY_SCHEMA = """{
     {
       "text": string,                         // the specific claim, quoted or closely paraphrased from the letter
       "status": "supported" | "partly" | "unsupported",
-      "note": string                          // the evidence that backs it, OR what's missing/exaggerated
+      "note": string,                         // the evidence that backs it, OR what's missing/exaggerated
+      "suggestion": string                    // proposed fix/rewording to accurately align this claim with the profile
     }
   ]
 }"""
@@ -43,7 +44,8 @@ any factual statement about the company. IGNORE generic filler that asserts noth
    - "supported": clearly backed by the profile or research.
    - "partly": related to something in the profile but overstated, generalized, or only loosely implied.
    - "unsupported": not present in the profile or research at all — i.e. invented.
-3. Set "verdict" to "review" if ANY claim is "unsupported" (or several are "partly"), otherwise "grounded".
+3. For each "partly" or "unsupported" claim, provide a "suggestion" with the exact reworded sentence or correction that aligns with the profile.
+4. Set "verdict" to "review" if ANY claim is "unsupported" (or several are "partly"), otherwise "grounded".
 
 Output rules — follow exactly:
 - Reply with ONE JSON object only. No prose, no markdown, no code fences.
@@ -54,7 +56,7 @@ letter the benefit of the doubt — if the support isn't in the context, the cla
 - Keep "note" short and concrete: name the profile item that backs a claim, or say exactly what is \
 missing/exaggerated.
 - If the letter makes no checkable claims, return "verdict": "grounded" with an empty "claims" list.
-- Write "summary" and every "note" in the language of the letter."""
+- Write "summary", "note", and "suggestion" in the language of the letter."""
 
 
 def build_verify_messages(

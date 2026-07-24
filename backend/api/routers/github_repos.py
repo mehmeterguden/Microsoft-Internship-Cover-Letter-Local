@@ -49,7 +49,21 @@ def update_github_repo(repo_id: int, repo: GithubRepo) -> GithubRepo:
 
 @router.delete("/{repo_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_github_repo(repo_id: int) -> None:
-    """Delete a GitHub repo."""
-    if not queries.delete(TABLE, repo_id):
+    """Delete a GitHub repo and any profile project mirrored from it."""
+    row = queries.get_by_id(TABLE, repo_id)
+    if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"github repo {repo_id} not found")
+
+    repo_name = (row.get("repo_name") or "").strip().lower()
+
+    # Delete any project in the projects table that was created from this GitHub repo
+    for proj in queries.list_all("projects"):
+        p_name = (proj.get("name") or "").strip().lower()
+        p_detail = (proj.get("source_detail") or "").strip().lower()
+        p_gid = proj.get("github_repo_id")
+
+        if p_gid == repo_id or (proj.get("source") == "github" and (p_detail == repo_name or p_name == repo_name)):
+            queries.delete("projects", proj["id"])
+
+    queries.delete(TABLE, repo_id)
     return None

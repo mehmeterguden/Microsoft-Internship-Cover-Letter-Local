@@ -50,7 +50,12 @@ def _normalize(data: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(c, dict) or not (c.get("text") or "").strip():
             continue
         status = c.get("status") if c.get("status") in _LEVELS else "partly"
-        claims.append({"text": c["text"].strip(), "status": status, "note": (c.get("note") or "").strip()})
+        claims.append({
+            "text": c["text"].strip(),
+            "status": status,
+            "note": (c.get("note") or "").strip(),
+            "suggestion": (c.get("suggestion") or c.get("note") or "").strip(),
+        })
 
     has_unsupported = any(c["status"] == "unsupported" for c in claims)
     partly = sum(1 for c in claims if c["status"] == "partly")

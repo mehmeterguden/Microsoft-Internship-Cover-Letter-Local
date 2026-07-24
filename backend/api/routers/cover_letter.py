@@ -180,3 +180,28 @@ async def revise(payload: ReviseRequest) -> StreamingResponse:
     """Stream a grounded revision that removes/softens only the flagged claims."""
     flagged = [c.model_dump() for c in payload.flagged]
     return _sse(verification.revise_stream(payload.content, payload.company_name, payload.role_title, flagged))
+
+
+class InlineEditRequest(BaseModel):
+    selected_text: str = Field(min_length=1)
+    action: Literal["regenerate", "custom", "ask"] = "regenerate"
+    instruction: str | None = None
+    full_letter: str | None = None
+    company_name: str | None = Field(default=None, max_length=200)
+    role_title: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/inline-edit", summary="Perform inline AI edit or QA on selected cover letter text")
+async def inline_edit_endpoint(payload: InlineEditRequest) -> dict:
+    """Rewrite or ask AI about a selected text snippet in the cover letter editor."""
+    res = await run_in_threadpool(
+        cover_letter.inline_edit,
+        selected_text=payload.selected_text,
+        action=payload.action,
+        instruction=payload.instruction,
+        full_letter=payload.full_letter,
+        company_name=payload.company_name,
+        role_title=payload.role_title,
+    )
+    return {"result": res, "action": payload.action}
+

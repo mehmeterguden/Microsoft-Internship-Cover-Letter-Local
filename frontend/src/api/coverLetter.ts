@@ -31,12 +31,32 @@ export function streamCoverLetter(
 export interface ReviewClaim {
   text: string;
   reason: string;
+  suggestion?: string | null;
 }
 
 /** POST /cover-letter/review — flag claims to double-check before sending. */
 export async function reviewCoverLetter(letter: string): Promise<ReviewClaim[]> {
   const { data } = await client.post<{ claims: ReviewClaim[] }>("/cover-letter/review", { letter });
   return data.claims ?? [];
+}
+
+export interface InlineEditRequest {
+  selected_text: string;
+  action?: "regenerate" | "custom" | "ask";
+  instruction?: string;
+  full_letter?: string;
+  company_name?: string;
+  role_title?: string;
+}
+
+export interface InlineEditResult {
+  result: string;
+  action: string;
+}
+
+export async function inlineEditCvLetter(req: InlineEditRequest): Promise<InlineEditResult> {
+  const { data } = await client.post<InlineEditResult>("/cover-letter/inline-edit", req);
+  return data;
 }
 
 /** One group of masked PII matches found in the letter. */

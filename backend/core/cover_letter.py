@@ -191,7 +191,11 @@ def review(letter: str) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for c in claims[:8]:
         if isinstance(c, dict) and c.get("text"):
-            out.append({"text": str(c["text"])[:400], "reason": str(c.get("reason") or "")[:200]})
+            out.append({
+                "text": str(c["text"])[:400],
+                "reason": str(c.get("reason") or "")[:200],
+                "suggestion": str(c.get("suggestion") or "")[:300],
+            })
     return out
 
 
@@ -204,3 +208,52 @@ def _parse_json_object(raw: str) -> dict[str, Any]:
     if start != -1 and end > start:
         return json.loads(raw[start : end + 1])
     return {}
+
+
+def inline_edit(
+    selected_text: str,
+    action: str = "regenerate",
+    instruction: str | None = None,
+    full_letter: str | None = None,
+    company_name: str | None = None,
+    role_title: str | None = None,
+) -> str:
+    """Perform an inline AI edit or answer a question on selected text in a cover letter."""
+    selected_text = (selected_text or "").strip()
+    if not selected_text:
+        return ""
+
+    if action == "regenerate":
+        sys_prompt = (
+            "You are a professional cover-letter editor. Rewrite the selected excerpt so it is clear, "
+            "compelling, grounded, and polished. Output ONLY the rewritten text snippet itself, "
+            "with no quotes, no markdown, and no extra preamble."
+        )
+        user_prompt = f"Selected text to rewrite:\n{selected_text}"
+    elif action == "custom":
+        sys_prompt = (
+            "You are a professional cover-letter editor. Rewrite the selected excerpt according to the user's instruction. "
+            "Output ONLY the revised text snippet itself, with no quotes, no markdown, and no extra preamble."
+        )
+        user_prompt = f"User instruction: {instruction or 'Improve this text'}\n\nSelected text:\n{selected_text}"
+    elif action == "ask":
+        sys_prompt = (
+            "You are a helpful AI writing mentor for job applications. Answer the user's question concisely "
+            "and constructively about the provided text snippet."
+        )
+        user_prompt = f"Question: {instruction or 'How can I improve this text?'}\n\nText snippet:\n{selected_text}"
+    else:
+        sys_prompt = "Rewrite the selected text concisely."
+        user_prompt = selected_text
+
+    messages = [
+        {"role": "system", "content": sys_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    try:
+        res = llm.complete(messages, temperature=0.3)
+        return res.strip().strip('"').strip("'")
+    except Exception as exc:
+        return f"Error: {exc}"
+

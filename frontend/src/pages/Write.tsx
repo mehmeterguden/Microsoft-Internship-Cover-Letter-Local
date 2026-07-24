@@ -1,8 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, Check, Copy, Download, FileDown, FileText, Info, RotateCw, Save,
-  ShieldAlert, ShieldCheck, Sparkles,
+  AlertTriangle,
+  Check,
+  Copy,
+  Download,
+  FileDown,
+  FileText,
+  HelpCircle,
+  Info,
+  RotateCw,
+  Save,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Wand2,
+  X,
 } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
@@ -10,8 +23,15 @@ import { Field, Input, Label, Textarea } from "@/components/ui/field";
 import { Segmented, Slider, Toggle } from "@/components/ui/controls";
 import { Spinner } from "@/components/ui/feedback";
 import {
-  exportLetter, reviewCoverLetter, scanPii, streamCoverLetter,
-  type ExportFormat, type LetterLength, type PiiFinding, type ReviewClaim,
+  exportLetter,
+  inlineEditCvLetter,
+  reviewCoverLetter,
+  scanPii,
+  streamCoverLetter,
+  type ExportFormat,
+  type LetterLength,
+  type PiiFinding,
+  type ReviewClaim,
 } from "@/api/coverLetter";
 import { errorMessage } from "@/api/client";
 import { createJob, getJob, updateJob } from "@/api/jobs";
@@ -54,10 +74,18 @@ export function Write() {
   const [searchParams] = useSearchParams();
   const bootRef = useRef(false);
 
+  // Selection AI Toolbar state
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [selectedText, setSelectedText] = useState("");
+  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  const [aiMode, setAiMode] = useState<"menu" | "custom" | "ask">("menu");
+  const [aiInput, setAiInput] = useState("");
+  const [aiWorking, setAiWorking] = useState(false);
+  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+
   const { length, label: lenLabel, words } = useMemo(() => lengthFor(lengthPct), [lengthPct]);
 
-  // Reopen a saved draft (?job=id, from Cover Letters / Home) or prefill from a
-  // research / company hand-off (?company=&role=&jd=).
+  // Reopen a saved draft (?job=id) or prefill from research/company hand-off
   useEffect(() => {
     if (bootRef.current) return;
     bootRef.current = true;
@@ -95,13 +123,12 @@ export function Write() {
     try {
       setClaims(await reviewCoverLetter(text));
     } catch {
-      setClaims(null); // advisory — never block on a failed review
+      setClaims(null);
     } finally {
       setReviewing(false);
     }
   }
 
-  // Independent of the claim-check toggle: the PII shield is a privacy setting.
   async function runPiiScan(text: string) {
     if (!text.trim()) {
       setPii([]);
@@ -110,7 +137,7 @@ export function Write() {
     try {
       setPii((await scanPii(text)).findings);
     } catch {
-      setPii([]); // advisory — never block on a failed scan
+      setPii([]);
     }
   }
 
@@ -127,6 +154,8 @@ export function Write() {
     setPii([]);
     setDone(false);
     setStreaming(true);
+    setSelectedText("");
+    setSelectionRange(null);
     let acc = "";
     try {
       await streamCoverLetter(
@@ -165,6 +194,7 @@ export function Write() {
       () => toast.danger("Couldn't copy"),
     );
   }
+
   function downloadTxt() {
     const blob = new Blob([letter], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -175,6 +205,7 @@ export function Write() {
     URL.revokeObjectURL(url);
     toast.success("Downloaded .txt");
   }
+
   async function download(format: ExportFormat) {
     if (!letter.trim() || exporting) return;
     setExporting(format);
@@ -215,6 +246,93 @@ export function Write() {
       setSaving(false);
     }
   }
+
+  /* ── Selection Listener for Inline AI Box ────────────────────── */
+  const handleTextareaSelect = () => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    if (start != null && end != null && end - start >= 3) {
+      const sel = letter.substring(start, end);
+      if (sel.trim().length >= 3) {
+        setSelectedText(sel);
+        setSelectionRange({ start, end });
+        setAiMode("menu");
+        setAiAnswer(null);
+      }
+    }
+  };
+
+  const handleInlineAction = async (action: "regenerate" | "custom" | "ask", customPrompt?: string) => {
+    if (!selectedText || !selectionRange) return;
+    setAiWorking(true);
+    setAiAnswer(null);
+    try {
+      const res = await inlineEditCvLetter({
+        selected_text: selectedText,
+        action,
+        instruction: customPrompt || aiInput,
+        full_letter: letter,
+        company_name: company,
+        role_title: role,
+      });
+
+      if (action === "ask") {
+        setAiAnswer(res.result);
+      } else {
+        const updated =
+          letter.substring(0, selectionRange.start) +
+          res.result +
+          letter.substring(selectionRange.end);
+        setLetter(updated);
+        toast.success("Text updated by AI", "The selected snippet has been rewritten.");
+        setSelectedText("");
+        setSelectionRange(null);
+        setAiMode("menu");
+        setAiInput("");
+        // Trigger claim re-check
+        if (grounded) void runReview(updated);
+      }
+    } catch (err) {
+      toast.danger("AI action failed", errorMessage(err));
+    } finally {
+      setAiWorking(false);
+    }
+  };
+
+  /* ── Claim Fix Handlers ─────────────────────────────────────── */
+  const handleFixClaim = (claim: ReviewClaim, index: number) => {
+    const replacement = claim.suggestion || claim.reason;
+    if (!replacement || !letter.includes(claim.text)) {
+      toast.warning("Could not auto-replace", "Edit the letter text directly to adjust this claim.");
+      return;
+    }
+    const updated = letter.replace(claim.text, replacement);
+    setLetter(updated);
+    setClaims((prev) => (prev ? prev.filter((_, i) => i !== index) : null));
+    toast.success("Claim fixed", `Updated: "${claim.text.slice(0, 30)}..."`);
+  };
+
+  const handleFixAllClaims = () => {
+    if (!claims || claims.length === 0) return;
+    let updated = letter;
+    let fixedCount = 0;
+    claims.forEach((c) => {
+      const replacement = c.suggestion;
+      if (replacement && updated.includes(c.text)) {
+        updated = updated.replace(c.text, replacement);
+        fixedCount++;
+      }
+    });
+
+    if (fixedCount > 0) {
+      setLetter(updated);
+      setClaims([]);
+      toast.success("All claims fixed", `Rephrased ${fixedCount} claim${fixedCount === 1 ? "" : "s"} to match your profile.`);
+    } else {
+      toast.warning("Manual edit required", "Please edit the flagged lines directly in the editor.");
+    }
+  };
 
   const hasLetter = letter.trim().length > 0;
 
@@ -266,17 +384,22 @@ export function Write() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label>Length</Label>
-                <span className="font-mono text-[10px] tracking-[0.02em] text-accent-text">{lenLabel} · ~{words} words</span>
+                <span className="font-mono text-[10px] tracking-[0.02em] text-accent-text">
+                  {lenLabel} · ~{words} words
+                </span>
               </div>
               <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
               <div className="flex justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
-                <span>Brief</span><span>Detailed</span>
+                <span>Brief</span>
+                <span>Detailed</span>
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-[11px] border border-border bg-surface-2 px-3.5 py-3">
               <div className="min-w-0">
                 <div className="text-[13px] font-semibold text-fg">Check claims before sending</div>
-                <p className="mt-0.5 text-[11.5px] leading-snug text-fg-mid">Flag anything the draft states that your profile doesn&apos;t back up.</p>
+                <p className="mt-0.5 text-[11.5px] leading-snug text-fg-mid">
+                  Flag anything the draft states that your profile doesn&apos;t back up.
+                </p>
               </div>
               <Toggle checked={grounded} onChange={setGrounded} aria-label="Check claims before sending" />
             </div>
@@ -289,8 +412,136 @@ export function Write() {
           <section className="cll-fade relative flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
             {streaming ? (
               <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }} />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent"
+                  style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }}
+                />
                 Streaming
+              </div>
+            ) : null}
+
+            {/* Selection AI Floating Box */}
+            {selectedText && !streaming ? (
+              <div
+                className="cll-fade border-b border-border bg-surface-2 p-3.5 shadow-elevated"
+                style={{
+                  background:
+                    "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 60%), var(--surface-2)",
+                }}
+              >
+                <div className="flex items-center justify-between gap-2 pb-2">
+                  <div className="flex items-center gap-2 text-[12px] font-semibold text-fg">
+                    <span
+                      className="flex h-5 w-5 items-center justify-center rounded-[6px] text-white"
+                      style={{ background: "var(--accent-grad)" }}
+                    >
+                      <Sparkles size={11} />
+                    </span>
+                    <span className="text-accent-text font-mono text-[11px]">AI Selection Helper:</span>
+                    <span className="truncate text-fg-mid max-w-[280px]">“{selectedText}”</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedText("");
+                      setSelectionRange(null);
+                    }}
+                    className="text-fg-mid hover:text-fg"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                {aiMode === "menu" ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      loading={aiWorking}
+                      onClick={() => handleInlineAction("regenerate")}
+                    >
+                      <RotateCw size={12} /> Rephrase
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setAiMode("custom")}
+                    >
+                      <Wand2 size={12} /> Edit with AI
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setAiMode("ask")}
+                    >
+                      <HelpCircle size={12} /> Ask AI
+                    </Button>
+                  </div>
+                ) : aiMode === "custom" ? (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        placeholder="e.g. Make this sound more confident or concise..."
+                        className="h-8 text-[12px]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleInlineAction("custom");
+                        }}
+                      />
+                      <Button
+                        variant="primary"
+                        size="xs"
+                        loading={aiWorking}
+                        onClick={() => handleInlineAction("custom")}
+                      >
+                        Apply
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setAiMode("menu")}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        placeholder="Ask a question about this selected text..."
+                        className="h-8 text-[12px]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleInlineAction("ask");
+                        }}
+                      />
+                      <Button
+                        variant="primary"
+                        size="xs"
+                        loading={aiWorking}
+                        onClick={() => handleInlineAction("ask")}
+                      >
+                        Ask
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setAiMode("menu")}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    {aiAnswer ? (
+                      <div className="mt-2 rounded-[8px] border border-border bg-surface p-2.5 text-[12px] leading-relaxed text-fg">
+                        <div className="font-semibold text-accent-text mb-1">AI Answer:</div>
+                        {aiAnswer}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -300,7 +551,9 @@ export function Write() {
                   <Sparkles size={22} />
                 </div>
                 <div className="text-[15px] font-semibold text-fg">Your letter appears here</div>
-                <p className="mt-1 max-w-xs text-[13px] text-fg-mid">Fill in the company and hit <b className="text-fg">Generate</b> — it streams in, grounded in your profile.</p>
+                <p className="mt-1 max-w-xs text-[13px] text-fg-mid">
+                  Fill in the company and hit <b className="text-fg">Generate</b> — it streams in, grounded in your profile.
+                </p>
               </div>
             ) : streaming ? (
               <div className="flex-1 overflow-auto p-7 sm:px-8">
@@ -312,23 +565,43 @@ export function Write() {
             ) : (
               <div className="flex flex-1 flex-col">
                 <textarea
+                  ref={textareaRef}
                   value={letter}
                   onChange={(e) => setLetter(e.target.value)}
+                  onSelect={handleTextareaSelect}
+                  onMouseUp={handleTextareaSelect}
+                  onKeyUp={handleTextareaSelect}
                   spellCheck
                   className="min-h-[360px] flex-1 resize-none border-0 bg-transparent p-7 text-[15px] leading-[1.85] text-reading-ink outline-none sm:px-8"
                   aria-label="Cover letter (editable)"
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3">
                   <span className="flex items-center gap-1.5 text-[10.5px] text-fg-low">
-                    <Info size={12} strokeWidth={1.6} /> AI-generated — edit freely, review before sending
+                    <Info size={12} strokeWidth={1.6} /> Select text to edit or ask AI · edit freely
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <Button variant="ghost" size="xs" onClick={copyLetter}><Copy size={13} /> Copy</Button>
-                    <Button variant="ghost" size="xs" onClick={downloadTxt}><Download size={13} /> .txt</Button>
-                    <Button variant="ghost" size="xs" onClick={() => download("pdf")} loading={exporting === "pdf"} disabled={exporting !== null}>
+                    <Button variant="ghost" size="xs" onClick={copyLetter}>
+                      <Copy size={13} /> Copy
+                    </Button>
+                    <Button variant="ghost" size="xs" onClick={downloadTxt}>
+                      <Download size={13} /> .txt
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => download("pdf")}
+                      loading={exporting === "pdf"}
+                      disabled={exporting !== null}
+                    >
                       <FileDown size={13} /> PDF
                     </Button>
-                    <Button variant="ghost" size="xs" onClick={() => download("docx")} loading={exporting === "docx"} disabled={exporting !== null}>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => download("docx")}
+                      loading={exporting === "docx"}
+                      disabled={exporting !== null}
+                    >
                       <FileText size={13} /> Word
                     </Button>
                   </div>
@@ -337,34 +610,81 @@ export function Write() {
             )}
           </section>
 
-          {/* Review panel — only when checking is on and a letter exists */}
+          {/* Review panel — with Suggestions & Fix buttons */}
           {grounded && done ? (
             <section className="cll-fade rounded-[14px] border border-border bg-surface p-[18px]">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
                   <ShieldCheck size={16} strokeWidth={1.6} className="text-success" /> Claim check
                 </div>
-                {reviewing ? (
-                  <span className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid"><Spinner size={12} /> checking…</span>
-                ) : (
-                  <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text hover:brightness-110">
-                    <RotateCw size={11} /> re-check
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {claims && claims.length > 0 ? (
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      onClick={handleFixAllClaims}
+                      className="gap-1 rounded-[7px] text-[11px]"
+                    >
+                      <Wand2 size={11} /> Fix All Flagged ({claims.length})
+                    </Button>
+                  ) : null}
+                  {reviewing ? (
+                    <span className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">
+                      <Spinner size={12} /> checking…
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void runReview(letter);
+                        void runPiiScan(letter);
+                      }}
+                      className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text hover:brightness-110"
+                    >
+                      <RotateCw size={11} /> re-check
+                    </button>
+                  )}
+                </div>
               </div>
 
               {reviewing ? (
                 <p className="text-[12.5px] text-fg-mid">Looking for anything your profile doesn&apos;t back up…</p>
               ) : claims && claims.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-[12px] text-fg-mid">These make a specific claim your profile doesn&apos;t clearly support — double-check or edit before sending:</p>
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[12px] text-fg-mid">
+                    These claims need double-checking against your profile. Click <b className="text-fg">Fix</b> to automatically rephrase them with backed facts:
+                  </p>
                   {claims.map((c, i) => (
-                    <div key={i} className="rounded-[10px] border border-[color:var(--warning)]/25 bg-warning-weak px-3 py-2.5">
-                      <div className="flex items-start gap-2 text-[12.5px] text-fg">
-                        <AlertTriangle size={13} strokeWidth={2} className="mt-0.5 shrink-0 text-warning" />
-                        <span className="italic">“{c.text}”</span>
+                    <div
+                      key={i}
+                      className="flex flex-col gap-2 rounded-[12px] border border-[color:var(--warning)]/30 bg-warning-weak p-3.5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2 text-[12.5px] text-fg">
+                          <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-warning" />
+                          <span className="italic font-medium">“{c.text}”</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => handleFixClaim(c, i)}
+                          className="shrink-0 gap-1.5 rounded-[8px] border-warning/40 bg-surface text-fg hover:border-warning hover:bg-warning-weak"
+                        >
+                          <Wand2 size={12} className="text-warning" /> Fix
+                        </Button>
                       </div>
-                      {c.reason ? <div className="mt-1 pl-[21px] text-[11.5px] text-fg-mid">{c.reason}</div> : null}
+
+                      {c.reason ? (
+                        <div className="pl-5.5 text-[11.5px] text-fg-mid">
+                          <b className="text-fg-low">Note:</b> {c.reason}
+                        </div>
+                      ) : null}
+
+                      {c.suggestion ? (
+                        <div className="pl-5.5 text-[11.5px] text-accent-text">
+                          <b className="font-semibold">Suggested fix:</b> “{c.suggestion}”
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -381,7 +701,7 @@ export function Write() {
             </section>
           ) : null}
 
-          {/* PII shield — warns about personal/sensitive data (honors the Settings mode) */}
+          {/* PII shield */}
           {done && pii.length > 0 ? (
             <section className="cll-fade rounded-[14px] border border-[color:var(--warning)]/30 bg-warning-weak p-[18px]">
               <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
@@ -392,18 +712,33 @@ export function Write() {
               </p>
               <div className="flex flex-col gap-2">
                 {pii.map((f) => {
-                  const dot = f.severity === "high" ? "bg-danger" : f.severity === "medium" ? "bg-warning" : "bg-fg-low";
+                  const dot =
+                    f.severity === "high"
+                      ? "bg-danger"
+                      : f.severity === "medium"
+                      ? "bg-warning"
+                      : "bg-fg-low";
                   return (
-                    <div key={f.type} className="flex items-start gap-2.5 rounded-[10px] border border-border bg-surface px-3 py-2.5">
+                    <div
+                      key={f.type}
+                      className="flex items-start gap-2.5 rounded-[10px] border border-border bg-surface px-3 py-2.5"
+                    >
                       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 text-[12.5px] text-fg">
                           <span className="font-semibold">{f.label}</span>
-                          {f.count > 1 ? <span className="font-mono text-[10px] text-fg-low">×{f.count}</span> : null}
+                          {f.count > 1 ? (
+                            <span className="font-mono text-[10px] text-fg-low">×{f.count}</span>
+                          ) : null}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {f.samples.map((s, i) => (
-                            <span key={i} className="rounded-[6px] bg-input px-2 py-[2px] font-mono text-[10px] text-fg-mid">{s}</span>
+                            <span
+                              key={i}
+                              className="rounded-[6px] bg-input px-2 py-[2px] font-mono text-[10px] text-fg-mid"
+                            >
+                              {s}
+                            </span>
                           ))}
                         </div>
                       </div>

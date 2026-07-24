@@ -102,7 +102,7 @@ Rules:
 - No scores, no ranking, no praise. Just the claim and a one-line reason.
 
 Return ONLY JSON in this exact shape:
-{"claims": [{"text": "<the exact sentence or phrase from the letter>", "reason": "<why it needs a check, one short line>"}]}"""
+{"claims": [{"text": "<the exact sentence or phrase from the letter>", "reason": "<why it needs a check>", "suggestion": "<proposed fix or rephrasing based on the profile>"}]}"""
 
 
 def build_review_messages(profile_context: str, letter: str) -> list[Message]:
