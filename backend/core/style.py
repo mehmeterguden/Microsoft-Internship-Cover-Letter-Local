@@ -271,7 +271,7 @@ def style_context(query_text: str) -> dict[str, Any]:
     """Assemble the voice block for generation: deep guide + relevant exemplars."""
     voice = _stored_voice() or analyze(_sample_texts())
     guide = build_voice_guide(voice) if voice else None
-    exemplars = retrieve_exemplars(query_text)
+    exemplars = retrieve_exemplars(query_text) or _sample_texts()[:3]
     return {"has_style": bool(guide or exemplars), "guide": guide, "exemplars": exemplars}
 
 
