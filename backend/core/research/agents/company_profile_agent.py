@@ -1,8 +1,8 @@
-"""Company Profile agent — combines Firmographics, Overview, and Values into a single efficient agent pass.
+"""Company Profile agent — unified core identity pass (Firmographics, Overview, Values).
 
-Instead of running 3 separate LLM calls to analyze company facts, overview summary,
-and core values, this agent gathers sources once and synthesizes all three core
-identity sections in a single unified prompt.
+Synthesizes firm facts, company mission/summary, and core leadership principles/values
+in a single structured JSON response. Eliminates fluff and grounds every fact in
+the gathered public web sources.
 """
 
 from __future__ import annotations
@@ -23,9 +23,10 @@ class CompanyProfile(BaseModel):
 
 
 _SYSTEM = (
-    "You are a senior company-research analyst. You extract firm factual identity, "
-    "overview summary, and core company values into a single structured JSON response. "
-    "You ground every claim in the provided sources, never invent data, and use null when unknown."
+    "You are an elite corporate intelligence analyst. Your goal is to extract zero-fluff, "
+    "high-precision facts about a company's business model, identity, firmographics, and "
+    "core cultural values into a valid JSON object. Avoid generic buzzwords (e.g. 'industry leader', "
+    "'fast-growing startup', 'passionate team'). Be concrete, factual, and strictly truthful to sources."
 )
 
 
@@ -40,8 +41,13 @@ class CompanyProfileAgent(Agent):
             registry.call("wikipedia", company_name=ctx.company_name),
             registry.call(
                 "web_search",
-                query=f"{ctx.company_name} company headquarters founded industry employees mission core values",
-                max_results=6,
+                query=f"{ctx.company_name} official website headquarters founded employee count mission about",
+                max_results=5,
+            ),
+            registry.call(
+                "web_search",
+                query=f"{ctx.company_name} core values leadership principles candidate attributes",
+                max_results=5,
             ),
         ]
         top_url = _first_url(gathered[2])
@@ -55,34 +61,38 @@ class CompanyProfileAgent(Agent):
 
     def build_messages(self, ctx: AgentContext, gathered: list[ToolResult]) -> list[Message]:
         role_line = (
-            f'The applicant is targeting the role: "{ctx.role_title}". '
-            "Add one sentence of division_context in overview about what such a team likely does.\n"
+            f'Target role: "{ctx.role_title}". '
+            "Provide 1 specific sentence in `division_context` explaining the core focus of such a engineering/business unit at this company.\n"
             if ctx.role_title
-            else "No specific role given; set division_context to null.\n"
+            else "No target role provided; set `division_context` to null.\n"
         )
         prompt = (
-            f'Company to research: "{ctx.company_name}".\n\n'
-            f"Gathered sources:\n{format_gathered(gathered)}\n\n"
+            f'Target Company: "{ctx.company_name}".\n\n'
+            f"Gathered Material:\n{format_gathered(gathered)}\n\n"
             f"{role_line}\n"
-            "Return ONLY a JSON object with this exact structure:\n"
+            "Produce ONLY a valid JSON object following this exact schema:\n"
             "{\n"
             '  "firmographics": {\n'
-            '    "industry": str|null, "size": str|null, "employees": int|null,\n'
-            '    "hq": str|null, "founded": str|null, "website": str|null\n'
+            '    "industry": str|null,\n'
+            '    "size": str|null,\n'
+            '    "employees": int|null,\n'
+            '    "hq": str|null,\n'
+            '    "founded": str|null,\n'
+            '    "website": str|null\n'
             '  },\n'
             '  "overview": {\n'
-            '    "summary": str|null, "mission": str|null, "division_context": str|null\n'
+            '    "summary": str|null,\n'
+            '    "mission": str|null,\n'
+            '    "division_context": str|null\n'
             '  },\n'
             '  "values": [\n'
             '    {"name": str, "weight": int}\n'
             '  ]\n'
             "}\n\n"
-            "Rules:\n"
-            "- `firmographics.size` is a human string like \"221,000 employees\".\n"
-            "- `firmographics.website` must be the official site.\n"
-            "- `overview.summary`: 1-2 factual sentences on what the company builds/does.\n"
-            "- `values`: up to 5 things this company weights most in people (weight 0-100).\n"
-            "- Ground all data strictly in the sources."
+            "Guidelines:\n"
+            "- `overview.summary`: 1-2 concise, high-substance sentences describing what product/platform they build, who pays for it, and their core scale.\n"
+            "- `firmographics.website`: Must be the official primary domain (e.g. \"https://anthropic.com\").\n"
+            "- `values`: Up to 5 authentic leadership/cultural principles using their actual terminology (e.g., \"Customer Obsession\", \"Bias for Action\", \"Safety First\"). `weight` is 0-100 indicating emphasis."
         )
         return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": prompt}]
 

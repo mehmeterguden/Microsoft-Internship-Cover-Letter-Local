@@ -1,8 +1,7 @@
-"""Signals agent — recent news that matters to an applicant.
+"""Signals agent — high-relevance recent news & announcements.
 
-Pulls recent articles from GDELT and asks the LLM to keep the few that genuinely
-matter to someone applying (launches, funding, strategy, hiring, controversy),
-each with a one-line "why it matters", dropping noise and duplicates.
+Filters recent news and community discussions for events that genuinely matter
+to a job applicant (major product launches, funding rounds, strategic pivots, tech releases).
 """
 
 from __future__ import annotations
@@ -16,10 +15,9 @@ from core.research.tools import registry
 from core.research.tools.registry import ToolResult
 
 _SYSTEM = (
-    "You are a company-research analyst. From recent news articles and developer "
-    "community discussions you select the ones that would actually matter to a job "
-    "applicant and explain why, returning JSON. You keep the original dates and URLs; "
-    "you never fabricate news."
+    "You are a strategic career intelligence analyst. You review recent news and developer "
+    "discussions about a company to select high-value signals (product launches, major funding, "
+    "leadership changes, strategic technical pivots). You explain concisely why each item matters to a candidate."
 )
 
 
@@ -44,14 +42,12 @@ class SignalsAgent(Agent):
     def build_messages(self, ctx: AgentContext, gathered: list[ToolResult]) -> list[Message]:
         prompt = (
             f'Company: "{ctx.company_name}".\n\n'
-            f"Recent articles and Hacker News discussions:\n{format_gathered(gathered)}\n\n"
-            "Pick up to 5 items that genuinely matter to a job applicant "
-            "(product launches, funding, strategy shifts, hiring, notable events). "
-            "Drop tangential mentions and near-duplicates.\n\n"
+            f"Recent Articles & Community Discussions:\n{format_gathered(gathered)}\n\n"
+            "Select up to 5 articles that represent key strategic developments for an applicant.\n"
             "Return ONLY:\n"
-            '{"signals": [{"headline": str, "date": str|null, "url": str|null, '
-            '"why_it_matters": str}]}\n\n'
-            "Keep each article's original headline, date, and url. `why_it_matters` "
-            "is one concrete sentence on the relevance to a candidate."
+            '{"signals": [{"headline": str, "date": str|null, "url": str|null, "why_it_matters": str}]}\n\n'
+            "Guidelines:\n"
+            "- Preserve exact headlines, dates, and URLs from the sources.\n"
+            "- `why_it_matters`: 1 sharp, insightful sentence explaining why this event gives an applicant leverage or context during outreach/interviews."
         )
         return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": prompt}]
