@@ -70,6 +70,9 @@ export interface VoiceProfile {
   rhetorical_moves?: string;
   structure?: string;
   emphasis?: string[];
+  opening_structure?: string[];
+  body_structure?: string[];
+  closing_structure?: string[];
   opening_habits?: string;
   closing_habits?: string;
   example_sentences?: string[];

@@ -157,6 +157,26 @@ function FpGroup({ title, danger = false, children }: { title: string; danger?: 
   );
 }
 
+/* One column of the letter playbook — an ordered, reusable set of moves. */
+function StructureCard({ label, steps }: { label: string; steps?: string[] }) {
+  if (!steps?.length) return null;
+  return (
+    <div className="flex-1 rounded-[11px] border border-border bg-surface-2 p-3.5">
+      <div className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-accent-text">{label}</div>
+      <ol className="flex flex-col gap-2">
+        {steps.map((s, i) => (
+          <li key={i} className="flex gap-2 text-[11.5px] leading-[1.45] text-fg-mid">
+            <span className="mt-px flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[9px] font-bold text-accent-text">
+              {i + 1}
+            </span>
+            <span>{s}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 /* ── The learned voice fingerprint (real VoiceProfile) ───────────── */
 function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCount: number }) {
   const deep = !!profile.llm_analyzed;
@@ -237,6 +257,21 @@ function Fingerprint({ profile, letterCount }: { profile: VoiceProfile; letterCo
               className="absolute top-1/2 h-[13px] w-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
               style={{ left: `${formalityPercent(profile.formality)}%`, boxShadow: "0 2px 6px rgba(0,0,0,.5)" }}
             />
+          </div>
+        </div>
+      ) : null}
+
+      {/* letter playbook — the memorized opening / body / closing skeletons */}
+      {profile.opening_structure?.length || profile.body_structure?.length || profile.closing_structure?.length ? (
+        <div className="relative mt-5">
+          <div className="mb-[9px] flex items-baseline gap-2 text-[12px] text-fg" style={{ fontWeight: 650 }}>
+            Letter playbook
+            <span className="text-[10.5px] font-normal text-fg-low">the moves you make to open, build, and close</span>
+          </div>
+          <div className="flex flex-col gap-2.5 sm:flex-row">
+            <StructureCard label="Opening" steps={profile.opening_structure} />
+            <StructureCard label="Body" steps={profile.body_structure} />
+            <StructureCard label="Closing" steps={profile.closing_structure} />
           </div>
         </div>
       ) : null}
