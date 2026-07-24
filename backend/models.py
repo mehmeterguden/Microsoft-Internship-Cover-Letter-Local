@@ -359,6 +359,11 @@ class Project(Sourced):
     github_repo_id: int | None = None    # optional link to a github_repos row
     stars: int | None = None             # GitHub stars, copied for repo-linked projects
 
+    @field_validator("technologies", mode="before")
+    @classmethod
+    def _none_to_list(cls, v: object) -> object:
+        return v if v is not None else []
+
 
 class Experience(Sourced):
     id: int | None = None
@@ -383,6 +388,11 @@ class Education(Sourced):
     is_current: bool = False
     gpa: str | None = None
     courses: list[str] = []              # relevant coursework, shown as small pills
+
+    @field_validator("courses", mode="before")
+    @classmethod
+    def _none_to_list(cls, v: object) -> object:
+        return v if v is not None else []
 
 
 class Training(Sourced):
