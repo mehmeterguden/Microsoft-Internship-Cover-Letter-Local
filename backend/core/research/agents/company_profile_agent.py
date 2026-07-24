@@ -53,6 +53,8 @@ class CompanyProfileAgent(Agent):
         top_url = _first_url(gathered[2])
         if top_url:
             gathered.append(registry.call("web_fetch", url=top_url))
+        if ctx.job_url:
+            gathered.append(registry.call("web_fetch", url=ctx.job_url))
         return gathered
 
     def section_from(self, validated: CompanyProfile) -> CompanyProfile:

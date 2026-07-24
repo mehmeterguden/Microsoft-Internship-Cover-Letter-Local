@@ -25,16 +25,20 @@ class JDAnalystAgent(Agent):
     output_model = RoleAnalysis
 
     def gather(self, ctx: AgentContext) -> list[ToolResult]:
+        gathered: list[ToolResult] = []
+        if ctx.job_url:
+            gathered.append(registry.call("web_fetch", url=ctx.job_url))
         if ctx.job_description and ctx.job_description.strip():
-            return []
+            return gathered
         role = ctx.role_title or "the role"
-        return [
+        gathered.append(
             registry.call(
                 "web_search",
                 query=f"{role} at {ctx.company_name} job responsibilities requirements skills",
                 max_results=6,
             )
-        ]
+        )
+        return gathered
 
     def build_messages(self, ctx: AgentContext, gathered: list[ToolResult]) -> list[Message]:
         if ctx.job_description and ctx.job_description.strip():

@@ -65,6 +65,7 @@ class AgentContext:
     company_name: str
     role_title: str | None = None
     job_description: str | None = None
+    job_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

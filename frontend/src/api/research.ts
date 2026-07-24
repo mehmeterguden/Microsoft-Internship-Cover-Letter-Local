@@ -6,6 +6,7 @@ export interface ResearchInput {
   company_name: string;
   role_title?: string | null;
   job_description?: string | null;
+  job_url?: string | null;
   refresh?: boolean;
 }
 

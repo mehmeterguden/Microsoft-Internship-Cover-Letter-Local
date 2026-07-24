@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
+  ArrowRight,
   Check,
   ChevronDown,
   ChevronUp,
@@ -13,6 +14,7 @@ import {
   FileText,
   HelpCircle,
   Info,
+  Link as LinkIcon,
   Loader2,
   RotateCw,
   Save,
@@ -42,6 +44,7 @@ import {
   type ReviewClaim,
 } from "@/api/coverLetter";
 import {
+  autofillFromJobUrl,
   getCachedReport,
   streamResearch,
   type ResearchEvent,
@@ -1084,37 +1087,60 @@ function ResearchPromptButton({
 }) {
   if (cachedAt) {
     return (
-      <div className="cll-fade mt-3 flex items-center gap-2.5 rounded-[10px] border border-border bg-surface-2 px-3 py-2.5">
-        <StatDot tone="accent" size={6} />
+      <div className="cll-fade mt-3.5 flex items-center gap-3 rounded-[12px] border border-accent/40 bg-surface-2 p-3.5 shadow-sm">
+        <StatDot tone="accent" pulse size={7} />
         <div className="min-w-0 flex-1">
-          <span className="text-[11.5px] font-semibold text-fg">Already researched</span>
+          <span className="text-[12px] font-semibold text-fg">Already researched & brainstormed</span>
           <span className="ml-2 font-mono text-[10px] text-fg-low">· cached {formatWhen(cachedAt)}</span>
         </div>
-        <Button type="button" variant="solid" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={onViewCache}>View intel</Button>
+        <Button type="button" variant="solid" size="sm" className="shrink-0 h-7 px-3 text-[11px]" onClick={onViewCache}>View intel</Button>
         <Button type="button" variant="ghost" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={onRun}>Re-run</Button>
       </div>
     );
   }
+
+  const active = Boolean(company.trim() && !checking);
+
   return (
     <button
       type="button"
       onClick={onRun}
-      disabled={!company.trim() || checking}
+      disabled={!active}
       className={cn(
-        "cll-fade mt-3 group flex w-full items-center gap-2.5 rounded-[10px] border border-dashed border-border px-3 py-2.5 text-left transition-all",
-        company.trim() && !checking ? "cursor-pointer hover:border-accent hover:bg-accent-weak" : "opacity-50 cursor-not-allowed",
+        "cll-fade mt-3.5 group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border p-3.5 text-left transition-all duration-200",
+        active
+          ? "border-accent/40 bg-gradient-to-r from-accent-weak/40 via-surface to-surface hover:border-accent hover:shadow-[0_8px_24px_-8px_var(--accent-shadow)] cursor-pointer"
+          : "border-border/60 bg-surface-2/60 opacity-60 cursor-not-allowed",
       )}
     >
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] border border-border-strong bg-input text-accent-text group-hover:border-accent group-hover:bg-accent-weak transition-colors">
-        {checking ? <Loader2 size={11} className="animate-spin" /> : <Search size={11} />}
+      <span
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] transition-all",
+          active ? "bg-accent-grad text-white shadow-[0_4px_12px_-3px_var(--accent-shadow)] group-hover:scale-105" : "bg-input text-fg-low",
+        )}
+      >
+        {checking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[11.5px] font-semibold text-fg-mid group-hover:text-fg transition-colors">
-          {checking ? "Checking cache…" : company.trim() ? `Analyze ${company} with AI agents` : "Enter a company name first"}
+        <span className="flex items-center gap-2">
+          <span className="block text-[13px] font-bold text-fg group-hover:text-accent-text transition-colors">
+            {checking ? "Checking cache…" : company.trim() ? `AI Brainstorm & Deep Research (${company})` : "AI Brainstorm & Deep Research"}
+          </span>
+          {active && (
+            <Pill tone="accent" mono className="text-[8.5px] py-0 px-1.5 shrink-0">
+              Brainstorming
+            </Pill>
+          )}
         </span>
-        <span className="block font-mono text-[10px] text-fg-low">Culture · tech stack · fit score · letter hooks</span>
+        <span className="mt-0.5 block font-mono text-[10.5px] text-fg-mid truncate">
+          {company.trim() ? "Research culture · tech stack · signals · fit score · hooks" : "Enter company name or import a job link to start"}
+        </span>
       </span>
-      {company.trim() && !checking && <Sparkles size={13} className="shrink-0 text-fg-low group-hover:text-accent-text transition-colors" />}
+      {active && (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-accent/30 bg-accent-weak text-accent-text group-hover:bg-accent group-hover:text-white transition-all">
+          <ArrowRight size={13} />
+        </span>
+      )}
     </button>
   );
 }
@@ -1127,9 +1153,28 @@ export function Write() {
   const [company, setCompanyRaw] = useState("");
   const [role, setRole] = useState("");
   const [jobPosting, setJobPosting] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
+  const [importingUrl, setImportingUrl] = useState(false);
   const [tone, setTone] = useState<Tone>("warm");
   const [lengthPct, setLengthPct] = useState(50);
   const [grounded, setGrounded] = useState(true);
+
+  const handleJobUrlImport = async () => {
+    const url = jobUrl.trim();
+    if (!url) return;
+    setImportingUrl(true);
+    try {
+      const data = await autofillFromJobUrl(url);
+      if (data.company) setCompanyRaw(data.company);
+      if (data.role) setRole(data.role);
+      if (data.job_description) setJobPosting(data.job_description);
+      toast.success("Job details imported!", "Company, role, and description updated from link.");
+    } catch (err: unknown) {
+      toast.danger("Couldn't import job link", errorMessage(err));
+    } finally {
+      setImportingUrl(false);
+    }
+  };
 
   const [letter, setLetter] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -1311,7 +1356,13 @@ export function Write() {
     setModalOpen(true); // auto-open modal when research starts
 
     streamResearch(
-      { company_name: c, role_title: role.trim() || null, job_description: jobPosting.trim() || null, refresh },
+      {
+        company_name: c,
+        role_title: role.trim() || null,
+        job_description: jobPosting.trim() || null,
+        job_url: jobUrl.trim() || null,
+        refresh,
+      },
       onResearchEvent,
       ctrl.signal,
     ).catch((err: unknown) => {
@@ -1518,6 +1569,35 @@ export function Write() {
                 <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. ML Engineer" />
               </Field>
             </div>
+
+            {/* Job Posting Link Import */}
+            <div className="mt-3">
+              <Field label={<>Job posting link <span className="text-fg-low">· auto-fill</span></>}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      value={jobUrl}
+                      onChange={(e) => setJobUrl(e.target.value)}
+                      placeholder="Paste job link (LinkedIn, Greenhouse, Lever…)"
+                      className="pl-8 text-[12.5px]"
+                    />
+                    <LinkIcon size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-low" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={importingUrl}
+                    disabled={!jobUrl.trim() || importingUrl}
+                    onClick={handleJobUrlImport}
+                    className="shrink-0 h-9 px-3 text-[12px]"
+                  >
+                    <Download size={13} /> Import
+                  </Button>
+                </div>
+              </Field>
+            </div>
+
             <div className="mt-3">
               <Field label={<>Job posting <span className="text-fg-low">· optional</span></>}>
                 <Textarea value={jobPosting} onChange={(e) => setJobPosting(e.target.value)} placeholder="Paste the full description for a sharper draft…" />
