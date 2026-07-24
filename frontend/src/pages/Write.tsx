@@ -107,6 +107,7 @@ type AgentStatus = "queued" | "running" | "done" | "error";
 interface AgentUi { id: string; label: string; status: AgentStatus; note?: string; sources: string[] }
 
 const AGENT_LABELS: Record<string, string> = {
+  company_profile: "Company profile (Overview, Facts, Values)",
   firmographics: "Firmographics", overview: "Company overview", values: "Values & mission",
   culture: "Culture", tech_stack: "Tech stack", signals: "Recent signals",
   interview: "Interview prep", jd_analyst: "Role analysis", fit: "Fit analysis", ammo: "Letter hooks",
@@ -197,6 +198,7 @@ function ResearchModal({
   phase,
   agents,
   agentData,
+  agentPartials,
   report,
   cachedAt,
   company,
@@ -209,6 +211,7 @@ function ResearchModal({
   phase: ResearchPhase;
   agents: AgentUi[];
   agentData: Record<string, unknown>;
+  agentPartials: Record<string, string>;
   report: WireReport | null;
   cachedAt: string | null;
   company: string;
@@ -218,6 +221,8 @@ function ResearchModal({
   onStop: () => void;
   onRerun: () => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -231,10 +236,18 @@ function ResearchModal({
     return () => { document.body.style.overflow = ""; };
   }, []);
 
+  // Auto-scroll to bottom as tokens stream in
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [agentData, agentPartials]);
+
   const jsonStr = Object.keys(agentData).length
     ? JSON.stringify(agentData, null, 2)
     : null;
 
+  const partialEntries = Object.entries(agentPartials);
   const pct = total > 0 ? (doneCount / total) * 100 : 0;
 
   return createPortal(
@@ -348,21 +361,45 @@ function ResearchModal({
               {/* Right: live JSON stream */}
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <div className="flex shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-4 py-2">
-                  <span className="font-mono text-[10px] font-semibold text-fg-low uppercase tracking-[0.06em]">Live Output</span>
+                  <span className="font-mono text-[10px] font-semibold text-fg-low uppercase tracking-[0.06em]">Live Stream Output</span>
                   <StatDot tone="accent" pulse size={5} />
-                  <span className="ml-auto font-mono text-[9px] text-fg-low">JSON · your data never leaves this device</span>
+                  <span className="ml-auto font-mono text-[9px] text-fg-low">real-time tokens</span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                  {jsonStr ? (
-                    <pre className="font-mono text-[11px] leading-[1.75] break-all whitespace-pre-wrap">
-                      <JsonToken text={jsonStr} />
-                      <span className="cll-caret" aria-hidden />
-                    </pre>
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
+                <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                  {/* Completed sections */}
+                  {jsonStr && (
+                    <div className="flex flex-col gap-2">
+                      <div className="text-[10px] font-mono font-semibold uppercase tracking-[0.06em] text-success flex items-center gap-1.5">
+                        <Check size={11} strokeWidth={2.8} /> Completed section data
+                      </div>
+                      <pre className="font-mono text-[11px] leading-[1.75] break-all whitespace-pre-wrap rounded-[10px] bg-surface p-3 border border-border">
+                        <JsonToken text={jsonStr} />
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Live streaming text for active agents */}
+                  {partialEntries.map(([agentId, liveText]) => (
+                    <div key={agentId} className="flex flex-col gap-2 rounded-[10px] border border-accent/40 bg-accent-weak/30 p-3.5 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[11px] font-semibold text-accent-text flex items-center gap-1.5">
+                          <Loader2 size={12} className="animate-spin text-accent" />
+                          Streaming reasoning: {agentLabel(agentId)}
+                        </span>
+                        <Pill tone="accent" mono className="text-[8.5px] py-0 px-1.5">typing</Pill>
+                      </div>
+                      <pre className="font-mono text-[11px] leading-[1.75] break-all whitespace-pre-wrap text-fg">
+                        {liveText}
+                        <span className="cll-caret" aria-hidden />
+                      </pre>
+                    </div>
+                  ))}
+
+                  {!jsonStr && partialEntries.length === 0 && (
+                    <div className="flex h-full items-center justify-center py-12">
                       <div className="text-center">
                         <Loader2 size={22} className="mx-auto mb-3 animate-spin text-accent" />
-                        <p className="text-[12px] text-fg-mid">Agents are gathering data…</p>
+                        <p className="text-[12px] text-fg-mid">Agents gathering web sources & initializing LLM reasoning…</p>
                       </div>
                     </div>
                   )}
@@ -1133,6 +1170,7 @@ export function Write() {
 
   // Accumulated done data from agents — for live JSON in modal
   const [agentData, setAgentData] = useState<Record<string, unknown>>({});
+  const [agentPartials, setAgentPartials] = useState<Record<string, string>>({});
 
   const researchAbortRef = useRef<AbortController | null>(null);
   const agentStartRef = useRef<Record<string, number>>({});
@@ -1149,6 +1187,7 @@ export function Write() {
       setResearchTotal(0);
       setResearchCacheHit(null);
       setAgentData({});
+      setAgentPartials({});
       setModalOpen(false);
     }
     setResearchCacheHit(null);
@@ -1206,6 +1245,7 @@ export function Write() {
         break;
       }
       case "agent_progress": {
+        setAgentPartials((prev) => ({ ...prev, [event.agent]: event.text }));
         setResearchAgents((prev) =>
           prev.map((a) => a.id === event.agent && a.status !== "done" && a.status !== "error" ? { ...a, status: "running" } : a)
         );
@@ -1216,7 +1256,11 @@ export function Write() {
         setResearchAgents((prev) =>
           prev.map((a) => a.id === event.agent ? { ...a, status: "done", sources: labels.length ? labels : a.sources } : a)
         );
-        // Accumulate done data for live JSON display
+        setAgentPartials((prev) => {
+          const next = { ...prev };
+          delete next[event.agent];
+          return next;
+        });
         if (event.data != null) {
           setAgentData((prev) => ({ ...prev, [event.agent]: event.data }));
         }
@@ -1263,6 +1307,7 @@ export function Write() {
     setResearchPhase("running");
     setResearchCacheHit(null);
     setAgentData({});
+    setAgentPartials({});
     setModalOpen(true); // auto-open modal when research starts
 
     streamResearch(
@@ -1439,6 +1484,7 @@ export function Write() {
           phase={researchPhase}
           agents={researchAgents}
           agentData={agentData}
+          agentPartials={agentPartials}
           report={researchReport}
           cachedAt={researchCachedAt}
           company={company}

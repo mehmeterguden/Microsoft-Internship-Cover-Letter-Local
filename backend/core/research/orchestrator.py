@@ -176,18 +176,31 @@ def _assemble(
         if result.ok and result.sources:
             section_sources[result.section] = result.sources
 
-    def section(name: str, default: Any) -> Any:
-        result = results.get(name)
-        return result.data if result and result.ok and result.data is not None else default
+    profile = section("company_profile", None)
+    firmographics = (
+        getattr(profile, "firmographics", Firmographics())
+        if profile is not None
+        else section("firmographics", Firmographics())
+    )
+    overview = (
+        getattr(profile, "overview", Overview())
+        if profile is not None
+        else section("overview", Overview())
+    )
+    values = (
+        getattr(profile, "values", [])
+        if profile is not None
+        else section("values", [])
+    )
 
     failed = [name for name, r in results.items() if not r.ok]
 
     return CompanyIntelReport(
         company_name=company_name,
         role_title=role_title,
-        firmographics=section("firmographics", Firmographics()),
-        overview=section("overview", Overview()),
-        values=section("values", []),
+        firmographics=firmographics,
+        overview=overview,
+        values=values,
         culture=section("culture", Culture()),
         tech_stack=section("tech_stack", []),
         signals=section("signals", []),
