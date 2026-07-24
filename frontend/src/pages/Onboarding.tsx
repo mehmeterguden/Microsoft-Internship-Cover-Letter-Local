@@ -9,12 +9,14 @@ import {
   type DragEvent,
 } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, FileText, FileUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Eye, FileText, FileUp, Sparkles, User } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/data";
 import { Pill } from "@/components/ui/feedback";
-import { streamImportCv, saveExtraction, type CvImportEvent } from "@/api/cv";
+import { Segmented } from "@/components/ui/controls";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { streamImportCv, saveExtraction, listDocuments, type CvImportEvent, type Document } from "@/api/cv";
 import { parsePartial } from "@/lib/partialJson";
 import { getSettings } from "@/api/settings";
 import { getProfile } from "@/api/profile";
@@ -27,9 +29,7 @@ import type { CVExtraction, Profile } from "@/api/types";
 import { toast } from "@/store/toast";
 
 /* ── State model ─────────────────────────────────────────────────
-   Add CV is a three-step flow: upload -> review (the model streams; the raw JSON
-   flows on the right while, on the left, each field turns into an editable card
-   the moment it's parsed) -> done. Parse and review are one live screen. */
+   Add CV flow: upload -> review -> ready. Parse and review are one live screen. */
 type OnbState = "upload" | "review" | "ready";
 type SaveMode = "replace" | "merge";
 
@@ -59,11 +59,52 @@ const EMPTY: CVExtraction = {
   links: [],
 };
 
-/* ── Page ────────────────────────────────────────────────────────── */
+function friendlyDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/* ── Modal viewer for extracted CV text ──────────────────────────── */
+function CVViewModal({ doc, onClose }: { doc: Document | { filename: string; content?: string; source_type?: string | null; num_pages?: number | null }; onClose: () => void }) {
+  const wordCount = doc.content ? doc.content.split(/\s+/).filter(Boolean).length : 0;
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="flex max-h-[84vh] w-[min(92vw,620px)] flex-col overflow-hidden p-0">
+        <div className="border-b border-border px-[22px] py-[18px] pr-12">
+          <DialogTitle className="flex items-center gap-2 text-[15px]">
+            <FileText size={16} className="text-accent-text" />
+            <span className="truncate">{doc.filename || "Extracted CV Text"}</span>
+          </DialogTitle>
+          <div className="mt-1 font-mono text-[10.5px] text-fg-mid">
+            {doc.source_type ? `${doc.source_type.toUpperCase()} · ` : ""}
+            {doc.num_pages ? `${doc.num_pages} pages · ` : ""}
+            {wordCount > 0 ? `${wordCount} words` : "Parsed text"}
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto bg-reading px-[26px] py-6">
+          <div className="whitespace-pre-wrap text-[13.5px] leading-[1.8] text-reading-ink">
+            {doc.content || "No extracted text available for this document."}
+          </div>
+        </div>
+        <div className="flex justify-end border-t border-border bg-surface-2 px-[22px] py-3.5">
+          <Button variant="primary" size="sm" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Page Component ─────────────────────────────────────────────── */
 export function Onboarding() {
   const [state, setState] = useState<OnbState>("upload");
   const [ocrEnabled, setOcrEnabled] = useState<boolean | null>(null);
   const [existing, setExisting] = useState<{ filename: string | null; at: string | null } | null>(null);
+  const [savedDocs, setSavedDocs] = useState<Document[]>([]);
+  const [profileData, setProfileData] = useState<Profile | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [meta, setMeta] = useState<ImportMeta | null>(null);
@@ -89,9 +130,14 @@ export function Onboarding() {
       .catch(() => alive && setOcrEnabled(null));
     getProfile()
       .then((p) => {
+        if (!alive) return;
+        setProfileData(p);
         const src = Object.values(p.field_sources ?? {}).find((f) => f?.source === "cv");
-        if (alive && src) setExisting({ filename: src.detail ?? null, at: src.at ?? null });
+        if (src) setExisting({ filename: src.detail ?? null, at: src.at ?? null });
       })
+      .catch(() => {});
+    listDocuments()
+      .then((docs) => alive && setSavedDocs(docs))
       .catch(() => {});
     return () => {
       alive = false;
@@ -106,7 +152,7 @@ export function Onboarding() {
     if (!parsing) return;
     const id = window.setInterval(() => {
       setStreamText(accRef.current);
-      if (dirtyRef.current) return; // user took over -- don't clobber their edits
+      if (dirtyRef.current) return;
       const parsed = parsePartial(accRef.current);
       if (parsed) setDraft(toExtraction(parsed));
     }, 110);
@@ -253,10 +299,16 @@ export function Onboarding() {
             <SetupScaffold
               icon={<FileUp size={20} aria-hidden="true" />}
               title="Import your CV"
-              subtitle="Drop a file — the model reads it on your device and turns it into a fully editable profile."
+              subtitle="View your active profile CV or upload a new file — the model reads it on your device and turns it into a fully editable profile."
               privacyNote="Read on-device · nothing uploaded"
             >
-              <UploadState onChoose={startStream} ocrEnabled={ocrEnabled} existing={existing} />
+              <UploadState
+                onChoose={startStream}
+                ocrEnabled={ocrEnabled}
+                existing={existing}
+                documents={savedDocs}
+                profile={profileData}
+              />
             </SetupScaffold>
           ) : null}
 
@@ -308,27 +360,39 @@ function withArrays(ex: CVExtraction): CVExtraction {
   return { ...EMPTY, ...ex, profile: ex.profile ?? {} };
 }
 
-function friendlyDate(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? iso
-    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-/* ── State 1 · Upload ────────────────────────────────────────────── */
+/* ── State 1 · Upload / View Switcher ───────────────────────────── */
 function UploadState({
   onChoose,
   ocrEnabled,
   existing,
+  documents,
+  profile,
 }: {
   onChoose: (file: File) => void;
   ocrEnabled: boolean | null;
   existing: { filename: string | null; at: string | null } | null;
+  documents: Document[];
+  profile: Profile | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [activeTab, setActiveTab] = useState<"view" | "upload">(existing ? "view" : "upload");
+  const [viewingDoc, setViewingDoc] = useState<Document | { filename: string; content?: string } | null>(null);
+
   const ocrOff = ocrEnabled === false;
   const accept = ocrOff ? DOC_ACCEPT : `${DOC_ACCEPT},${IMAGE_ACCEPT}`;
+
+  const activeDoc = useMemo(() => {
+    if (!existing) return null;
+    if (documents.length > 0) {
+      if (existing.filename) {
+        const found = documents.find((d) => d.filename === existing.filename);
+        if (found) return found;
+      }
+      return documents[documents.length - 1];
+    }
+    return { filename: existing.filename || "Imported CV", content: "" };
+  }, [existing, documents]);
 
   const pick = useCallback(
     (f: File | undefined | null) => {
@@ -359,98 +423,190 @@ function UploadState({
     }
   };
 
+  const name = [profile?.name, profile?.surname].filter(Boolean).join(" ");
+  const title = profile?.summary || profile?.email || "";
+
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center w-full">
+      {/* If existing CV is present, show tab switcher at top */}
       {existing ? (
-        <div className="mb-5 flex w-full max-w-[560px] items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-accent-weak">
-            <FileText size={16} className="text-accent-text" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-[13px] font-semibold text-fg">{existing.filename || "Imported CV"}</span>
-              <Pill tone="success">On file</Pill>
+        <div className="mb-6 flex justify-center">
+          <Segmented
+            options={[
+              { value: "view", label: "Active CV (View)" },
+              { value: "upload", label: "Upload New CV" },
+            ]}
+            value={activeTab}
+            onChange={(v) => setActiveTab(v as "view" | "upload")}
+          />
+        </div>
+      ) : null}
+
+      {/* VIEW MODE: PROMINENT FOREGROUND VIEW OF EXISTING CV */}
+      {existing && activeTab === "view" ? (
+        <div className="cll-fade flex w-full max-w-[620px] flex-col items-center">
+          <div
+            className="relative w-full overflow-hidden rounded-[20px] border border-border bg-surface p-7 shadow-elevated"
+            style={{
+              background: "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 60%), var(--surface)",
+            }}
+          >
+            {/* Top Badge & Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <span
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] text-white"
+                  style={{ background: "var(--accent-grad)", boxShadow: "0 8px 20px -6px var(--accent-shadow)" }}
+                >
+                  <FileText size={22} />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate text-[16px] font-bold text-fg">
+                      {existing.filename || "Active Profile CV"}
+                    </h3>
+                    <Pill tone="success" className="gap-1">
+                      <Check size={11} strokeWidth={2.5} /> Active CV
+                    </Pill>
+                  </div>
+                  <p className="mt-0.5 text-[12px] text-fg-mid">
+                    {existing.at ? `Imported on ${friendlyDate(existing.at)}` : "Saved in your profile"}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="mt-0.5 text-[11.5px] text-fg-mid">
-              {existing.at ? `Imported ${friendlyDate(existing.at)} · ` : ""}in your profile
+
+            {/* Profile Overview Card */}
+            {(name || title) ? (
+              <div className="mt-5 rounded-[12px] border border-border bg-surface-2 p-4">
+                <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.01em] text-accent-text">
+                  <Sparkles size={13} />
+                  Parsed Candidate Identity
+                </div>
+                {name ? <div className="mt-1 text-[14px] font-bold text-fg">{name}</div> : null}
+                {title ? <div className="mt-0.5 text-[12px] text-fg-mid line-clamp-2">{title}</div> : null}
+              </div>
+            ) : null}
+
+            {/* Action buttons */}
+            <div className="mt-6 flex flex-wrap items-center gap-2.5 border-t border-border pt-5">
+              {activeDoc ? (
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setViewingDoc(activeDoc)}
+                  className="rounded-[10px]"
+                >
+                  <Eye size={14} />
+                  View Extracted Text
+                </Button>
+              ) : null}
+
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => setActiveTab("upload")}
+                className="rounded-[10px]"
+              >
+                <FileUp size={14} />
+                Upload New CV / Replace
+              </Button>
+
+              <Button asChild variant="ghost" size="md" className="rounded-[10px]">
+                <Link to="/profile">
+                  <User size={14} />
+                  View Profile
+                </Link>
+              </Button>
             </div>
           </div>
-          <Link
-            to="/profile"
-            className="shrink-0 rounded-[9px] border border-border-strong px-3 py-1.5 text-[12px] text-fg-mid transition-colors hover:border-accent hover:text-fg"
+        </div>
+      ) : (
+        /* UPLOAD MODE: DROPZONE FOR UPLOADING A NEW CV */
+        <div className="cll-fade flex flex-col items-center w-full">
+          {existing ? (
+            <div className="mb-4 flex w-full max-w-[560px] justify-start">
+              <button
+                type="button"
+                onClick={() => setActiveTab("view")}
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text transition-colors hover:underline"
+              >
+                <ArrowLeft size={13} /> Back to Active CV
+              </button>
+            </div>
+          ) : null}
+
+          <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={onInputChange} />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                inputRef.current?.click();
+              }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            onPaste={onPaste}
+            className={`flex w-full max-w-[560px] cursor-pointer flex-col items-center rounded-[18px] border-[1.5px] border-dashed px-8 py-10 text-center transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-accent ${
+              dragging ? "-translate-y-0.5 border-accent" : "border-border-strong"
+            }`}
+            style={{
+              background: "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 58%), var(--input)",
+            }}
           >
-            View
-          </Link>
-        </div>
-      ) : null}
+            <div
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-[16px]"
+              style={{ background: "var(--accent-grad)", boxShadow: "0 14px 32px -8px var(--accent-shadow)" }}
+            >
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M7 4h7l4 4v12H7z" />
+                <path d="M14 4v4h4" />
+                <path d="M12 11v6M9 14l3-3 3 3" />
+              </svg>
+            </div>
+            <div className="text-[17px] font-bold tracking-[-0.3px] text-fg">
+              {dragging ? "Drop it here" : existing ? "Upload a new CV file" : "Drop your CV here"}
+            </div>
+            <div className="mt-1.5 text-[12.5px] text-fg-mid">Drag &amp; drop, paste, or</div>
+            <Button
+              variant="primary"
+              size="lg"
+              className="mt-3 rounded-[11px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                inputRef.current?.click();
+              }}
+            >
+              Choose file
+            </Button>
+            <div className="mt-4 font-mono text-[10.5px] text-fg-low">
+              {ocrOff ? "PDF · DOCX · TXT" : "PDF · DOCX · TXT · images"} · read on-device, nothing uploaded
+            </div>
+          </div>
 
-      <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={onInputChange} />
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        onPaste={onPaste}
-        className={`flex w-full max-w-[560px] cursor-pointer flex-col items-center rounded-[18px] border-[1.5px] border-dashed px-8 py-10 text-center transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-accent ${
-          dragging ? "-translate-y-0.5 border-accent" : "border-border-strong"
-        }`}
-        style={{
-          background: "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 58%), var(--input)",
-        }}
-      >
-        <div
-          className="mb-4 flex h-14 w-14 items-center justify-center rounded-[16px]"
-          style={{ background: "var(--accent-grad)", boxShadow: "0 14px 32px -8px var(--accent-shadow)" }}
-        >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M7 4h7l4 4v12H7z" />
-            <path d="M14 4v4h4" />
-            <path d="M12 11v6M9 14l3-3 3 3" />
-          </svg>
+          {ocrOff ? (
+            <div className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-fg-mid">
+              <AlertTriangle size={13} className="text-warning" aria-hidden="true" />
+              <span>
+                Scanned images are off —{" "}
+                <Link to="/settings" className="text-accent-text underline-offset-2 hover:underline">
+                  enable OCR in Settings
+                </Link>
+                .
+              </span>
+            </div>
+          ) : null}
         </div>
-        <div className="text-[17px] font-bold tracking-[-0.3px] text-fg">
-          {dragging ? "Drop it here" : existing ? "Add a new CV" : "Drop your CV here"}
-        </div>
-        <div className="mt-1.5 text-[12.5px] text-fg-mid">Drag &amp; drop, paste, or</div>
-        <Button
-          variant="primary"
-          size="lg"
-          className="mt-3 rounded-[11px]"
-          onClick={(e) => {
-            e.stopPropagation();
-            inputRef.current?.click();
-          }}
-        >
-          Choose file
-        </Button>
-        <div className="mt-4 font-mono text-[10.5px] text-fg-low">
-          {ocrOff ? "PDF · DOCX · TXT" : "PDF · DOCX · TXT · images"} · read on-device, nothing uploaded
-        </div>
-      </div>
+      )}
 
-      {ocrOff ? (
-        <div className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-fg-mid">
-          <AlertTriangle size={13} className="text-warning" aria-hidden="true" />
-          <span>
-            Scanned images are off —{" "}
-            <Link to="/settings" className="text-accent-text underline-offset-2 hover:underline">
-              enable OCR in Settings
-            </Link>
-            .
-          </span>
-        </div>
-      ) : null}
+      {viewingDoc ? <CVViewModal doc={viewingDoc} onClose={() => setViewingDoc(null)} /> : null}
     </div>
   );
 }

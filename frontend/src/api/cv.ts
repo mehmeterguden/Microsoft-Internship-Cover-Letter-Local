@@ -73,3 +73,21 @@ export async function saveExtraction(
   const { data } = await client.post<SaveExtractionResult>(`/cv/save?${params}`, extraction);
   return data;
 }
+
+export interface Document {
+  id?: number | null;
+  filename: string;
+  source_type?: string | null;
+  num_pages?: number | null;
+  content: string;
+}
+
+export async function listDocuments(): Promise<Document[]> {
+  const { data } = await client.get<Document[]>("/cv/documents");
+  return data;
+}
+
+export async function saveDocument(doc: Document): Promise<Document> {
+  const { data } = await client.post<Document>("/cv/documents", doc);
+  return data;
+}
