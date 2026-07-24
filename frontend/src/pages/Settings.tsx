@@ -18,7 +18,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Segmented, Toggle } from "@/components/ui/controls";
-import { Pill, Spinner } from "@/components/ui/feedback";
+import { Pill, Spinner, StatDot } from "@/components/ui/feedback";
 import { useAsync } from "@/lib/useAsync";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
@@ -32,7 +32,7 @@ import {
   setGeminiActiveKey,
   setKeySwitchMode,
 } from "@/api/settings";
-import { listModels, type ModelsResult } from "@/api/llm";
+import { checkHealth, listModels, type HealthResult, type ModelsResult } from "@/api/llm";
 import { resetAllData } from "@/api/data";
 import type {
   CompanySearchProvider,
@@ -202,8 +202,15 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
      in the async `error`; we surface both. Base URL is committed on blur / Test
      so typing doesn't fire a request per keystroke. */
   const [discoBaseUrl, setDiscoBaseUrl] = useState(initial.llm_base_url);
+  // Azure lists ~all base models the resource *could* serve, not your actual
+  // deployments — auto-picking one calls a model that doesn't exist. So we skip
+  // discovery for Azure: the deployment name is entered by hand and verified with
+  // Test connection (a real ping), which is what actually matters.
   const discovery = useAsync<ModelsResult>(
-    () => listModels(draft.llm_provider, discoBaseUrl || undefined),
+    () =>
+      draft.llm_provider === "azure_openai"
+        ? Promise.resolve({ provider: draft.llm_provider, models: [], error: null })
+        : listModels(draft.llm_provider, discoBaseUrl || undefined),
     [draft.llm_provider, discoBaseUrl],
   );
   const discoveredModels = discovery.data?.models ?? [];
@@ -255,9 +262,30 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
     setDiscoBaseUrl(p.baseUrl);
   };
 
-  const testConnection = () => {
-    if (discoBaseUrl !== draft.llm_base_url) setDiscoBaseUrl(draft.llm_base_url);
-    else discovery.reload();
+  // Test connection = a real ping of the *selected* model (the saved config that
+  // generation actually uses), not a re-listing of every model. For local providers
+  // it also refreshes the installed-model list on the way.
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<HealthResult | null>(null);
+  const testConnection = async () => {
+    if (!provider.cloud) {
+      if (discoBaseUrl !== draft.llm_base_url) setDiscoBaseUrl(draft.llm_base_url);
+      else discovery.reload();
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const h = await checkHealth();
+      setTestResult(h);
+      if (h.ok) toast.success("Model reachable", `${h.model} responded.`);
+      else toast.danger(`${h.model || "Model"} unreachable`, h.detail);
+    } catch (e) {
+      const m = errorMessage(e);
+      setTestResult({ ok: false, provider: draft.llm_provider, model: draft.llm_model, detail: m });
+      toast.danger("Test failed", m);
+    } finally {
+      setTesting(false);
+    }
   };
 
   const save = async () => {
@@ -484,19 +512,32 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               {/* Connection status */}
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="outline" size="sm" onClick={testConnection} disabled={discovery.loading}>
-                    <RotateCw size={14} className={discovery.loading ? "animate-spin" : undefined} /> Test connection
+                  <Button variant="outline" size="sm" onClick={testConnection} disabled={testing || discovery.loading}>
+                    <RotateCw size={14} className={testing || discovery.loading ? "animate-spin" : undefined} /> Test connection
                   </Button>
-                  <ConnectionStatus loading={discovery.loading} error={discoveryError} count={discoveredModels.length} />
-                  {!provider.cloud ? (
-                    <span className="text-[11px] text-fg-low">
-                      {discovery.loading ? "…" : `${discoveredModels.length} local models discovered`}
+                  {testing ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11.5px] text-fg-mid">
+                      <Spinner size={12} /> Pinging {draft.llm_model || "the model"}…
                     </span>
+                  ) : testResult ? (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        testResult.ok ? "bg-success-weak text-success" : "bg-danger-weak text-danger",
+                      )}
+                    >
+                      <StatDot tone={testResult.ok ? "success" : "danger"} size={6} />
+                      {testResult.ok ? `${testResult.model} responded` : "Unreachable"}
+                    </span>
+                  ) : !provider.cloud ? (
+                    <ConnectionStatus loading={discovery.loading} error={discoveryError} count={discoveredModels.length} />
                   ) : (
-                    <span className="text-[11px] text-fg-low">Using your API key</span>
+                    <span className="text-[11px] text-fg-low">Ping your selected model</span>
                   )}
                 </div>
-                {discoveryError && !discovery.loading ? (
+                {testResult && !testResult.ok && !testing ? (
+                  <p className="text-[12px] leading-relaxed text-danger">{testResult.detail}</p>
+                ) : discoveryError && !discovery.loading && !testResult ? (
                   <p className="text-[12px] leading-relaxed text-danger">{discoveryError}</p>
                 ) : null}
               </div>
