@@ -14,3 +14,18 @@ export async function listModels(provider: LLMProviderId, baseUrl?: string): Pro
   });
   return data;
 }
+
+export interface HealthResult {
+  ok: boolean;
+  provider: LLMProviderId;
+  model: string;
+  detail: string;
+}
+
+/** Ping the configured model with a tiny prompt — a real "does this exact model
+ *  respond?" check (tests the saved provider + model, not a list). Never throws
+ *  for a model/auth error; those come back as `ok: false` with a `detail`. */
+export async function checkHealth(): Promise<HealthResult> {
+  const { data } = await client.get<HealthResult>("/llm/health");
+  return data;
+}
