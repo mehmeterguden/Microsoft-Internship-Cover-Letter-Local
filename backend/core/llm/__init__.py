@@ -5,18 +5,13 @@ delegates to the matching backend, so switching provider/model/keys from the
 frontend takes effect immediately and the rest of the app calls one stable API:
 `llm.complete(...)`, `llm.stream(...)`, `llm.health()`.
 
-This module is also the single safeguard boundary for the whole app:
+This module is the single metering boundary for the whole app:
 
   • Usage metering — every call is timed and recorded (provider, model, estimated
     tokens, latency, estimated cost) into `llm_runs`, and an in-flight counter
     powers the live "AI working" meter. See `core/llm_metrics.py`.
-  • PII shield — when the selected provider is a CLOUD provider, contact-level PII
-    (email, phone, address) is redacted from the outgoing messages first. LOCAL
-    providers are never altered — their data never leaves the machine. See
-    `core/pii.py`. Toggle: settings.pii_shield_cloud (default on).
 
-Streaming stays real: the generator is wrapped transparently, so tokens still
-flush to the caller as they arrive; the run is recorded when the stream ends.
+Messages are sent to the provider as-is; no redaction is applied.
 """
 
 from __future__ import annotations
@@ -24,7 +19,7 @@ from __future__ import annotations
 import time
 from collections.abc import Iterator
 
-from core import llm_metrics, pii
+from core import llm_metrics
 from core.llm.anthropic import ClaudeProvider
 from core.llm.azure_openai import AzureOpenAIProvider
 from core.llm.base import LLMProvider, Message, ResponseFormat
@@ -65,15 +60,10 @@ def get_provider() -> LLMProvider:
 
 
 def _prepare(messages: list[Message]) -> tuple[LLMProvider, str, str, list[Message]]:
-    """Resolve the provider and produce the outgoing messages.
-
-    For cloud providers with the PII shield on, contact-level PII is redacted from
-    a COPY of the messages; local providers always send the originals unchanged."""
+    """Resolve the configured provider and return it with the original messages."""
     settings = queries.get_settings()
-    provider, provider_id, model, is_cloud = _build(settings)
-    shield_on = bool(settings.get("pii_shield_cloud", 1))
-    outgoing = pii.redact_messages(messages) if (is_cloud and shield_on) else messages
-    return provider, provider_id, model, outgoing
+    provider, provider_id, model, _ = _build(settings)
+    return provider, provider_id, model, messages
 
 
 def complete(
@@ -83,7 +73,7 @@ def complete(
     max_tokens: int | None = None,
     response_format: ResponseFormat = None,
 ) -> str:
-    """Full reply — PII-shielded for cloud providers and metered."""
+    """Full reply — metered."""
     provider, provider_id, model, outgoing = _prepare(messages)
     llm_metrics.begin()
     start = time.perf_counter()
@@ -106,7 +96,7 @@ def stream(
     temperature: float = 0.7,
     response_format: ResponseFormat = None,
 ) -> Iterator[str]:
-    """Token stream — PII-shielded and metered; tokens still flush as they arrive."""
+    """Token stream — metered; tokens still flush as they arrive."""
     provider, provider_id, model, outgoing = _prepare(messages)
 
     def gen() -> Iterator[str]:
