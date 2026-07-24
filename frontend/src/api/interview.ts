@@ -2,7 +2,7 @@ import { client } from "./client";
 
 export type QuestionType = "boolean" | "single_choice" | "multi_select" | "rating" | "text";
 
-export type FocusArea = "all" | "projects" | "experiences" | "skills" | "challenges";
+export type FocusArea = string;
 
 export interface InterviewQuestion {
   id: string;
