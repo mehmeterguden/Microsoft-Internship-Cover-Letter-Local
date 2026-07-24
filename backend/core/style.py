@@ -32,7 +32,6 @@ from models import VoiceProfile
 _SAMPLE_TABLE = "past_cover_letters"
 _COLLECTION = vs.COVER_LETTERS
 _MIN_CHUNK = 40
-_CORPUS_CAP = 18000   # include all letters; a handful of cover letters fits comfortably
 _ANALYSIS_MAX_TOKENS = 4096   # headroom for the full voice JSON so it can't truncate mid-object
 _ANALYSIS_ATTEMPTS = 3        # retry transient model/parse failures before giving up
 _ANALYSIS_BACKOFF = 2.0       # seconds; grows per attempt so a demand spike can clear
@@ -53,8 +52,8 @@ class VoiceAnalysisError(RuntimeError):
 _VOICE_FIELDS = {
     "enough_signal", "tagline", "summary", "self_presentation", "tone", "formality",
     "strengths", "themes", "signature_phrases", "vocabulary", "sentence_patterns",
-    "rhetorical_moves", "structure", "emphasis", "opening_habits", "closing_habits",
-    "example_sentences", "avoid",
+    "rhetorical_moves", "structure", "emphasis", "opening_structure", "body_structure",
+    "closing_structure", "opening_habits", "closing_habits", "example_sentences", "avoid",
 }
 
 
@@ -73,9 +72,13 @@ def learn_stream() -> Iterator[dict[str, Any]]:
     thin, metrics-only profile over a good one — we keep the existing deep profile and
     report `analysis_failed` so the UI can ask the user to try again."""
     yield {"type": "progress", "percent": 5, "label": "Gathering your letters"}
-    letters = _sorted_letters()
+    letters = _sorted_letters()  # best-rated first — the prompt weights gold-standard letters
     texts = [row["content"] for row in letters if row.get("content")]
     corpus = "\n\n---\n\n".join(t.strip() for t in texts if t and t.strip())
+    # Prime the analysis with the existing fingerprint so a new letter REFINES it (rather
+    # than rebuilding from scratch); also used below to guard against downgrades.
+    existing = _stored_voice()
+    prior = existing.model_dump(mode="json") if existing else None
 
     voice: VoiceProfile | None = None
     llm_ok = False
@@ -84,10 +87,11 @@ def learn_stream() -> Iterator[dict[str, Any]]:
     if corpus:
         yield {"type": "progress", "percent": 20, "label": "Measuring rhythm & structure"}
         fields = _metrics(corpus, texts)
-        yield {"type": "progress", "percent": 35, "label": "Learning your voice (the slow part)"}
+        label = "Refining your voice from the new letter" if prior else "Learning your voice (the slow part)"
+        yield {"type": "progress", "percent": 35, "label": label}
         deep: dict[str, Any] = {}
         try:
-            for ev in _llm_voice_stream(corpus, len(texts)):
+            for ev in _llm_voice_stream(letters, prior):
                 if ev["type"] == "token":
                     yield ev  # forward the model's JSON to the client as it's written
                 elif ev["type"] == "parsed":
@@ -103,7 +107,6 @@ def learn_stream() -> Iterator[dict[str, Any]]:
         yield {"type": "progress", "percent": 70, "label": "Voice learned"}
 
     # Never downgrade a previously-learned deep profile because of a transient failure.
-    existing = _stored_voice()
     keep_existing = not llm_ok and existing is not None and existing.llm_analyzed
     stored = existing if keep_existing else voice
     if voice is not None and not keep_existing:
@@ -156,7 +159,7 @@ def analyze(texts: list[str]) -> VoiceProfile | None:
 
     fields: dict[str, Any] = _metrics(corpus, texts)
     try:
-        voice = _llm_voice(corpus, len([t for t in texts if t and t.strip()]))
+        voice = _llm_voice([{"content": t} for t in texts if t and t.strip()])
     except VoiceAnalysisError:  # generation path: degrade to metrics only, never break
         voice = {}
     if voice:
@@ -183,6 +186,12 @@ def build_voice_guide(v: VoiceProfile) -> str:
         lines.append(f"Formality: {v.formality}")
     if v.structure:
         lines.append(f"How they structure a letter: {v.structure}")
+    if v.opening_structure:
+        lines.append("Open by walking these moves in order — " + " → ".join(v.opening_structure))
+    if v.body_structure:
+        lines.append("Build the body in this order — " + " → ".join(v.body_structure))
+    if v.closing_structure:
+        lines.append("Close by walking these moves in order — " + " → ".join(v.closing_structure))
     if v.themes:
         lines.append("Themes they return to: " + ", ".join(v.themes))
     if v.strengths:
@@ -277,16 +286,17 @@ def _clean_voice(data: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _llm_voice(corpus: str, count: int = 0) -> dict[str, Any]:
+def _llm_voice(letters: list[dict], prior: dict | None = None) -> dict[str, Any]:
     """Reverse-engineer the voice with the LLM (buffered).
 
-    Retries a few times on a transient model error or an unparseable reply (a later
-    attempt nudges the temperature so a deterministic parse failure can differ).
-    Raises `VoiceAnalysisError` if every attempt fails — callers decide whether that
-    is fatal (explicit "Learn my voice") or a soft fallback (letter generation).
+    `letters` are rating-tagged rows (best first); `prior` is the existing fingerprint
+    to refine. Retries a few times on a transient model error or an unparseable reply
+    (a later attempt nudges the temperature so a deterministic parse failure can differ).
+    Raises `VoiceAnalysisError` if every attempt fails — callers decide whether that is
+    fatal (explicit "Learn my voice") or a soft fallback (letter generation).
 
     See :func:`_llm_voice_stream` for the streaming variant the interactive flow uses."""
-    messages = build_analysis_messages(corpus[:_CORPUS_CAP], count)
+    messages = build_analysis_messages(letters, prior)
     last_error: Exception | None = None
     for attempt in range(_ANALYSIS_ATTEMPTS):
         try:
@@ -303,15 +313,16 @@ def _llm_voice(corpus: str, count: int = 0) -> dict[str, Any]:
     )
 
 
-def _llm_voice_stream(corpus: str, count: int = 0) -> Iterator[dict[str, Any]]:
+def _llm_voice_stream(letters: list[dict], prior: dict | None = None) -> Iterator[dict[str, Any]]:
     """Streaming deep analysis: yield ``{type:'token', text}`` as the model writes its
     JSON so the UI can render the fingerprint filling in live, then a final
     ``{type:'parsed', data}``.
 
-    The first pass streams; if its reply can't be parsed we fall back to buffered
-    retries (a nudged temperature can clear a deterministic parse failure). Raises
-    `VoiceAnalysisError` if every attempt fails."""
-    messages = build_analysis_messages(corpus[:_CORPUS_CAP], count)
+    `letters` are rating-tagged rows (best first); `prior` is the existing fingerprint
+    to refine. The first pass streams; if its reply can't be parsed we fall back to
+    buffered retries (a nudged temperature can clear a deterministic parse failure).
+    Raises `VoiceAnalysisError` if every attempt fails."""
+    messages = build_analysis_messages(letters, prior)
     parts: list[str] = []
     try:
         for chunk in llm.stream(messages, temperature=0.0):

@@ -131,6 +131,9 @@ class VoiceProfile(BaseModel):
     rhetorical_moves: str = ""
     structure: str = ""                                      # how they structure a whole letter
     emphasis: list[str] = Field(default_factory=list)
+    opening_structure: list[str] = Field(default_factory=list)   # reusable ordered opening moves
+    body_structure: list[str] = Field(default_factory=list)      # reusable ordered body moves
+    closing_structure: list[str] = Field(default_factory=list)   # reusable ordered closing moves
     opening_habits: str = ""
     closing_habits: str = ""
     example_sentences: list[str] = Field(default_factory=list)  # verbatim standout sentences
