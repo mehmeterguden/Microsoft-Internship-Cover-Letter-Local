@@ -34,6 +34,7 @@ class ResearchInput(BaseModel):
     company_name: str = Field(min_length=1, max_length=200)
     role_title: str | None = Field(default=None, max_length=200)
     job_description: str | None = None  # pasted by the user; authored by the employer
+    job_url: str | None = None          # optional URL of the job posting
     refresh: bool = False               # bypass the cache and re-research
 
 

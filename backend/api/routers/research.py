@@ -85,6 +85,7 @@ async def research_company(payload: ResearchInput) -> StreamingResponse:
                 company_name=payload.company_name,
                 role_title=payload.role_title,
                 job_description=payload.job_description,
+                job_url=payload.job_url,
                 refresh=payload.refresh,
             ):
                 yield f"data: {json.dumps(event)}\n\n"

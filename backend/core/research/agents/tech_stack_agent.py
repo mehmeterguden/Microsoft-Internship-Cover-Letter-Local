@@ -31,7 +31,7 @@ class TechStackAgent(Agent):
     output_model = _TechList
 
     def gather(self, ctx: AgentContext) -> list[ToolResult]:
-        return [
+        gathered = [
             registry.call("github_org", company_name=ctx.company_name),
             registry.call(
                 "web_search",
@@ -39,6 +39,9 @@ class TechStackAgent(Agent):
                 max_results=6,
             ),
         ]
+        if ctx.job_url:
+            gathered.append(registry.call("web_fetch", url=ctx.job_url))
+        return gathered
 
     def section_from(self, validated: _TechList) -> list[TechItem]:
         return validated.tech_stack

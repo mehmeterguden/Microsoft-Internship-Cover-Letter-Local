@@ -52,6 +52,7 @@ async def stream_research(
     company_name: str,
     role_title: str | None = None,
     job_description: str | None = None,
+    job_url: str | None = None,
     agents: list[Agent] | None = None,
     refresh: bool = False,
 ) -> AsyncIterator[dict[str, Any]]:
@@ -60,7 +61,7 @@ async def stream_research(
     A cached report (within its TTL) short-circuits the whole run unless
     `refresh` is set, so a repeat lookup returns instantly.
     """
-    ctx = AgentContext(company_name, role_title, job_description)
+    ctx = AgentContext(company_name, role_title, job_description, job_url)
     key = _cache_key(company_name, role_title)
 
     if not refresh:
