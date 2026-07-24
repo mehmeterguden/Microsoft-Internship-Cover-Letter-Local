@@ -60,9 +60,28 @@ def get_provider() -> LLMProvider:
 
 
 def _prepare(messages: list[Message]) -> tuple[LLMProvider, str, str, list[Message]]:
-    """Resolve the configured provider and return it with the original messages."""
+    """Resolve the configured provider and apply target output language directive if configured."""
     settings = queries.get_settings()
     provider, provider_id, model, _ = _build(settings)
+
+    target_lang = (settings.get("ai_output_language") or "English").strip()
+    if target_lang and target_lang.lower() != "english":
+        directive = (
+            f"LANGUAGE DIRECTIVE: Write all generated natural language text, descriptions, and field values in {target_lang}. "
+            f"CRITICAL: Keep all JSON keys, property names, object structure, and technical schema field names "
+            f"strictly in English as originally requested. Translate ONLY the text content values into {target_lang}."
+        )
+        outgoing: list[Message] = [dict(m) for m in messages]
+        if outgoing and outgoing[0].get("role") == "system":
+            existing = outgoing[0].get("content", "")
+            outgoing[0] = {
+                **outgoing[0],
+                "content": f"{directive}\n\n{existing}",
+            }
+        else:
+            outgoing.insert(0, {"role": "system", "content": directive})
+        return provider, provider_id, model, outgoing
+
     return provider, provider_id, model, messages
 
 

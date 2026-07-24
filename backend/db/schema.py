@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS settings (
     tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
     ocr_enabled       INTEGER NOT NULL DEFAULT 0,           -- optional: read images via OCR (needs tesseract)
     github_token      TEXT NOT NULL DEFAULT '',             -- optional: connect GitHub account (PAT) for repo import
-    research_cache_retention TEXT NOT NULL DEFAULT '7_days'  -- off|7_days|30_days|forever|last_10 — how long to keep cached research
+    research_cache_retention TEXT NOT NULL DEFAULT '7_days', -- off|7_days|30_days|forever|last_10 — how long to keep cached research
+    ai_output_language TEXT NOT NULL DEFAULT 'English'       -- language for AI output generation (e.g. English, Turkish, German)
 );
 
 -- ── LLM usage log (one row per metered complete/stream call) ─────
@@ -327,6 +328,7 @@ _TABLE_COLUMNS_ADDED = {
         "linkedin_token_expires_at": "TEXT NOT NULL DEFAULT ''",
         "linkedin_connected_name": "TEXT NOT NULL DEFAULT ''",
         "linkedin_oauth_state": "TEXT NOT NULL DEFAULT ''",  # CSRF state for the auth-code flow
+        "ai_output_language": "TEXT NOT NULL DEFAULT 'English'",  # language for AI outputs
     },
     "github_repos": {
         "readme": "TEXT",  # raw README, saved alongside the AI summary

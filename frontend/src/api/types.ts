@@ -279,6 +279,7 @@ export interface Settings {
   pii_shield?: PiiShieldMode;
   /** Cross-encoder rerank on exemplar retrieval (higher precision; needs a model). */
   rag_rerank?: boolean;
+  ai_output_language?: string;
 }
 
 // ── Company research report (backend core/research/schema.py) ──
