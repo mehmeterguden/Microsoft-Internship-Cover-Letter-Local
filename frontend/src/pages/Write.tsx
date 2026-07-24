@@ -49,11 +49,23 @@ import {
   streamResearch,
   type ResearchEvent,
 } from "@/api/research";
+import { getStyle } from "@/api/style";
 import { errorMessage } from "@/api/client";
 import { createJob, getJob, updateJob } from "@/api/jobs";
 import type { Tone } from "@/api/types";
+import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
+
+function deriveDefaultTone(toneStr?: string | null): Tone {
+  if (!toneStr) return "warm";
+  const lower = toneStr.toLowerCase();
+  if (lower.includes("confident")) return "confident";
+  if (lower.includes("warm") || lower.includes("personable")) return "warm";
+  if (lower.includes("concise") || lower.includes("brief") || lower.includes("crisp")) return "concise";
+  if (lower.includes("professional") || lower.includes("polished")) return "professional";
+  return "warm";
+}
 
 /* ───────────────────────────────────────────────────────────────────
    Wire types (local mirror of Research.tsx schema)
@@ -1204,6 +1216,16 @@ export function Write() {
   const [jobUrl, setJobUrl] = useState("");
   const [importingUrl, setImportingUrl] = useState(false);
   const [tone, setTone] = useState<Tone>("warm");
+  const [toneAutoDetected, setToneAutoDetected] = useState(false);
+  const styleState = useAsync(getStyle, []);
+
+  useEffect(() => {
+    if (styleState.data?.style_profile?.tone) {
+      const derived = deriveDefaultTone(styleState.data.style_profile.tone);
+      setTone(derived);
+      setToneAutoDetected(true);
+    }
+  }, [styleState.data]);
   const [lengthPct, setLengthPct] = useState(50);
   const [grounded, setGrounded] = useState(true);
 
@@ -1712,8 +1734,19 @@ export function Write() {
           </section>
 
           <section className="flex flex-col gap-4 rounded-[14px] border border-border bg-surface p-5">
-            <Field label="Tone">
-              <Segmented options={TONES} value={tone} onChange={setTone} />
+            <Field
+              label={
+                <div className="flex items-center justify-between w-full">
+                  <span>Tone</span>
+                  {toneAutoDetected && (
+                    <span className="font-mono text-[9.5px] font-semibold text-accent-text flex items-center gap-1">
+                      <Sparkles size={10} className="text-accent" /> Auto-set from past letters
+                    </span>
+                  )}
+                </div>
+              }
+            >
+              <Segmented options={TONES} value={tone} onChange={(v) => { setTone(v); setToneAutoDetected(false); }} />
             </Field>
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
