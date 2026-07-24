@@ -22,17 +22,17 @@ import { Pill, Spinner, StatDot } from "@/components/ui/feedback";
 import { useAsync } from "@/lib/useAsync";
 import { cn } from "@/lib/utils";
 import { toast } from "@/store/toast";
+import { useSettingsStore } from "@/store/settings";
 import { errorMessage } from "@/api/client";
 import {
   addGeminiKey,
   getGeminiKeys,
   getSettings,
   removeGeminiKey,
-  saveSettings,
   setGeminiActiveKey,
   setKeySwitchMode,
 } from "@/api/settings";
-import { checkHealth, listModels, type HealthResult, type ModelsResult } from "@/api/llm";
+import { listModels, type HealthResult, type ModelsResult } from "@/api/llm";
 import { resetAllData } from "@/api/data";
 import type {
   CompanySearchProvider,
@@ -270,10 +270,10 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
     setTesting(true);
     setTestResult(null);
     try {
-      const h = await checkHealth();
+      const h = await useSettingsStore.getState().checkModelHealth();
       setTestResult(h);
-      if (h.ok) toast.success("Model reachable", `${h.model} responded.`);
-      else toast.danger(`${h.model || "Model"} unreachable`, h.detail);
+      if (h?.ok) toast.success("Model reachable", `${h.model} responded.`);
+      else toast.danger(`${h?.model || "Model"} unreachable`, h?.detail ?? "Failed to connect");
     } catch (e) {
       const m = errorMessage(e);
       setTestResult({ ok: false, provider: draft.llm_provider, model: draft.llm_model, detail: m });
@@ -294,7 +294,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
           ? { gemini_api_keys: pool.keys, gemini_active_key_id: pool.active_id, key_switch_mode: pool.mode }
           : {}),
       };
-      const result = await saveSettings(payload);
+      const result = await useSettingsStore.getState().updateSettings(payload);
       setSaved(result);
       setDraft(result);
       toast.success("Settings saved");

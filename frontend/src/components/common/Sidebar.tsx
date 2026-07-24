@@ -1,14 +1,14 @@
+import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useTheme } from "@/lib/theme";
 import { useAsync } from "@/lib/useAsync";
-import { getSettings } from "@/api/settings";
+import { useSettingsStore } from "@/store/settings";
 import { listJobs } from "@/api/jobs";
 import type { LLMProviderId } from "@/api/types";
 import { MAIN_NAV, SETUP_NAV, type NavIcon, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
-
-/** Provider labels for the footer model chip (cloud = data leaves the device). */
+/** Provider labels for the footer model chip. */
 const PROVIDER_META: Record<LLMProviderId, { name: string; cloud: boolean }> = {
   foundry_local: { name: "Foundry Local", cloud: false },
   azure_openai: { name: "Azure AI Foundry", cloud: true },
@@ -111,15 +111,30 @@ function NavRow({ item, lettersCount }: { item: NavItem; lettersCount: number })
 
 export function Sidebar() {
   const { theme, toggle } = useTheme();
-  const settings = useAsync(getSettings, []);
-  // The letters badge follows the real jobs table; re-read on navigation so it
-  // stays honest after a letter is created or deleted on another page.
+
+  // Reactive settings store
+  const { settings, health, loading, fetchSettings } = useSettingsStore();
+
+  useEffect(() => {
+    if (!settings && !loading) {
+      void fetchSettings();
+    }
+  }, [settings, loading, fetchSettings]);
+
   const { pathname } = useLocation();
   const jobs = useAsync(listJobs, [pathname]);
   const lettersCount = jobs.data?.length ?? 0;
-  const provider = settings.data ? PROVIDER_META[settings.data.llm_provider] : undefined;
-  const modelName = settings.data?.llm_model?.trim() || (settings.loading ? "Loading…" : "Not configured");
-  const isCloud = provider?.cloud ?? false;
+
+  const provider = settings ? PROVIDER_META[settings.llm_provider] : undefined;
+  const modelName = settings?.llm_model?.trim() || (loading ? "Loading…" : "Not configured");
+
+  // Status dot color calculation:
+  // Green when health ping check is OK (or configured), Red if ping check fails (health.ok === false).
+  const isHealthy = health ? health.ok : !!settings?.llm_model;
+  const dotColor = isHealthy ? "var(--success)" : "var(--danger)";
+  const statusTitle = health
+    ? `Model: ${modelName} (${provider?.name || "Provider"}) — Status: ${health.ok ? "Connected & Healthy" : `Unreachable: ${health.detail}`}`
+    : `Model: ${modelName}${provider ? ` (${provider.name})` : ""} — Click to manage in Settings`;
 
   return (
     <aside
@@ -189,17 +204,17 @@ export function Sidebar() {
 
       {/* footer */}
       <div className="relative mt-3 flex flex-col gap-2.5">
-        {/* current model → settings (compact, live) */}
+        {/* current model → settings (compact, live reactive) */}
         <NavLink
           to="/settings"
-          title={`Model: ${modelName}${provider ? ` (${provider.name})` : ""} — change in Settings`}
+          title={statusTitle}
           className="group flex items-center gap-2.5 rounded-[10px] border border-border bg-surface px-2.5 py-2 outline-none transition hover:border-border-strong"
         >
           <span
             className="h-2 w-2 shrink-0 rounded-full"
             style={{
-              background: isCloud ? "var(--warning)" : "var(--success)",
-              boxShadow: `0 0 8px ${isCloud ? "var(--warning)" : "var(--success)"}`,
+              background: dotColor,
+              boxShadow: `0 0 8px ${dotColor}`,
               animation: "cll-pulse 2.4s ease-in-out infinite",
             }}
           />
