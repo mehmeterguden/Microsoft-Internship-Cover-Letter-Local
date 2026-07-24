@@ -62,17 +62,18 @@ def _discover_models(provider: str, base_url: str, settings: dict) -> tuple[list
                      if "generateContent" in m.get("supportedGenerationMethods", [])]
             return sorted(n for n in names if n.startswith("gemini")), None
         if provider == "azure_openai":
-            v1 = azure_openai.v1_base_url(settings.get("azure_openai_endpoint") or "")
+            root = azure_openai.resource_root(settings.get("azure_openai_endpoint") or "")
             key = settings.get("azure_openai_api_key") or ""
-            if not v1 or not key:
-                return [], "Add your Azure OpenAI endpoint and key to list models."
-            # The v1 surface lists models the resource can serve. You call them by
-            # your *deployment* name (usually the same); enter it in the Model field.
-            data = _get_json(f"{v1}/models", {"api-key": key})
+            if not root or not key:
+                return [], "Add your Azure OpenAI endpoint and key to list your deployments."
+            # List the *deployments* you actually created (what you call by name),
+            # not the base-model catalogue. Chat deployments only — drop embeddings.
+            url = f"{root}/openai/deployments?api-version={azure_openai.DEPLOYMENTS_API_VERSION}"
+            data = _get_json(url, {"api-key": key})
             ids = [
-                m["id"] for m in data.get("data", [])
-                if m.get("id") and (m.get("capabilities") or {}).get("inference")
-                and m.get("lifecycle_status") != "deprecated"
+                d["id"] for d in data.get("data", [])
+                if d.get("id") and d.get("status") in (None, "succeeded")
+                and "embedding" not in f"{d.get('model') or ''} {d.get('id') or ''}".lower()
             ]
             return sorted(set(ids)), None
     except (urllib.error.URLError, TimeoutError, OSError):

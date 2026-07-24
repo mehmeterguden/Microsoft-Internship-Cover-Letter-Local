@@ -54,6 +54,21 @@ def v1_base_url(endpoint: str) -> str:
     return f"{e}/openai/v1"
 
 
+# Data-plane deployments listing works with just the resource key on this API
+# version and returns the deployments the user actually created (what you call by
+# name) — unlike the model catalogue, which lists base models that may not be deployed.
+DEPLOYMENTS_API_VERSION = "2023-03-15-preview"
+
+
+def resource_root(endpoint: str) -> str:
+    """The resource root (`https://res.openai.azure.com`), stripping any `/openai[/v1]`."""
+    e = (endpoint or "").rstrip("/")
+    for suffix in ("/openai/v1", "/openai"):
+        if e.endswith(suffix):
+            return e[: -len(suffix)]
+    return e
+
+
 def _is_reasoning(model: str) -> bool:
     return bool(_REASONING_RE.match(model or ""))
 
