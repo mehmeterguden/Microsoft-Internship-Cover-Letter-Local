@@ -436,6 +436,7 @@ class PastCoverLetter(BaseModel):
     content: str
     ai_rating: Rating | None = None
     user_rating: Rating | None = None
+    created_at: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────

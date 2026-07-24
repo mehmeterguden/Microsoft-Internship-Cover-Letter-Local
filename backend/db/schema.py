@@ -346,6 +346,9 @@ _TABLE_COLUMNS_ADDED = {
         "created_at": "TEXT",  # ISO8601 UTC — set on insert
         "updated_at": "TEXT",  # ISO8601 UTC — bumped on every write
     },
+    "past_cover_letters": {
+        "created_at": "TEXT",  # ISO8601 UTC — set on insert
+    },
 }
 
 

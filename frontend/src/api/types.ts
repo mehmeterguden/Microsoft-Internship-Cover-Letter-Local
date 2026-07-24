@@ -200,6 +200,7 @@ export interface PastCoverLetter {
   content: string;
   ai_rating?: number | null;
   user_rating?: number | null;
+  created_at?: string | null;
 }
 
 export interface MatchBreakdown {

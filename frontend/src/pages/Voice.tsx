@@ -23,7 +23,7 @@ import type { PastCoverLetter, VoiceProfile } from "@/api/types";
 import { SetupIntro } from "@/components/setup/SetupScaffold";
 import { JsonConsole } from "@/components/onboarding/JsonConsole";
 import { parsePartial } from "@/lib/partialJson";
-import { cn } from "@/lib/utils";
+import { cn, relativeTime } from "@/lib/utils";
 
 const EYEBROW = "Setup / Writing Voice";
 const TITLE = "Writing Voice";
@@ -119,6 +119,7 @@ function LetterCard({
 }) {
   const words = wordCount(letter.content);
   const label = previewLabel(letter.content) || `Letter ${index + 1}`;
+  const ago = relativeTime(letter.created_at);
   return (
     <div className="group rounded-[11px] border border-border bg-surface px-[15px] py-[13px] transition-colors hover:border-border-strong">
       <button
@@ -128,7 +129,9 @@ function LetterCard({
       >
         <DocIcon />
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg">{label}</span>
-        <span className="shrink-0 font-mono text-[9px] text-fg-low">{words}w</span>
+        <span className="shrink-0 font-mono text-[9.5px] text-fg-low">
+          {words}w{ago ? ` · ${ago}` : ""}
+        </span>
       </button>
       <div className="mt-2 flex items-center justify-between">
         <StarRating value={letter.user_rating ?? 0} onChange={(v) => onRate(letter, v)} />
@@ -624,7 +627,8 @@ function VoiceAnalyzing() {
 /* ── Letter reader modal (shared Dialog primitive) ───────────────── */
 function LetterModal({ letter, onClose }: { letter: PastCoverLetter; onClose: () => void }) {
   const words = wordCount(letter.content);
-  const meta = [`${words} words`, letter.user_rating ? `rated ${letter.user_rating}/5` : null].filter(Boolean).join(" · ");
+  const ago = relativeTime(letter.created_at);
+  const meta = [`${words} words`, ago ? `added ${ago}` : null, letter.user_rating ? `rated ${letter.user_rating}/5` : null].filter(Boolean).join(" · ");
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
+from datetime import datetime, timezone
+
 from db import queries
 from models import PastCoverLetter
 
@@ -25,7 +27,10 @@ def list_past_cover_letters() -> list[PastCoverLetter]:
 @router.post("", response_model=PastCoverLetter, status_code=status.HTTP_201_CREATED)
 def create_past_cover_letter(letter: PastCoverLetter) -> PastCoverLetter:
     """Add a new past cover letter."""
-    new_id = queries.insert(TABLE, letter.model_dump(mode="json", exclude={"id"}))
+    payload = letter.model_dump(mode="json", exclude={"id"})
+    if not payload.get("created_at"):
+        payload["created_at"] = datetime.now(timezone.utc).isoformat()
+    new_id = queries.insert(TABLE, payload)
     return PastCoverLetter(**queries.get_by_id(TABLE, new_id))
 
 
