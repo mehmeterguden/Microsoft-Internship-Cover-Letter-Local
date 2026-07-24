@@ -74,8 +74,8 @@ const PROVIDERS: ProviderMeta[] = [
   },
   {
     id: "azure_openai",
-    name: "Azure OpenAI",
-    desc: "Microsoft-managed cloud models via your Azure resource.",
+    name: "Azure AI Foundry",
+    desc: "Any cloud model in your Foundry resource — OpenAI, DeepSeek, Grok, Mistral, Cohere…",
     badge: "Cloud",
     cloud: true,
     baseUrl: "",
@@ -431,7 +431,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                   label={provider.id === "azure_openai" ? "Deployment" : "Model"}
                   hint={
                     provider.id === "azure_openai"
-                      ? "Your Azure deployment name — save your endpoint & key, then Test connection to list deployments."
+                      ? "Your deployment name. Pick from the list, or type any deployment (e.g. a DeepSeek/Grok model) and choose “Use …”."
                       : discoveryError && !discovery.loading
                         ? "Discovery unavailable — enter a model name."
                         : undefined
@@ -470,11 +470,14 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                   )}
                 </Field>
                 {provider.id === "azure_openai" ? (
-                  <Field label="Azure endpoint" hint="The resource root, e.g. https://my-resource.openai.azure.com">
+                  <Field
+                    label="Foundry endpoint"
+                    hint="Your Azure OpenAI or Foundry project endpoint — …openai.azure.com or …services.ai.azure.com. Use the services one for non-OpenAI models."
+                  >
                     <Input
                       value={draft.azure_openai_endpoint ?? ""}
                       onChange={(e) => setField("azure_openai_endpoint", e.target.value)}
-                      placeholder="https://my-resource.openai.azure.com"
+                      placeholder="https://my-resource.services.ai.azure.com"
                       spellCheck={false}
                       className="h-11 font-mono text-[13px]"
                     />
@@ -961,26 +964,38 @@ function ModelSelect({ value, options, onChange }: { value: string; options: str
               className="mb-1.5 w-full rounded-[8px] border border-border bg-input px-2.5 py-2 text-[12px] text-fg placeholder:text-fg-low outline-none focus:border-accent"
             />
             <div className="max-h-[176px] overflow-auto">
-              {matches.length ? (
-                matches.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => {
-                      onChange(m);
-                      close();
-                    }}
-                    className={cn(
-                      "block w-full rounded-[8px] px-2.5 py-2 text-left text-[13px] transition-colors hover:bg-accent-weak",
-                      m === value ? "text-accent-text" : "text-fg",
-                    )}
-                  >
-                    {m}
-                  </button>
-                ))
-              ) : (
-                <div className="px-2.5 py-2 text-[12px] text-fg-low">{`No models match "${query}".`}</div>
-              )}
+              {matches.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    onChange(m);
+                    close();
+                  }}
+                  className={cn(
+                    "block w-full rounded-[8px] px-2.5 py-2 text-left text-[13px] transition-colors hover:bg-accent-weak",
+                    m === value ? "text-accent-text" : "text-fg",
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+              {/* Let any deployment name through, even one discovery didn't list
+                  (e.g. a serverless DeepSeek/Grok deployment). */}
+              {query.trim() && !options.some((m) => m.toLowerCase() === query.trim().toLowerCase()) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(query.trim());
+                    close();
+                  }}
+                  className="block w-full rounded-[8px] px-2.5 py-2 text-left text-[13px] text-accent-text transition-colors hover:bg-accent-weak"
+                >
+                  Use “{query.trim()}”
+                </button>
+              ) : !matches.length ? (
+                <div className="px-2.5 py-2 text-[12px] text-fg-low">Type a deployment name…</div>
+              ) : null}
             </div>
           </div>
         </>
