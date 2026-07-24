@@ -18,6 +18,7 @@ from api.routers import (
     experiences,
     github,
     github_repos,
+    interview,
     jobs,
     languages,
     linkedin,
@@ -53,6 +54,7 @@ api_router.include_router(style.router)  # writing-style learning
 # Identity first, then skills and portfolio, then writing samples.
 api_router.include_router(profile.router)
 api_router.include_router(profile_completion.router)  # AI-guided gap filling
+api_router.include_router(interview.router)  # AI profile interview & context synthesis
 api_router.include_router(skills.router)
 api_router.include_router(skill_links.router)
 api_router.include_router(github_repos.router)

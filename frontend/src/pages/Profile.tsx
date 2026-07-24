@@ -12,6 +12,7 @@ import { Pill, Spinner, StatDot, type Tone } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
+import { ProfileInterviewModal } from "@/components/profile/ProfileInterviewModal";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
@@ -481,6 +482,7 @@ export function Profile() {
   const [editSummary, setEditSummary] = useState(false);
   const [genSummary, setGenSummary] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [interviewOpen, setInterviewOpen] = useState(false);
 
   const bundle = state.data;
   const status = bundle
@@ -517,6 +519,14 @@ export function Profile() {
               {status.text}
             </span>
           ) : null}
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => setInterviewOpen(true)}
+            className="border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 hover:border-indigo-500/60"
+          >
+            <SparkleIcon size={15} /> AI Profile Interview (Zenginleştir)
+          </Button>
           <Button variant="primary" size="md" onClick={() => setAiOpen(true)}>
             <SparkleIcon size={15} /> AI complete empty fields
           </Button>
@@ -652,6 +662,12 @@ export function Profile() {
           }}
         />
       ) : null}
+
+      <ProfileInterviewModal
+        isOpen={interviewOpen}
+        onClose={() => setInterviewOpen(false)}
+        onProfileUpdated={reload}
+      />
 
       <ConfirmDialog
         open={confirm !== null}
