@@ -162,6 +162,54 @@ function fitColor(tone: "success" | "warning" | "accent") {
 /* ───────────────────────────────────────────────────────────────────
    JSON live stream token colouriser (syntax-highlight without deps)
 ────────────────────────────────────────────────────────────────────*/
+function formatJsonStream(raw: string): string {
+  if (!raw.trim()) return raw;
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    let formatted = "";
+    let indent = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < raw.length; i++) {
+      const char = raw[i];
+      if (escaped) {
+        formatted += char;
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        formatted += char;
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        formatted += char;
+        continue;
+      }
+      if (inString) {
+        formatted += char;
+        continue;
+      }
+
+      if (char === "{" || char === "[") {
+        indent += 2;
+        formatted += char + "\n" + " ".repeat(indent);
+      } else if (char === "}" || char === "]") {
+        indent = Math.max(0, indent - 2);
+        formatted += "\n" + " ".repeat(indent) + char;
+      } else if (char === ",") {
+        formatted += char + "\n" + " ".repeat(indent);
+      } else {
+        formatted += char;
+      }
+    }
+    return formatted.replace(/\n\s*\n/g, "\n");
+  }
+}
+
 function JsonToken({ text }: { text: string }) {
   const lines = text.split("\n");
   return (
@@ -383,17 +431,17 @@ function ResearchModal({
 
                   {/* Live streaming text for active agents */}
                   {partialEntries.map(([agentId, liveText]) => (
-                    <div key={agentId} className="flex flex-col gap-2 rounded-[10px] border border-accent/40 bg-accent-weak/30 p-3.5 shadow-sm">
+                    <div key={agentId} className="flex flex-col gap-2 rounded-[12px] border border-accent/40 bg-surface-2 p-3.5 shadow-[0_8px_24px_-8px_var(--accent-shadow)]">
                       <div className="flex items-center justify-between">
                         <span className="font-mono text-[11px] font-semibold text-accent-text flex items-center gap-1.5">
                           <Loader2 size={12} className="animate-spin text-accent" />
                           Streaming reasoning: {agentLabel(agentId)}
                         </span>
-                        <Pill tone="accent" mono className="text-[8.5px] py-0 px-1.5">typing</Pill>
+                        <Pill tone="accent" mono className="text-[8.5px] py-0 px-1.5 animate-pulse">typing</Pill>
                       </div>
-                      <pre className="font-mono text-[11px] leading-[1.75] break-all whitespace-pre-wrap text-fg">
-                        {liveText}
-                        <span className="cll-caret" aria-hidden />
+                      <pre className="font-mono text-[11.5px] leading-[1.75] break-all whitespace-pre-wrap rounded-[10px] bg-surface p-3.5 border border-border/80 shadow-inner">
+                        <JsonToken text={formatJsonStream(liveText)} />
+                        <span className="cll-caret ml-0.5 inline-block h-3.5 w-1.5 bg-accent" aria-hidden />
                       </pre>
                     </div>
                   ))}
@@ -1080,9 +1128,9 @@ function ResearchRunningInline({
    Research prompt button
 ────────────────────────────────────────────────────────────────────*/
 function ResearchPromptButton({
-  company, onRun, checking, cachedAt, onViewCache,
+  company, onRun, onReRun, checking, cachedAt, onViewCache,
 }: {
-  company: string; onRun: () => void; checking: boolean;
+  company: string; onRun: () => void; onReRun: () => void; checking: boolean;
   cachedAt: string | null; onViewCache: () => void;
 }) {
   if (cachedAt) {
@@ -1094,7 +1142,7 @@ function ResearchPromptButton({
           <span className="ml-2 font-mono text-[10px] text-fg-low">· cached {formatWhen(cachedAt)}</span>
         </div>
         <Button type="button" variant="solid" size="sm" className="shrink-0 h-7 px-3 text-[11px]" onClick={onViewCache}>View intel</Button>
-        <Button type="button" variant="ghost" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={onRun}>Re-run</Button>
+        <Button type="button" variant="ghost" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={onReRun}>Re-run</Button>
       </div>
     );
   }
@@ -1629,7 +1677,7 @@ export function Write() {
             {/* Research section */}
             {researchPhase === "idle" ? (
               <ResearchPromptButton
-                company={company} onRun={handleResearchRun} checking={checkingCache}
+                company={company} onRun={handleResearchRun} onReRun={() => startResearch(true)} checking={checkingCache}
                 cachedAt={researchCacheHit} onViewCache={loadCachedResearch}
               />
             ) : researchPhase === "running" ? (
