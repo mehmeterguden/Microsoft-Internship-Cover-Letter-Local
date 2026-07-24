@@ -48,8 +48,7 @@ CREATE TABLE IF NOT EXISTS settings (
     tavily_api_key    TEXT NOT NULL DEFAULT '',             -- company research (only external call)
     ocr_enabled       INTEGER NOT NULL DEFAULT 0,           -- optional: read images via OCR (needs tesseract)
     github_token      TEXT NOT NULL DEFAULT '',             -- optional: connect GitHub account (PAT) for repo import
-    research_cache_retention TEXT NOT NULL DEFAULT '7_days', -- off|7_days|30_days|forever|last_10 — how long to keep cached research
-    pii_shield_cloud  INTEGER NOT NULL DEFAULT 1            -- redact contact PII before sending to a CLOUD provider
+    research_cache_retention TEXT NOT NULL DEFAULT '7_days'  -- off|7_days|30_days|forever|last_10 — how long to keep cached research
 );
 
 -- ── LLM usage log (one row per metered complete/stream call) ─────
@@ -321,7 +320,6 @@ _TABLE_COLUMNS_ADDED = {
         "azure_openai_api_version": "TEXT NOT NULL DEFAULT '2024-10-21'",
         "embedding_provider": "TEXT NOT NULL DEFAULT 'sentence_transformers'",  # sentence_transformers|foundry_local
         "embedding_base_url": "TEXT NOT NULL DEFAULT 'http://localhost:5273/v1'",  # Foundry Local embeddings endpoint
-        "pii_shield_cloud": "INTEGER NOT NULL DEFAULT 1",  # redact contact PII for cloud providers
         # LinkedIn import — OAuth app credentials + connection state (identity prefill).
         "linkedin_client_id": "TEXT NOT NULL DEFAULT ''",
         "linkedin_client_secret": "TEXT NOT NULL DEFAULT ''",
