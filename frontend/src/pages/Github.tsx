@@ -7,7 +7,8 @@ import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState, ProgressBar, Spinner, StatDot } from "@/components/ui/feedback";
+import { ProgressBar, Spinner, StatDot } from "@/components/ui/feedback";
+import { SetupEmpty } from "@/components/setup/SetupScaffold";
 import { useAsync } from "@/lib/useAsync";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
@@ -689,7 +690,7 @@ export function Github() {
                 {savedRepos.length > 0 || saved.loading || saved.error ? (
                   profileSection
                 ) : (
-                  <EmptyState
+                  <SetupEmpty
                     icon={<GithubMark size={26} />}
                     title="Connect a GitHub account"
                     description="Enter a username above and we'll pull the public repositories, then analyze them into skills and projects — the account name is all that leaves your device."

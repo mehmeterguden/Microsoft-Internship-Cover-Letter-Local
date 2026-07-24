@@ -8,7 +8,8 @@ import { ReconcileReview } from "@/components/common/ReconcileReview";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Field, Input, Textarea } from "@/components/ui/field";
-import { EmptyState, Spinner } from "@/components/ui/feedback";
+import { Spinner } from "@/components/ui/feedback";
+import { SetupEmpty } from "@/components/setup/SetupScaffold";
 import { useAsync } from "@/lib/useAsync";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
@@ -452,7 +453,7 @@ export function LinkedIn() {
             />
           </div>
         ) : !busy && tab !== "connect" ? (
-          <EmptyState
+          <SetupEmpty
             icon={<LinkedInMark size={24} />}
             title="Nothing imported yet"
             description={
