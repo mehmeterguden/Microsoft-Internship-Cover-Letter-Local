@@ -525,7 +525,7 @@ export function Profile() {
             onClick={() => setInterviewOpen(true)}
             className="border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10 hover:border-indigo-500/60"
           >
-            <SparkleIcon size={15} /> AI Profile Interview (Zenginleştir)
+            <SparkleIcon size={15} /> AI Profile Interview
           </Button>
           <Button variant="primary" size="md" onClick={() => setAiOpen(true)}>
             <SparkleIcon size={15} /> AI complete empty fields

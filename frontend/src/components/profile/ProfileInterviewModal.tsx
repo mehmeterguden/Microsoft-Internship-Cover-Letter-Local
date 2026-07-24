@@ -70,7 +70,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
       const q = await getNextInterviewQuestion(hist);
       setCurrentQuestion(q);
     } catch (err) {
-      toast.danger("Soru getirilemedi. Tekrar deneyin.");
+      toast.danger("Failed to load question. Please try again.");
     } finally {
       setLoadingQuestion(false);
     }
@@ -104,7 +104,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
     const ans = getCurrentFormattedAnswer();
 
     if (ans === null || ans === "") {
-      toast.danger("Lütfen bir yanıt verin veya Soruyu Atla'ya tıklayın.");
+      toast.danger("Please provide an answer or click Skip Question.");
       return;
     }
 
@@ -137,7 +137,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
     const historyItem: QuestionHistoryItem = {
       id: currentQuestion.id,
       question: currentQuestion.question,
-      answer: "(Atlandı)",
+      answer: "(Skipped)",
     };
 
     const newHistory = [...history, historyItem];
@@ -161,7 +161,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
     }
 
     if (finalAnswers.length === 0) {
-      toast.danger("Henüz hiçbir soru yanıtlanmadı.");
+      toast.danger("No questions answered yet.");
       return;
     }
 
@@ -170,12 +170,12 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
       const res = await synthesizeInterviewAnswers(finalAnswers);
       setUpdateStats({ updated_count: res.updated_count });
       setSynthesisDone(true);
-      toast.success("Profiliniz başarıyla zenginleştirildi!");
+      toast.success("Profile successfully enriched!");
       if (onProfileUpdated) {
         onProfileUpdated();
       }
     } catch (err) {
-      toast.danger("Yanıtlar işlenirken hata oluştu.");
+      toast.danger("Failed to process answers.");
     } finally {
       setIsSynthesizing(false);
     }
@@ -192,7 +192,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
       <DialogContent className="max-w-xl w-full bg-slate-900 border border-slate-800 text-slate-100 p-6 rounded-2xl shadow-2xl">
         <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-white border-b border-slate-800 pb-3">
           <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-          AI Profil Zenginleştirme Mülakatı
+          AI Profile Interview & Context Generator
         </DialogTitle>
 
         {synthesisDone ? (
@@ -200,33 +200,33 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
             <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h3 className="text-2xl font-bold text-white">Mülakat Tamamlandı!</h3>
+            <h3 className="text-2xl font-bold text-white">Interview Completed!</h3>
             <p className="text-slate-400 max-w-md mx-auto text-sm">
-              Verdiğiniz {collectedAnswers.length} yanıt analiz edildi ve profilinizdeki projeler, deneyimler ve yetenekler teknik detaylarla zenginleştirildi.
+              Your {collectedAnswers.length} responses have been analyzed, enriching your projects, experiences, and skills with rich technical narrative context.
             </p>
             {updateStats && (
               <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3 text-xs text-indigo-300 font-medium inline-block">
-                {updateStats.updated_count} profil ögesi güncellendi ve hikayeleştirildi.
+                {updateStats.updated_count} profile items updated and enriched.
               </div>
             )}
             <div className="pt-4">
               <Button onClick={onClose} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-xl">
-                Tamamla ve Profile Dön
+                Complete & Return to Profile
               </Button>
             </div>
           </div>
         ) : isSynthesizing ? (
           <div className="py-12 text-center space-y-4">
             <Spinner className="w-10 h-10 mx-auto text-indigo-400" />
-            <h3 className="text-lg font-semibold text-white">Yanıtlarınız İşleniyor...</h3>
+            <h3 className="text-lg font-semibold text-white">Processing Answers...</h3>
             <p className="text-slate-400 text-xs max-w-sm mx-auto">
-              AI, mülakat yanıtlarınızı inceleyip profil ögeleriniz için derin ve teknik bağlamlar sentezliyor.
+              AI is analyzing your interview responses to synthesize deep technical narrative context for your profile items.
             </p>
           </div>
         ) : loadingQuestion ? (
           <div className="py-12 text-center space-y-3">
             <Spinner className="w-8 h-8 mx-auto text-indigo-400" />
-            <p className="text-slate-400 text-xs">Profilinize özel bir sonraki soru hazırlanıyor...</p>
+            <p className="text-slate-400 text-xs">Generating customized question for your profile...</p>
           </div>
         ) : currentQuestion ? (
           <div className="space-y-5 pt-2">
@@ -235,7 +235,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
               <span className="flex items-center gap-1.5 font-medium text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
                 Target: {currentQuestion.target_name || currentQuestion.target_type}
               </span>
-              <span>Soru #{history.length + 1} ({collectedAnswers.length} yanıtlandı)</span>
+              <span>Question #{history.length + 1} ({collectedAnswers.length} answered)</span>
             </div>
 
             {/* Question title */}
@@ -265,7 +265,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                         : "bg-slate-800/40 border-slate-700/60 text-slate-300 hover:bg-slate-800"
                     }`}
                   >
-                    Evet (True)
+                    Yes (True)
                   </button>
                   <button
                     type="button"
@@ -276,7 +276,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                         : "bg-slate-800/40 border-slate-700/60 text-slate-300 hover:bg-slate-800"
                     }`}
                   >
-                    Hayır (False)
+                    No (False)
                   </button>
                 </div>
               )}
@@ -305,7 +305,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                     <div className="pt-1">
                       <input
                         type="text"
-                        placeholder="Diğer / Özel yanıtınız..."
+                        placeholder="Other / Custom answer..."
                         value={customValue}
                         onChange={(e) => {
                           setCustomValue(e.target.value);
@@ -344,7 +344,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                     <div className="pt-1 flex gap-2">
                       <input
                         type="text"
-                        placeholder="Listenizde yoksa diğer seçeneği yazın..."
+                        placeholder="Option not listed? Add custom option..."
                         value={customValue}
                         onChange={(e) => setCustomValue(e.target.value)}
                         className="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -378,7 +378,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
               {/* Type 5: Open Text */}
               {currentQuestion.type === "text" && (
                 <Textarea
-                  placeholder="Detaylı yanıtınızı girin..."
+                  placeholder="Enter detailed response..."
                   value={textValue}
                   onChange={(e) => setTextValue(e.target.value)}
                   rows={3}
@@ -395,7 +395,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                 className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
               >
                 <SkipForward className="w-3.5 h-3.5" />
-                Soruyu Atla
+                Skip Question
               </Button>
 
               <div className="flex items-center gap-2">
@@ -405,7 +405,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                     onClick={handleFinishAndSynthesize}
                     className="text-xs border-slate-700 hover:bg-slate-800 text-indigo-300"
                   >
-                    Mülakatı Tamamla ({collectedAnswers.length})
+                    Finish & Enrich ({collectedAnswers.length})
                   </Button>
                 )}
 
@@ -413,7 +413,7 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                   onClick={handleNext}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-xl flex items-center gap-1.5"
                 >
-                  Sonraki Soru
+                  Next Question
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
