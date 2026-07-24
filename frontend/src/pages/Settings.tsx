@@ -119,13 +119,26 @@ const PROVIDERS: ProviderMeta[] = [
   },
   {
     id: "gemini",
-    name: "Gemini",
-    desc: "Google's Gemini with automatic key-pool rotation.",
+    name: "Google Gemini",
+    desc: "Gemini Pro / Flash models with free-tier support.",
     badge: "Cloud",
     cloud: true,
-    baseUrl: "https://generativelanguage.googleapis.com",
-    curatedModels: ["gemini-2.0-flash", "gemini-2.0-pro", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.5-flash-8b"],
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    curatedModels: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"],
   },
+];
+
+const BUILTIN_LANGUAGES = [
+  { value: "English", label: "English" },
+  { value: "Turkish", label: "Türkçe (Turkish)" },
+  { value: "German", label: "Deutsch (German)" },
+  { value: "French", label: "Français (French)" },
+  { value: "Spanish", label: "Español (Spanish)" },
+  { value: "Italian", label: "Italiano (Italian)" },
+  { value: "Dutch", label: "Nederlands (Dutch)" },
+  { value: "Portuguese", label: "Português (Portuguese)" },
+  { value: "Japanese", label: "日本語 (Japanese)" },
+  { value: "Chinese", label: "中文 (Chinese)" },
 ];
 
 const EMBED_MODELS = ["all-MiniLM-L6-v2", "nomic-embed-text", "mxbai-embed-large", "bge-small-en-v1.5"];
@@ -655,6 +668,51 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                   </div>
                 </div>
               )}
+
+              {/* AI Output Language */}
+              <div className="rounded-[12px] border border-border bg-surface p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-[13.5px] font-semibold text-fg">AI Output Language</div>
+                    <div className="text-[11.5px] text-fg-mid">
+                      Language for all AI outputs (letters, research, edits & prep). Prompts remain in English & JSON schema keys are preserved.
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      value={
+                        BUILTIN_LANGUAGES.some((l) => l.value === (draft.ai_output_language ?? "English"))
+                          ? (draft.ai_output_language ?? "English")
+                          : "Custom"
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val !== "Custom") {
+                          setField("ai_output_language", val);
+                        }
+                      }}
+                      className="h-9 rounded-[8px] border border-border bg-input px-3 text-[12.5px] font-medium text-fg transition-colors focus:border-accent focus:outline-none"
+                    >
+                      {BUILTIN_LANGUAGES.map((l) => (
+                        <option key={l.value} value={l.value}>
+                          {l.label}
+                        </option>
+                      ))}
+                      <option value="Custom">Custom…</option>
+                    </select>
+
+                    {(!draft.ai_output_language ||
+                      !BUILTIN_LANGUAGES.some((l) => l.value === draft.ai_output_language)) && (
+                      <Input
+                        value={draft.ai_output_language ?? ""}
+                        onChange={(e) => setField("ai_output_language", e.target.value)}
+                        placeholder="e.g. Swedish"
+                        className="h-9 w-[140px] font-sans text-[12px]"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           ) : null}
 
