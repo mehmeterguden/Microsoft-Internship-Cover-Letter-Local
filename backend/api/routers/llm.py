@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from core import llm, llm_metrics
-from core.llm import foundry_local
+from core.llm import azure_openai, foundry_local
 from core.llm.gemini import effective_key
 from db import queries
 
@@ -62,14 +62,19 @@ def _discover_models(provider: str, base_url: str, settings: dict) -> tuple[list
                      if "generateContent" in m.get("supportedGenerationMethods", [])]
             return sorted(n for n in names if n.startswith("gemini")), None
         if provider == "azure_openai":
-            endpoint = (settings.get("azure_openai_endpoint") or "").rstrip("/")
+            v1 = azure_openai.v1_base_url(settings.get("azure_openai_endpoint") or "")
             key = settings.get("azure_openai_api_key") or ""
-            version = settings.get("azure_openai_api_version") or "2024-10-21"
-            if not endpoint or not key:
-                return [], "Add your Azure OpenAI endpoint and key to list deployments."
-            data = _get_json(f"{endpoint}/openai/deployments?api-version={version}", {"api-key": key})
-            # Azure lists *deployments* (what you actually call), not base models.
-            return sorted(d["id"] for d in data.get("data", []) if d.get("id")), None
+            if not v1 or not key:
+                return [], "Add your Azure OpenAI endpoint and key to list models."
+            # The v1 surface lists models the resource can serve. You call them by
+            # your *deployment* name (usually the same); enter it in the Model field.
+            data = _get_json(f"{v1}/models", {"api-key": key})
+            ids = [
+                m["id"] for m in data.get("data", [])
+                if m.get("id") and (m.get("capabilities") or {}).get("inference")
+                and m.get("lifecycle_status") != "deprecated"
+            ]
+            return sorted(set(ids)), None
     except (urllib.error.URLError, TimeoutError, OSError):
         return [], f"Couldn't reach {provider} at {base or provider}. Is it running?"
     except Exception as exc:  # noqa: BLE001 — surface parse/HTTP issues to the UI
