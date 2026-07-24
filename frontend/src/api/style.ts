@@ -34,22 +34,32 @@ export interface LearnResult {
 
 type LearnEvent =
   | { type: "progress"; percent: number; label: string }
+  | { type: "token"; text: string }
   | { type: "done"; result: LearnResult }
   | { type: "fatal"; error: string };
 
+export interface LearnCallbacks {
+  /** Fires per phase (gather → metrics → deep voice → index). */
+  onProgress?: (p: Progress) => void;
+  /** Raw JSON tokens from the deep voice analysis, as the model writes them. */
+  onToken?: (text: string) => void;
+}
+
 /**
  * Learn the writing voice with live progress over SSE. `onProgress` fires per
- * phase (gather → metrics → deep voice → index). Resolves with the summary;
- * throws on a fatal stream error.
+ * phase; `onToken` streams the deep analysis JSON as it's written, so the UI can
+ * render the fingerprint filling in live. Resolves with the summary; throws on a
+ * fatal stream error.
  */
 export async function learnVoice(
-  onProgress?: (p: Progress) => void,
+  callbacks: LearnCallbacks = {},
   signal?: AbortSignal,
 ): Promise<LearnResult> {
   let result: LearnResult | null = null;
   let fatal: string | null = null;
   await streamSSE<LearnEvent>("/style/learn", {}, (event) => {
-    if (event.type === "progress") onProgress?.({ percent: event.percent, label: event.label });
+    if (event.type === "progress") callbacks.onProgress?.({ percent: event.percent, label: event.label });
+    else if (event.type === "token") callbacks.onToken?.(event.text);
     else if (event.type === "done") result = event.result;
     else if (event.type === "fatal") fatal = event.error;
   }, signal);

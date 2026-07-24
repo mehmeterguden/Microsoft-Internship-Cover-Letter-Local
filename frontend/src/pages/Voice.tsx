@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, RotateCw, Trash2, Upload } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
@@ -21,6 +21,8 @@ import {
 } from "@/api/style";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
 import { SetupIntro } from "@/components/setup/SetupScaffold";
+import { JsonConsole } from "@/components/onboarding/JsonConsole";
+import { parsePartial } from "@/lib/partialJson";
 import { cn } from "@/lib/utils";
 
 const EYEBROW = "Setup / Writing Voice";
@@ -50,14 +52,6 @@ function formalityPercent(f: string): number {
 }
 
 /* ── Inline icons (kept from the original design for 1:1 fidelity) ── */
-function IconCheck({ size = 12, color = "var(--success)" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 10l4 4 8-9" />
-    </svg>
-  );
-}
-
 function IconSpin({ size = 13, color = "var(--accent)" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" style={{ animation: "cll-spin 1s linear infinite" }}>
@@ -495,63 +489,99 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
 }
 
 /* ── Learning state — analysis in progress ───────────────────────── */
-function LearningBody({ letters, progress, label }: { letters: PastCoverLetter[]; progress: number; label: string }) {
-  const facets = ["Tone & register", "Structure & rhetoric", "Signature phrasing", "Vocabulary & avoid-list"];
+function LearningBody({
+  letters,
+  progress,
+  label,
+  streamText,
+  preview,
+}: {
+  letters: PastCoverLetter[];
+  progress: number;
+  label: string;
+  streamText: string;
+  preview: VoiceProfile | null;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setElapsed((e) => e + 0.1), 100);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Swap the skeleton for the live fingerprint once real voice fields land.
+  const hasPreview =
+    !!preview &&
+    !!(
+      preview.summary ||
+      preview.tagline ||
+      preview.self_presentation ||
+      preview.tone ||
+      preview.strengths?.length ||
+      preview.themes?.length ||
+      preview.signature_phrases?.length
+    );
+
   return (
-    <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
-      <section className="cll-fade flex flex-col gap-2.5">
-        <div className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Samples · {letters.length}</div>
-        {letters.map((l, i) => (
-          <div key={l.id ?? i} className="flex items-center gap-2.5 rounded-[11px] border border-border bg-surface px-3.5 py-3">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-accent-weak">
-              <IconCheck size={11} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-semibold text-fg">{previewLabel(l.content) || `Letter ${i + 1}`}</div>
-              <div className="font-mono text-[9px] text-fg-low">{wordCount(l.content)} words</div>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <section className="cll-fade">
-        <div className="relative overflow-hidden rounded-[14px] border border-border bg-surface px-6 py-[22px]">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
-            style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.35 }}
-          />
-          <div className="relative flex items-center gap-2">
-            <div className="text-[15px] text-fg" style={{ fontWeight: 650 }}>Analyzing your voice</div>
-            <StatDot tone="accent" pulse size={7} />
-            <span className="ml-auto font-mono text-[11px] text-accent-text">{Math.round(progress)}%</span>
-          </div>
-          <div className="relative mt-1.5 text-[12px] text-fg-mid">{label || "Working…"}</div>
-          <div className="relative mt-2">
-            <ProgressBar value={progress} />
-          </div>
-
-          <div className="relative mt-5 flex flex-col gap-[13px]">
-            {facets.map((label) => (
-              <div key={label} className="flex items-center gap-[11px]">
-                <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-accent-weak">
-                  <IconSpin size={13} />
-                </span>
-                <span className="flex-1 text-[12.5px] text-fg">{label}</span>
-                <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Working</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="relative mt-[18px] border-t border-border pt-3.5 text-[12.5px] leading-[1.7] text-fg-mid">
-            Reading your letters and reverse-engineering how you open, build an argument, and close — so new drafts sound like you
-            <span
-              className="ml-px inline-block h-3.5 w-[7px] translate-y-0.5 bg-accent"
-              style={{ animation: "cll-blink 1.05s step-end infinite" }}
-            />
+    <div className="flex min-h-full flex-col gap-3.5 px-7 py-5">
+      {/* status bar — mirrors the CV import so both flows read alike */}
+      <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-3">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-accent-weak">
+          <IconSparkle />
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-accent" style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-semibold text-fg">Learning your writing voice</div>
+          <div className="mt-0.5 truncate text-[11.5px] text-fg-mid">
+            {label || "Working…"} · {letters.length} letter{letters.length === 1 ? "" : "s"} · {elapsed.toFixed(1)}s
           </div>
         </div>
-      </section>
+        <span className="font-mono text-[11px] text-accent-text">{Math.round(progress)}%</span>
+      </div>
+      <ProgressBar value={progress} />
+
+      {/* two panes — live fingerprint (left) + the model's JSON as it writes it (right) */}
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_minmax(320px,420px)]">
+        <div className="min-h-0 overflow-y-auto pr-0.5">
+          {hasPreview && preview ? <Fingerprint profile={preview} letterCount={letters.length} /> : <VoiceAnalyzing />}
+        </div>
+        <div className="hidden min-h-0 lg:flex lg:h-[560px]">
+          <JsonConsole text={streamText} parsing statusTime={elapsed.toFixed(1)} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Pre-stream placeholder — shown until the first real voice fields arrive. */
+function VoiceAnalyzing() {
+  const facets = ["Tone & register", "Structure & rhetoric", "Signature phrasing", "Vocabulary & avoid-list"];
+  return (
+    <div className="relative overflow-hidden rounded-[14px] border border-border bg-surface px-6 py-[22px]">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-[60px] h-[200px] w-[200px] rounded-full"
+        style={{ background: "var(--glow-1)", filter: "blur(60px)", opacity: 0.35 }}
+      />
+      <div className="relative flex items-center gap-2">
+        <div className="text-[15px] text-fg" style={{ fontWeight: 650 }}>Reverse-engineering your voice</div>
+        <StatDot tone="accent" pulse size={7} />
+      </div>
+      <p className="relative mt-1.5 max-w-[440px] text-[12.5px] leading-[1.6] text-fg-mid">
+        Reading your letters to learn how you open, build an argument, and close. The fingerprint fills in here as the model writes it —
+        watch the raw JSON stream on the right.
+      </p>
+
+      <div className="relative mt-5 flex flex-col gap-[13px]">
+        {facets.map((f) => (
+          <div key={f} className="flex items-center gap-[11px]">
+            <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-accent-weak">
+              <IconSpin size={13} />
+            </span>
+            <span className="flex-1 text-[12.5px] text-fg">{f}</span>
+            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Working</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -680,6 +710,8 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
+  const [streamText, setStreamText] = useState("");
+  const [preview, setPreview] = useState<VoiceProfile | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [reader, setReader] = useState<PastCoverLetter | null>(null);
   const [toDelete, setToDelete] = useState<PastCoverLetter | null>(null);
@@ -689,11 +721,23 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   const runLearn = useCallback(async () => {
     setProgress(0);
     setProgressLabel("Starting…");
+    setStreamText("");
+    setPreview(null);
     setAnalyzing(true);
+    let acc = "";
     try {
-      const res = await learnVoice((p) => {
-        setProgress(p.percent);
-        setProgressLabel(p.label);
+      const res = await learnVoice({
+        onProgress: (p) => {
+          setProgress(p.percent);
+          setProgressLabel(p.label);
+        },
+        onToken: (t) => {
+          acc += t;
+          setStreamText(acc);
+          const parsed = parsePartial(acc);
+          // It's the deep analysis streaming in — render it as a deep fingerprint.
+          if (parsed) setPreview({ ...(parsed as VoiceProfile), llm_analyzed: true });
+        },
       });
       setProfile(res.style_profile);
       if (res.analysis_failed) {
@@ -772,7 +816,7 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   return (
     <Page eyebrow={EYEBROW} title={TITLE} actions={actions} bodyClassName="p-0">
       {view === "learning" ? (
-        <LearningBody letters={letters} progress={progress} label={progressLabel} />
+        <LearningBody letters={letters} progress={progress} label={progressLabel} streamText={streamText} preview={preview} />
       ) : view === "empty" ? (
         <EmptyBody onAdd={() => setAddOpen(true)} />
       ) : (

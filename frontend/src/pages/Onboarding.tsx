@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/data";
 import { Pill } from "@/components/ui/feedback";
 import { streamImportCv, saveExtraction, type CvImportEvent } from "@/api/cv";
+import { parsePartial } from "@/lib/partialJson";
 import { getSettings } from "@/api/settings";
 import { getProfile } from "@/api/profile";
 import { errorMessage } from "@/api/client";
@@ -282,47 +283,6 @@ export function Onboarding() {
 }
 
 /* ── Incremental JSON ────────────────────────────────────────────── */
-function closeAndParse(prefix: string): unknown {
-  const stack: string[] = [];
-  let inStr = false;
-  let esc = false;
-  for (let i = 0; i < prefix.length; i++) {
-    const ch = prefix[i];
-    if (inStr) {
-      if (esc) esc = false;
-      else if (ch === "\\") esc = true;
-      else if (ch === '"') inStr = false;
-      continue;
-    }
-    if (ch === '"') inStr = true;
-    else if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
-    else if (ch === "}" || ch === "]") {
-      if (!stack.length) return undefined;
-      stack.pop();
-    }
-  }
-  let out = prefix;
-  if (inStr) out += '"';
-  for (let i = stack.length - 1; i >= 0; i--) out += stack[i];
-  try {
-    return JSON.parse(out);
-  } catch {
-    return undefined;
-  }
-}
-
-function parsePartial(raw: string): Record<string, unknown> | null {
-  const start = raw.indexOf("{");
-  if (start === -1) return null;
-  const s = raw.slice(start);
-  const floor = Math.max(1, s.length - 600);
-  for (let end = s.length; end >= floor; end--) {
-    const v = closeAndParse(s.slice(0, end));
-    if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
-  }
-  return null;
-}
-
 function objectArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
     ? value.filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x))

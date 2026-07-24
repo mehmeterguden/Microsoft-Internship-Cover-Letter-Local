@@ -85,10 +85,14 @@ def learn_stream() -> Iterator[dict[str, Any]]:
         yield {"type": "progress", "percent": 20, "label": "Measuring rhythm & structure"}
         fields = _metrics(corpus, texts)
         yield {"type": "progress", "percent": 35, "label": "Learning your voice (the slow part)"}
+        deep: dict[str, Any] = {}
         try:
-            deep = _llm_voice(corpus, len(texts))
+            for ev in _llm_voice_stream(corpus, len(texts)):
+                if ev["type"] == "token":
+                    yield ev  # forward the model's JSON to the client as it's written
+                elif ev["type"] == "parsed":
+                    deep = ev["data"]
         except VoiceAnalysisError as exc:
-            deep = {}
             error = str(exc)
             reasons = exc.reasons
         if deep:
@@ -266,28 +270,65 @@ def style_context(query_text: str) -> dict[str, Any]:
 #  Deep analysis (LLM)
 # ─────────────────────────────────────────────────────────────
 
+def _clean_voice(data: dict[str, Any]) -> dict[str, Any]:
+    """Keep known, truthy voice fields; always preserve a real `enough_signal`."""
+    out = {k: v for k, v in data.items() if k in _VOICE_FIELDS and (v or k == "enough_signal")}
+    out["enough_signal"] = bool(data.get("enough_signal", True))
+    return out
+
+
 def _llm_voice(corpus: str, count: int = 0) -> dict[str, Any]:
-    """Reverse-engineer the voice with the LLM.
+    """Reverse-engineer the voice with the LLM (buffered).
 
     Retries a few times on a transient model error or an unparseable reply (a later
     attempt nudges the temperature so a deterministic parse failure can differ).
     Raises `VoiceAnalysisError` if every attempt fails — callers decide whether that
-    is fatal (explicit "Learn my voice") or a soft fallback (letter generation)."""
+    is fatal (explicit "Learn my voice") or a soft fallback (letter generation).
+
+    See :func:`_llm_voice_stream` for the streaming variant the interactive flow uses."""
     messages = build_analysis_messages(corpus[:_CORPUS_CAP], count)
     last_error: Exception | None = None
     for attempt in range(_ANALYSIS_ATTEMPTS):
         try:
             raw = llm.complete(messages, temperature=0.0 if attempt == 0 else 0.3, max_tokens=_ANALYSIS_MAX_TOKENS)
-            data = json.loads(_extract_json(raw))
+            return _clean_voice(json.loads(_extract_json(raw)))
         except Exception as exc:  # noqa: BLE001 — retry transient model/parse errors
             last_error = exc
             if attempt < _ANALYSIS_ATTEMPTS - 1:
                 time.sleep(_ANALYSIS_BACKOFF * (attempt + 1))
-            continue
-        # Keep truthy fields; always keep enough_signal (a real False must survive).
-        out = {k: v for k, v in data.items() if k in _VOICE_FIELDS and (v or k == "enough_signal")}
-        out["enough_signal"] = bool(data.get("enough_signal", True))
-        return out
+    raise VoiceAnalysisError(
+        f"Voice analysis failed after {_ANALYSIS_ATTEMPTS} attempts: "
+        f"{type(last_error).__name__}: {last_error}",
+        reasons=getattr(last_error, "reasons", None),
+    )
+
+
+def _llm_voice_stream(corpus: str, count: int = 0) -> Iterator[dict[str, Any]]:
+    """Streaming deep analysis: yield ``{type:'token', text}`` as the model writes its
+    JSON so the UI can render the fingerprint filling in live, then a final
+    ``{type:'parsed', data}``.
+
+    The first pass streams; if its reply can't be parsed we fall back to buffered
+    retries (a nudged temperature can clear a deterministic parse failure). Raises
+    `VoiceAnalysisError` if every attempt fails."""
+    messages = build_analysis_messages(corpus[:_CORPUS_CAP], count)
+    parts: list[str] = []
+    try:
+        for chunk in llm.stream(messages, temperature=0.0):
+            parts.append(chunk)
+            yield {"type": "token", "text": chunk}
+        yield {"type": "parsed", "data": _clean_voice(json.loads(_extract_json("".join(parts))))}
+        return
+    except Exception as exc:  # noqa: BLE001 — streamed attempt failed; retry buffered below
+        last_error: Exception = exc
+    for attempt in range(1, _ANALYSIS_ATTEMPTS):
+        time.sleep(_ANALYSIS_BACKOFF * attempt)
+        try:
+            raw = llm.complete(messages, temperature=0.3, max_tokens=_ANALYSIS_MAX_TOKENS)
+            yield {"type": "parsed", "data": _clean_voice(json.loads(_extract_json(raw)))}
+            return
+        except Exception as exc:  # noqa: BLE001 — retry transient model/parse errors
+            last_error = exc
     raise VoiceAnalysisError(
         f"Voice analysis failed after {_ANALYSIS_ATTEMPTS} attempts: "
         f"{type(last_error).__name__}: {last_error}",
