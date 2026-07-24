@@ -254,6 +254,141 @@ function JsonToken({ text }: { text: string }) {
   );
 }
 
+function parseJsonAnswer(raw: string): Record<string, unknown> | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Return null on invalid JSON
+  }
+  return null;
+}
+
+function renderBoldInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={i} className="font-semibold text-fg">{part.slice(2, -2)}</strong>;
+        }
+        return part;
+      })}
+    </>
+  );
+}
+
+function FormattedValue({ text }: { text: string }) {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const isList = lines.some((l) => l.startsWith("- ") || l.startsWith("* ") || /^\d+\.\s/.test(l));
+
+  if (isList) {
+    return (
+      <ul className="mt-1 space-y-1.5 pl-0.5">
+        {lines.map((line, idx) => {
+          const clean = line.replace(/^[-*]\s+|\d+\.\s+/, "");
+          return (
+            <li key={idx} className="flex items-start gap-2 text-[12px] leading-snug text-fg">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+              <span>{renderBoldInline(clean)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+  return <div className="text-[12.5px] leading-relaxed text-fg">{renderBoldInline(text)}</div>;
+}
+
+function AiAnswerView({ text, onApply }: { text: string; onApply?: (replacement: string) => void }) {
+  const jsonObj = parseJsonAnswer(text);
+
+  if (jsonObj) {
+    const keys = Object.keys(jsonObj);
+    return (
+      <div className="flex flex-col gap-3 rounded-[12px] border border-border bg-surface-2 p-3.5 shadow-sm">
+        {keys.map((k) => {
+          const val = String(jsonObj[k] || "").trim();
+          if (!val) return null;
+          const isRephrase = k.toLowerCase().includes("example") || k.toLowerCase().includes("rephrase");
+          const title = k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+          if (isRephrase) {
+            return (
+              <div key={k} className="rounded-[10px] border border-accent/40 bg-accent-weak/30 p-3">
+                <div className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-accent-text">
+                  <Sparkles size={11} /> {title}
+                </div>
+                <p className="text-[12.5px] font-medium italic leading-relaxed text-fg">&ldquo;{val}&rdquo;</p>
+                {onApply && (
+                  <button
+                    type="button"
+                    onClick={() => onApply(val)}
+                    className="mt-2.5 inline-flex items-center gap-1.5 rounded-[6px] bg-accent px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition-all hover:opacity-90 cursor-pointer"
+                  >
+                    <Check size={11} /> Replace selection with this
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <div key={k} className="flex flex-col gap-1 rounded-[9px] border border-border/70 bg-surface p-3">
+              <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] text-accent-text">
+                {title}
+              </div>
+              <FormattedValue text={val} />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Fallback: Markdown / Text Formatter
+  const lines = text.split("\n");
+  return (
+    <div className="flex flex-col gap-2 rounded-[12px] border border-border bg-surface-2 p-3.5 text-[12.5px] leading-relaxed text-fg">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+          const content = trimmed.replace(/^[-*]\s+/, "");
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+              <span className="flex-1">{renderBoldInline(content)}</span>
+            </div>
+          );
+        }
+        if (/^\d+\.\s/.test(trimmed)) {
+          const content = trimmed.replace(/^\d+\.\s+/, "");
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1">
+              <span className="mt-0.5 shrink-0 font-mono text-[10px] font-semibold text-accent">{trimmed.match(/^\d+/)?.[0]}.</span>
+              <span className="flex-1">{renderBoldInline(content)}</span>
+            </div>
+          );
+        }
+        if (trimmed.startsWith("#") || (trimmed.startsWith("**") && trimmed.endsWith("**"))) {
+          const clean = trimmed.replace(/^#+\s*/, "").replace(/^\*\*/, "").replace(/\*\*$/, "");
+          return (
+            <div key={idx} className="mt-1 mb-0.5 font-semibold text-accent-text text-[12px]">
+              {clean}
+            </div>
+          );
+        }
+        return <div key={idx}>{renderBoldInline(trimmed)}</div>;
+      })}
+    </div>
+  );
+}
+
 /* ───────────────────────────────────────────────────────────────────
    Modal: full-screen overlay (portal)
 ────────────────────────────────────────────────────────────────────*/
@@ -1829,8 +1964,20 @@ export function Write() {
                       <Button variant="ghost" size="xs" onClick={() => setAiMode("menu")}>Cancel</Button>
                     </div>
                     {aiAnswer && (
-                      <div className="rounded-[8px] border border-border bg-surface p-2.5 text-[12px] leading-relaxed text-fg">
-                        <div className="mb-1 font-semibold text-accent-text">AI Answer:</div>{aiAnswer}
+                      <div className="mt-2 flex flex-col gap-1.5">
+                        <div className="text-[11px] font-mono font-semibold uppercase tracking-[0.04em] text-accent-text flex items-center gap-1.5">
+                          <Sparkles size={11} /> AI Answer:
+                        </div>
+                        <AiAnswerView
+                          text={aiAnswer}
+                          onApply={(replacement) => {
+                            if (!selectionRange) return;
+                            const updated = letter.substring(0, selectionRange.start) + replacement + letter.substring(selectionRange.end);
+                            setLetter(updated);
+                            toast.success("Text replaced", "Selection updated with AI suggestion.");
+                            setSelectedText(""); setSelectionRange(null); setAiMode("menu"); setAiInput("");
+                          }}
+                        />
                       </div>
                     )}
                   </div>

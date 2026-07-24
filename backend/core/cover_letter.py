@@ -239,7 +239,9 @@ def inline_edit(
     elif action == "ask":
         sys_prompt = (
             "You are a helpful AI writing mentor for job applications. Answer the user's question concisely "
-            "and constructively about the provided text snippet."
+            "and constructively about the provided text snippet. Format your response in clean, human-readable "
+            "natural language with bold section headers (e.g. **Short Answer:**, **Suggestions:**) and bullet points (- item) for lists. "
+            "CRITICAL: Do NOT output raw JSON objects, stringified dictionaries, or code fence wrappers."
         )
         user_prompt = f"Question: {instruction or 'How can I improve this text?'}\n\nText snippet:\n{selected_text}"
     else:
