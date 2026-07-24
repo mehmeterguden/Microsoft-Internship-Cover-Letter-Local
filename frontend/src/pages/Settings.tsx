@@ -73,6 +73,15 @@ const PROVIDERS: ProviderMeta[] = [
     curatedModels: ["phi-4", "phi-3.5-mini", "qwen2.5-7b", "mistral-7b", "llama-3.2-3b"],
   },
   {
+    id: "azure_openai",
+    name: "Azure OpenAI",
+    desc: "Microsoft-managed cloud models via your Azure resource.",
+    badge: "Cloud",
+    cloud: true,
+    baseUrl: "",
+    curatedModels: [],
+  },
+  {
     id: "ollama",
     name: "Ollama",
     desc: "Run open models locally with a single command.",
@@ -396,11 +405,13 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               {/* Model + base URL */}
               <div className="grid grid-cols-2 gap-3.5">
                 <Field
-                  label="Model"
+                  label={provider.id === "azure_openai" ? "Deployment" : "Model"}
                   hint={
-                    discoveryError && !discovery.loading
-                      ? "Discovery unavailable — enter a model name."
-                      : undefined
+                    provider.id === "azure_openai"
+                      ? "Your Azure deployment name — save your endpoint & key, then Test connection to list deployments."
+                      : discoveryError && !discovery.loading
+                        ? "Discovery unavailable — enter a model name."
+                        : undefined
                   }
                 >
                   {discovery.loading ? (
@@ -414,7 +425,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                       <Input
                         value={draft.llm_model}
                         onChange={(e) => setField("llm_model", e.target.value)}
-                        placeholder="e.g. llama3.1:8b"
+                        placeholder={provider.id === "azure_openai" ? "e.g. gpt-4o-mini (your deployment name)" : "e.g. llama3.1:8b"}
                         spellCheck={false}
                         className="h-11 font-mono text-[13px]"
                       />
@@ -435,16 +446,40 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     </div>
                   )}
                 </Field>
-                <Field label="Base URL">
+                {provider.id === "azure_openai" ? (
+                  <Field label="Azure endpoint" hint="The resource root, e.g. https://my-resource.openai.azure.com">
+                    <Input
+                      value={draft.azure_openai_endpoint ?? ""}
+                      onChange={(e) => setField("azure_openai_endpoint", e.target.value)}
+                      placeholder="https://my-resource.openai.azure.com"
+                      spellCheck={false}
+                      className="h-11 font-mono text-[13px]"
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Base URL">
+                    <Input
+                      value={draft.llm_base_url}
+                      onChange={(e) => setField("llm_base_url", e.target.value)}
+                      onBlur={() => setDiscoBaseUrl(draft.llm_base_url)}
+                      spellCheck={false}
+                      className="h-11 font-mono text-[13px]"
+                    />
+                  </Field>
+                )}
+              </div>
+
+              {provider.id === "azure_openai" ? (
+                <Field label="API version" hint="The Azure OpenAI REST API version. Leave the default unless your resource needs another.">
                   <Input
-                    value={draft.llm_base_url}
-                    onChange={(e) => setField("llm_base_url", e.target.value)}
-                    onBlur={() => setDiscoBaseUrl(draft.llm_base_url)}
+                    value={draft.azure_openai_api_version ?? ""}
+                    onChange={(e) => setField("azure_openai_api_version", e.target.value)}
+                    placeholder="2024-10-21"
                     spellCheck={false}
-                    className="h-11 font-mono text-[13px]"
+                    className="h-11 max-w-[240px] font-mono text-[13px]"
                   />
                 </Field>
-              </div>
+              ) : null}
 
               {/* Connection status */}
               <div className="flex flex-col gap-2">
@@ -531,11 +566,24 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     </p>
                     <Input
                       type={reveal ? "text" : "password"}
-                      value={(provider.id === "openai" ? draft.openai_api_key : draft.anthropic_api_key) ?? ""}
-                      onChange={(e) =>
-                        setField(provider.id === "openai" ? "openai_api_key" : "anthropic_api_key", e.target.value)
+                      value={
+                        (provider.id === "openai"
+                          ? draft.openai_api_key
+                          : provider.id === "azure_openai"
+                            ? draft.azure_openai_api_key
+                            : draft.anthropic_api_key) ?? ""
                       }
-                      placeholder={provider.id === "openai" ? "sk-…" : "sk-ant-…"}
+                      onChange={(e) =>
+                        setField(
+                          provider.id === "openai"
+                            ? "openai_api_key"
+                            : provider.id === "azure_openai"
+                              ? "azure_openai_api_key"
+                              : "anthropic_api_key",
+                          e.target.value,
+                        )
+                      }
+                      placeholder={provider.id === "openai" ? "sk-…" : provider.id === "azure_openai" ? "Your Azure resource key" : "sk-ant-…"}
                       autoComplete="off"
                       spellCheck={false}
                       className="font-mono text-[12px]"

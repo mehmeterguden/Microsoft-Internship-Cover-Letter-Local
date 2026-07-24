@@ -27,7 +27,7 @@ export type LanguageLevel = "native" | "fluent" | "professional" | "intermediate
 
 export type JobStatus = "draft" | "sent" | "interview" | "rejected" | "offer";
 
-export type LLMProviderId = "foundry_local" | "ollama" | "lm_studio" | "openai" | "anthropic" | "gemini";
+export type LLMProviderId = "foundry_local" | "azure_openai" | "ollama" | "lm_studio" | "openai" | "anthropic" | "gemini";
 export type ResearchCacheRetention = "off" | "7_days" | "30_days" | "forever" | "last_10";
 /** How aggressively to warn about personal data in generated letters. */
 export type PiiShieldMode = "off" | "risky_only" | "on";
@@ -256,6 +256,11 @@ export interface Settings {
   llm_model: string;
   openai_api_key?: string;
   anthropic_api_key?: string;
+  /** Azure OpenAI (Microsoft-managed cloud): resource endpoint, key, and REST API version.
+   *  `llm_model` holds the Azure *deployment* name for this provider. */
+  azure_openai_endpoint?: string;
+  azure_openai_api_key?: string;
+  azure_openai_api_version?: string;
   gemini_api_key?: string;
   gemini_api_keys?: GeminiKey[];
   gemini_active_key_id?: string;
