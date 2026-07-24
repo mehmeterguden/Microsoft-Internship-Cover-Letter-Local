@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Check, ChevronRight, ExternalLink, Loader2, RotateCw, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, ExternalLink, Loader2, RotateCw, Sparkles, Trash2, CheckSquare, Square } from "lucide-react";
 import { Page } from "@/components/common/Page";
-import { OpenSourceBanner } from "@/components/common/OpenSourceBanner";
+
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ProgressBar, Spinner, StatDot } from "@/components/ui/feedback";
@@ -17,16 +18,8 @@ import { deleteSavedRepo, listSavedRepos } from "@/api/githubRepos";
 import type { GithubRepo, ScoredSkill } from "@/api/types";
 import { cn } from "@/lib/utils";
 
-/* ── The page walks a real lifecycle derived from backend calls ──────
-   connect  → githubStatus() tells us if a token/account is linked; the
-              user enters a username (or uses their account).
-   analyzing→ fetchRepos() then analyzeRepos() run back-to-back; the
-              analyze call can take a while, so we show progress.
-   results  → analyzed repos + detected skills; save/remove sync with the
-              profile via listSavedRepos()/saveRepos()/deleteSavedRepo(). */
-type Phase = "connect" | "analyzing" | "results";
+type Phase = "connect" | "fetched" | "analyzing" | "results";
 
-/* ── GitHub-language identity colors (data colors, not theme tokens) ── */
 const LANG_COLORS: Record<string, string> = {
   Python: "#3572A5",
   Rust: "#dea584",
@@ -57,14 +50,12 @@ const formatStars = (n?: number | null): string => {
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
 
-/** Involvement bullets: prefer AI highlights, fall back to the contribution note. */
 const involvementLines = (repo: GithubRepo): string[] => {
   if (repo.highlights && repo.highlights.length > 0) return repo.highlights;
   if (repo.contribution) return [repo.contribution];
   return [];
 };
 
-/** Score badge for a detected skill — 0..1 relevance shown as a compact percent. */
 const formatScore = (score?: number | null): string | null => {
   if (score == null || !Number.isFinite(score)) return null;
   const pct = score <= 1 ? Math.round(score * 100) : Math.round(score);
@@ -79,7 +70,6 @@ const initials = (profile: GithubProfile): string => {
   return base.slice(0, 2).toUpperCase();
 };
 
-/* ── Icons (kept from the design for fidelity) ──────────────────────── */
 function GithubMark({ size = 14, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
@@ -96,7 +86,6 @@ function StarIcon({ size = 11, className }: { size?: number; className?: string 
   );
 }
 
-/* ── Account chip (header, right) ───────────────────────────────────── */
 function AccountChip({ connected, profile }: { connected: boolean; profile: GithubProfile | null }) {
   if (profile?.login) {
     const chip = (
@@ -150,16 +139,27 @@ function AccountChip({ connected, profile }: { connected: boolean; profile: Gith
   );
 }
 
-/* ── Repo card ──────────────────────────────────────────────────────── */
 type RepoCardProps = {
   repo: GithubRepo;
   inProfile: boolean;
   analyzing?: boolean;
+  selectable?: boolean;
+  selectedForAnalysis?: boolean;
+  onToggleSelect?: () => void;
   onOpen?: () => void;
   onRemove?: () => void;
 };
 
-function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: RepoCardProps) {
+function RepoCard({
+  repo,
+  inProfile,
+  analyzing = false,
+  selectable = false,
+  selectedForAnalysis = false,
+  onToggleSelect,
+  onOpen,
+  onRemove,
+}: RepoCardProps) {
   const lang = primaryLang(repo);
   const desc = repo.description ?? repo.purpose ?? "No description provided.";
   const interactive = !!onOpen;
@@ -167,10 +167,28 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-[7px] text-[14px] font-[650]">
-          <GithubMark size={14} className="shrink-0 text-fg-low" />
-          <span className="truncate text-fg">{repo.repo_name}</span>
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          {selectable && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect?.();
+              }}
+              className="text-indigo-400 hover:text-indigo-300 shrink-0"
+            >
+              {selectedForAnalysis ? (
+                <CheckSquare size={16} className="text-indigo-400" />
+              ) : (
+                <Square size={16} className="text-fg-low" />
+              )}
+            </button>
+          )}
+          <span className="flex min-w-0 items-center gap-[7px] text-[14px] font-[650]">
+            <GithubMark size={14} className="shrink-0 text-fg-low" />
+            <span className="truncate text-fg">{repo.repo_name}</span>
+          </span>
+        </div>
         <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] text-fg-mid">
           <StarIcon size={11} />
           {formatStars(repo.stars)}
@@ -235,14 +253,17 @@ function RepoCard({ repo, inProfile, analyzing = false, onOpen, onRemove }: Repo
           onOpen?.();
         }
       }}
-      className="group cursor-pointer rounded-[13px] border border-border bg-surface p-4 text-left outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevated focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-weak"
+      className={`group cursor-pointer rounded-[13px] border p-4 text-left outline-none transition-all duration-200 ${
+        selectedForAnalysis
+          ? "border-indigo-500/50 bg-slate-800/40"
+          : "border-border bg-surface hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevated"
+      }`}
     >
       {body}
     </div>
   );
 }
 
-/* ── Section header (mono label + right slot) ───────────────────────── */
 function SectionHead({ label, count, tone, right }: { label: string; count: number; tone: "success" | "low"; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between">
@@ -254,7 +275,6 @@ function SectionHead({ label, count, tone, right }: { label: string; count: numb
   );
 }
 
-/* ── Detected skills (real ScoredSkill[]) ───────────────────────────── */
 function SkillsCard({ skills, repoCount }: { skills: ScoredSkill[]; repoCount: number }) {
   const sorted = useMemo(
     () => [...skills].sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.name.localeCompare(b.name)),
@@ -292,7 +312,6 @@ function SkillsCard({ skills, repoCount }: { skills: ScoredSkill[]; repoCount: n
   );
 }
 
-/* ── Repo detail modal (AI summary / involvement / tech) ────────────── */
 function RepoDetail({
   repo,
   inProfile,
@@ -411,7 +430,6 @@ function RepoDetail({
   );
 }
 
-/* ── Intro + connect input (shared across states) ───────────────────── */
 function ConnectRow({
   username,
   onUsername,
@@ -474,7 +492,6 @@ function ConnectRow({
   );
 }
 
-/* ── Inline state for the saved-repos list ──────────────────────────── */
 function SavedError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[13px] border border-border bg-danger-weak px-4 py-3">
@@ -489,7 +506,6 @@ function SavedError({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-/* ── Page ───────────────────────────────────────────────────────────── */
 export function Github() {
   const status = useAsync(githubStatus);
   const saved = useAsync(listSavedRepos);
@@ -498,6 +514,8 @@ export function Github() {
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState<GithubProfile | null>(null);
   const [fetchedRepos, setFetchedRepos] = useState<GithubRepo[]>([]);
+  const [selectedForAnalysis, setSelectedForAnalysis] = useState<Set<string>>(new Set());
+
   const [analysis, setAnalysis] = useState<{ repos: GithubRepo[]; skills: ScoredSkill[] } | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
@@ -518,7 +536,6 @@ export function Github() {
     [analysis, savedByName],
   );
 
-  // Skills relevant to the repos being saved (fall back to the full detected set).
   const skillsForRepos = useCallback(
     (repos: GithubRepo[]): ScoredSkill[] => {
       if (!analysis) return [];
@@ -529,45 +546,84 @@ export function Github() {
     [analysis],
   );
 
-  const runFetchAnalyze = useCallback(async (target: { username: string | null; useAccount: boolean }) => {
+  // STEP 1: Fetch repos without automatic AI analysis
+  const runFetchOnly = useCallback(async (target: { username: string | null; useAccount: boolean }) => {
     setFetching(true);
     try {
       const fetched = await fetchRepos(target.username, target.useAccount);
       setProfile(fetched.profile);
       setFetchedRepos(fetched.repos);
+      // Select all fetched repos by default for analysis
+      setSelectedForAnalysis(new Set(fetched.repos.map((r) => r.repo_name)));
       setFetching(false);
 
       if (fetched.repos.length === 0) {
-        toast.warning("No public repositories", "This account has no public repos to analyze.");
+        toast.warning("No public repositories", "This account has no public repos.");
         return;
       }
 
-      const login = fetched.profile.login ?? target.username ?? "";
-      setAnalysis(null);
-      setProgress(0);
-      setProgressLabel("Starting…");
-      setPhase("analyzing");
-      try {
-        const result = await analyzeRepos(login, fetched.repos, (p) => {
-          setProgress(p.percent);
-          setProgressLabel(p.label);
-        });
-        setAnalysis(result);
-        setProgress(100);
-        setPhase("results");
-        toast.success(
-          "Analysis complete",
-          `Analyzed ${plural(result.repos.length, "repository", "repositories")} · ${plural(result.skills.length, "skill")} detected.`,
-        );
-      } catch (err) {
-        toast.danger("Analysis failed", errorMessage(err));
-        setPhase("connect");
-      }
+      setPhase("fetched");
+      toast.success(
+        "Repositories fetched",
+        `Fetched ${plural(fetched.repos.length, "repository", "repositories")}. Select which repos you want to analyze.`
+      );
     } catch (err) {
       toast.danger("Couldn't fetch repositories", errorMessage(err));
       setFetching(false);
     }
   }, []);
+
+  // STEP 2: Trigger AI analysis explicitly for selected repos
+  const runAnalysisForSelected = useCallback(async () => {
+    const reposToAnalyze = fetchedRepos.filter((r) => selectedForAnalysis.has(r.repo_name));
+    if (reposToAnalyze.length === 0) {
+      toast.warning("No repositories selected", "Please select at least one repository to analyze.");
+      return;
+    }
+
+    const login = profile?.login ?? username ?? "";
+    setAnalysis(null);
+    setProgress(0);
+    setProgressLabel("Starting analysis…");
+    setPhase("analyzing");
+
+    try {
+      const result = await analyzeRepos(login, reposToAnalyze, (p) => {
+        setProgress(p.percent);
+        setProgressLabel(p.label);
+      });
+      setAnalysis(result);
+      setProgress(100);
+      setPhase("results");
+      toast.success(
+        "Analysis complete",
+        `Analyzed ${plural(result.repos.length, "repository", "repositories")} · ${plural(result.skills.length, "skill")} detected.`
+      );
+    } catch (err) {
+      toast.danger("Analysis failed", errorMessage(err));
+      setPhase("fetched");
+    }
+  }, [fetchedRepos, selectedForAnalysis, profile, username]);
+
+  const toggleSelectRepo = (repoName: string) => {
+    setSelectedForAnalysis((prev) => {
+      const next = new Set(prev);
+      if (next.has(repoName)) {
+        next.delete(repoName);
+      } else {
+        next.add(repoName);
+      }
+      return next;
+    });
+  };
+
+  const selectAllRepos = (select: boolean) => {
+    if (select) {
+      setSelectedForAnalysis(new Set(fetchedRepos.map((r) => r.repo_name)));
+    } else {
+      setSelectedForAnalysis(new Set());
+    }
+  };
 
   const onFetch = () => {
     const value = username.trim();
@@ -575,11 +631,11 @@ export function Github() {
       toast.warning("Enter a username", "Type a GitHub username or profile URL first.");
       return;
     }
-    void runFetchAnalyze({ username: value, useAccount: false });
+    void runFetchOnly({ username: value, useAccount: false });
   };
 
   const onUseAccount = () => {
-    void runFetchAnalyze({ username: null, useAccount: true });
+    void runFetchOnly({ username: null, useAccount: true });
   };
 
   const addRepos = useCallback(
@@ -625,7 +681,6 @@ export function Github() {
 
   const busy = fetching || phase === "analyzing";
 
-  /* Saved-repos section, reused on the connect + results screens. */
   const profileSection = (
     <section>
       <SectionHead
@@ -669,7 +724,7 @@ export function Github() {
       <SetupIntro
         icon={<GithubMark size={20} />}
         title="Import from GitHub"
-        subtitle="Pull your public repositories and turn them into skills and projects for your profile — only the account name leaves your device."
+        subtitle="Pull your public repositories, select which ones to analyze, and turn them into skills and projects for your profile."
         privacyNote="Analyzed on-device · only the username is sent"
         className="mb-6"
       />
@@ -700,7 +755,7 @@ export function Github() {
                   <SetupEmpty
                     icon={<GithubMark size={26} />}
                     title="Connect a GitHub account"
-                    description="Enter a username above and we'll pull the public repositories, then analyze them into skills and projects — the account name is all that leaves your device."
+                    description="Enter a username above and we'll pull the public repositories so you can choose which ones to analyze into skills and projects."
                     action={
                       st.account_connected ? (
                         <Button variant="outline" size="sm" onClick={onUseAccount} loading={busy}>
@@ -710,6 +765,55 @@ export function Github() {
                     }
                   />
                 )}
+              </div>
+            ) : null}
+
+            {/* PHASE 2: FETCHED REPOS (EXPLICIT SELECTIVE AI ANALYSIS) */}
+            {phase === "fetched" ? (
+              <div className="flex flex-col gap-4 cll-fade">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div>
+                    <h3 className="text-[14px] font-semibold text-fg">
+                      Fetched Repositories ({fetchedRepos.length})
+                    </h3>
+                    <p className="text-[11.5px] text-fg-mid">
+                      Select which repositories you want to run AI analysis on.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => selectAllRepos(selectedForAnalysis.size < fetchedRepos.length)}
+                      className="text-[11.5px] text-accent-text font-medium hover:underline"
+                    >
+                      {selectedForAnalysis.size < fetchedRepos.length ? "Select All" : "Deselect All"}
+                    </button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={runAnalysisForSelected}
+                      disabled={selectedForAnalysis.size === 0}
+                      className="rounded-[9px]"
+                    >
+                      <Sparkles size={13} />
+                      Analyze Selected ({selectedForAnalysis.size})
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {fetchedRepos.map((r) => (
+                    <RepoCard
+                      key={r.id ?? r.repo_name}
+                      repo={r}
+                      inProfile={isInProfile(r)}
+                      selectable
+                      selectedForAnalysis={selectedForAnalysis.has(r.repo_name)}
+                      onToggleSelect={() => toggleSelectRepo(r.repo_name)}
+                      onOpen={() => setSelected(r)}
+                    />
+                  ))}
+                </div>
               </div>
             ) : null}
 
@@ -728,12 +832,12 @@ export function Github() {
                       <ProgressBar value={progress} />
                     </div>
                   </div>
-                  <span className="shrink-0 font-mono text-[11px] text-fg-mid">{plural(fetchedRepos.length, "repo")}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-fg-mid">{plural(selectedForAnalysis.size, "repo")}</span>
                 </div>
 
-                <SectionHead label="Reading from GitHub" count={fetchedRepos.length} tone="low" />
+                <SectionHead label="Analyzing selected repositories" count={selectedForAnalysis.size} tone="low" />
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {fetchedRepos.map((r) => (
+                  {fetchedRepos.filter((r) => selectedForAnalysis.has(r.repo_name)).map((r) => (
                     <RepoCard key={r.id ?? r.repo_name} repo={r} inProfile={false} analyzing />
                   ))}
                 </div>
@@ -760,19 +864,23 @@ export function Github() {
                   />
                   {availableRepos.length === 0 ? (
                     <p className="rounded-[13px] border border-dashed border-border bg-surface px-4 py-3 text-[12px] text-fg-mid">
-                      Every analyzed repository has been added to your profile.
+                      All analyzed repositories are already in your profile.
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                       {availableRepos.map((r) => (
-                        <RepoCard key={r.id ?? r.repo_name} repo={r} inProfile={false} onOpen={() => setSelected(r)} />
+                        <RepoCard
+                          key={r.id ?? r.repo_name}
+                          repo={r}
+                          inProfile={false}
+                          onOpen={() => setSelected(r)}
+                        />
                       ))}
                     </div>
                   )}
                 </section>
 
                 <SkillsCard skills={analysis?.skills ?? []} repoCount={analysis?.repos.length ?? 0} />
-                <OpenSourceBanner />
               </div>
             ) : null}
           </div>
@@ -781,33 +889,30 @@ export function Github() {
 
       {selected ? (
         <RepoDetail
-          repo={savedByName.get(selected.repo_name) ?? selected}
+          repo={selected}
           inProfile={isInProfile(selected)}
           saving={savingName === selected.repo_name}
           onClose={() => setSelected(null)}
           onAdd={() => handleAdd(selected)}
           onRemove={() => {
-            setPendingRemove(selected);
             setSelected(null);
+            setPendingRemove(selected);
           }}
         />
       ) : null}
 
-      <ConfirmDialog
-        open={!!pendingRemove}
-        onOpenChange={(o) => !o && setPendingRemove(null)}
-        tone="danger"
-        icon={<Trash2 size={20} />}
-        title="Remove from profile?"
-        description={
-          pendingRemove
-            ? `“${pendingRemove.repo_name}” and its imported skills will be removed from your profile. This won't touch anything on GitHub.`
-            : undefined
-        }
-        confirmLabel="Remove"
-        loading={removing}
-        onConfirm={confirmRemove}
-      />
+      {pendingRemove ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setPendingRemove(null)}
+          title={`Remove ${pendingRemove.repo_name}?`}
+          description="This repository will be removed from your profile. Its corresponding project card will also be removed if it hasn't been edited."
+          confirmLabel="Remove repository"
+          tone="danger"
+          loading={removing}
+          onConfirm={confirmRemove}
+        />
+      ) : null}
     </Page>
   );
 }
