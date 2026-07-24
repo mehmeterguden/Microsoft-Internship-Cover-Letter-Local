@@ -89,7 +89,7 @@ export function JsonConsole({ text, parsing, statusTime }: { text: string; parsi
   }, [text, parsing]);
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-[12px] border border-border bg-reading">
+    <div className="flex w-full h-full min-h-0 flex-col overflow-hidden rounded-[12px] border border-border bg-reading">
       {/* mac-style header */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3.5 py-2.5">
         <span className="flex items-center gap-1.5" aria-hidden="true">

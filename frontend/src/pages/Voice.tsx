@@ -578,11 +578,11 @@ function LearningBody({
       <ProgressBar value={progress} />
 
       {/* two panes — live fingerprint (left) + the model's JSON as it writes it (right) */}
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_minmax(320px,420px)]">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
         <div className="min-h-0 overflow-y-auto pr-0.5">
           {hasPreview && preview ? <Fingerprint profile={preview} letterCount={letters.length} /> : <VoiceAnalyzing />}
         </div>
-        <div className="hidden min-h-0 lg:flex lg:h-[560px]">
+        <div className="hidden min-h-0 lg:flex w-full min-h-[520px]">
           <JsonConsole text={streamText} parsing statusTime={elapsed.toFixed(1)} />
         </div>
       </div>
