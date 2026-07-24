@@ -6,6 +6,7 @@ import {
   Database,
   Eye,
   EyeOff,
+  Globe,
   Plus,
   RotateCw,
   ShieldCheck,
@@ -114,8 +115,8 @@ const PROVIDERS: ProviderMeta[] = [
     desc: "Anthropic's Claude models via your API key.",
     badge: "Cloud",
     cloud: true,
-    baseUrl: "https://api.anthropic.com",
-    curatedModels: ["claude-opus-4", "claude-sonnet-4", "claude-3.5-sonnet", "claude-3.5-haiku", "claude-3-opus"],
+    baseUrl: "https://api.anthropic.com/v1",
+    curatedModels: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"],
   },
   {
     id: "gemini",
@@ -151,10 +152,10 @@ const NAV: { value: Tab; label: string }[] = [
 
 const RETENTION_OPTIONS: { value: ResearchCacheRetention; label: string }[] = [
   { value: "off", label: "Off" },
+  { value: "last_10", label: "Last 10" },
   { value: "7_days", label: "7 days" },
   { value: "30_days", label: "30 days" },
   { value: "forever", label: "Forever" },
-  { value: "last_10", label: "Last 10" },
 ];
 
 const PII_SHIELD_OPTIONS: { value: PiiShieldMode; label: string }[] = [
@@ -179,6 +180,7 @@ const MAIN_FIELDS: (keyof SettingsModel)[] = [
   "research_cache_retention",
   "pii_shield",
   "rag_rerank",
+  "ai_output_language",
 ];
 
 const norm = (v: unknown): unknown => (v === undefined || v === null ? "" : v);
@@ -673,43 +675,21 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               <div className="rounded-[12px] border border-border bg-surface p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-[13.5px] font-semibold text-fg">AI Output Language</div>
-                    <div className="text-[11.5px] text-fg-mid">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13.5px] font-semibold text-fg">AI Output Language</span>
+                      <Pill tone="accent" mono className="text-[9px] py-0 px-1.5">
+                        Global Directive
+                      </Pill>
+                    </div>
+                    <div className="mt-0.5 text-[11.5px] text-fg-mid">
                       Language for all AI outputs (letters, research, edits & prep). Prompts remain in English & JSON schema keys are preserved.
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <select
-                      value={
-                        BUILTIN_LANGUAGES.some((l) => l.value === (draft.ai_output_language ?? "English"))
-                          ? (draft.ai_output_language ?? "English")
-                          : "Custom"
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val !== "Custom") {
-                          setField("ai_output_language", val);
-                        }
-                      }}
-                      className="h-9 rounded-[8px] border border-border bg-input px-3 text-[12.5px] font-medium text-fg transition-colors focus:border-accent focus:outline-none"
-                    >
-                      {BUILTIN_LANGUAGES.map((l) => (
-                        <option key={l.value} value={l.value}>
-                          {l.label}
-                        </option>
-                      ))}
-                      <option value="Custom">Custom…</option>
-                    </select>
-
-                    {(!draft.ai_output_language ||
-                      !BUILTIN_LANGUAGES.some((l) => l.value === draft.ai_output_language)) && (
-                      <Input
-                        value={draft.ai_output_language ?? ""}
-                        onChange={(e) => setField("ai_output_language", e.target.value)}
-                        placeholder="e.g. Swedish"
-                        className="h-9 w-[140px] font-sans text-[12px]"
-                      />
-                    )}
+                  <div className="shrink-0">
+                    <LanguageSelect
+                      value={draft.ai_output_language ?? "English"}
+                      onChange={(val) => setField("ai_output_language", val)}
+                    />
                   </div>
                 </div>
               </div>
@@ -1054,6 +1034,88 @@ function ModelSelect({ value, options, onChange }: { value: string; options: str
               ) : !matches.length ? (
                 <div className="px-2.5 py-2 text-[12px] text-fg-low">Type a deployment name…</div>
               ) : null}
+            </div>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/* ── Custom Language Select Dropdown ─────────────────────────────── */
+function LanguageSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [customInput, setCustomInput] = useState(
+    BUILTIN_LANGUAGES.some((l) => l.value === value) ? "" : value
+  );
+
+  const currentLabel =
+    BUILTIN_LANGUAGES.find((l) => l.value === value)?.label ||
+    (value ? `Custom (${value})` : "English");
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-9 items-center gap-2 rounded-[9px] border border-border bg-input px-3 text-[12.5px] font-medium text-fg shadow-xs transition-all hover:border-border-strong hover:bg-surface-2 focus:border-accent focus:outline-none"
+      >
+        <Globe size={14} className="text-accent shrink-0" />
+        <span className="truncate max-w-[170px]">{currentLabel}</span>
+        <ChevronDown size={13} className="text-fg-low shrink-0 ml-1" />
+      </button>
+
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div
+            className="absolute right-0 top-[calc(100%+6px)] z-40 w-[240px] overflow-hidden rounded-[12px] border border-border-strong bg-surface-2 p-1.5 shadow-[0_20px_44px_-18px_rgba(0,0,0,.7)]"
+            style={{ animation: "cll-menu .18s ease" }}
+          >
+            <div className="max-h-[260px] overflow-y-auto space-y-0.5">
+              {BUILTIN_LANGUAGES.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(l.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-[8px] px-2.5 py-1.5 text-left text-[12.5px] font-medium transition-colors hover:bg-accent-weak",
+                    l.value === value ? "text-accent-text bg-accent-weak/50 font-semibold" : "text-fg-mid",
+                  )}
+                >
+                  <span>{l.label}</span>
+                  {l.value === value ? <Check size={13} className="text-accent" /> : null}
+                </button>
+              ))}
+            </div>
+            <div className="mt-1 border-t border-border/60 pt-1.5 px-1 pb-1">
+              <div className="mb-1 text-[10px] font-mono text-fg-low px-1">CUSTOM LANGUAGE</div>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="e.g. Swedish"
+                  className="h-8 text-[11.5px] px-2"
+                />
+                <Button
+                  type="button"
+                  variant="solid"
+                  size="xs"
+                  disabled={!customInput.trim()}
+                  onClick={() => {
+                    if (customInput.trim()) {
+                      onChange(customInput.trim());
+                      setOpen(false);
+                    }
+                  }}
+                  className="h-8 px-2.5 shrink-0 text-[11px]"
+                >
+                  Set
+                </Button>
+              </div>
             </div>
           </div>
         </>
