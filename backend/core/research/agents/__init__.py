@@ -1,13 +1,13 @@
-"""The research agents — one per report section.
+"""The research agents — organized for maximum throughput and accuracy.
 
-Each is a small `Agent` subclass (see `agent_base`) that gathers from free public
-sources and reasons the result into a slice of the report. The orchestrator runs
-the whole fleet in parallel; the local fit analysis (`core.research.fit`) runs
-afterwards on-device.
+`CompanyProfileAgent` groups firmographics, overview, and values into a single LLM pass,
+while specialized domain agents run in parallel for culture, tech stack, signals,
+interview prep, and job description analysis.
 """
 
 from __future__ import annotations
 
+from core.research.agents.company_profile_agent import CompanyProfileAgent
 from core.research.agents.culture_agent import CultureAgent
 from core.research.agents.firmographics_agent import FirmographicsAgent
 from core.research.agents.interview_agent import InterviewAgent
@@ -17,11 +17,9 @@ from core.research.agents.signals_agent import SignalsAgent
 from core.research.agents.tech_stack_agent import TechStackAgent
 from core.research.agents.values_agent import ValuesAgent
 
-# The default fleet, in a sensible display order.
+# Fleet with grouped company profile + specialized domain agents.
 FLEET = [
-    FirmographicsAgent,
-    OverviewAgent,
-    ValuesAgent,
+    CompanyProfileAgent,
     CultureAgent,
     TechStackAgent,
     SignalsAgent,
@@ -31,6 +29,13 @@ FLEET = [
 
 __all__ = [
     "FLEET",
-    "FirmographicsAgent", "OverviewAgent", "ValuesAgent", "CultureAgent",
-    "TechStackAgent", "SignalsAgent", "InterviewAgent", "JDAnalystAgent",
+    "CompanyProfileAgent",
+    "CultureAgent",
+    "FirmographicsAgent",
+    "InterviewAgent",
+    "JDAnalystAgent",
+    "OverviewAgent",
+    "SignalsAgent",
+    "TechStackAgent",
+    "ValuesAgent",
 ]
