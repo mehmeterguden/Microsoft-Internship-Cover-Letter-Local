@@ -1,5 +1,5 @@
-import { useCallback, useState, type ReactNode } from "react";
-import { Plus, RotateCw, Trash2 } from "lucide-react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Plus, RotateCw, Trash2, Upload } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -20,6 +20,7 @@ import {
   type StyleState,
 } from "@/api/style";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
+import { SetupIntro } from "@/components/setup/SetupScaffold";
 import { cn } from "@/lib/utils";
 
 const EYEBROW = "Setup / Writing Voice";
@@ -452,42 +453,41 @@ function DoneBody({
 /* ── Empty state — teach the AI ──────────────────────────────────── */
 function EmptyBody({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="flex min-h-full items-center justify-center p-7">
-      <div className="cll-fade w-full max-w-[580px] text-center">
-        <div className="mx-auto mb-[18px] flex h-[58px] w-[58px] items-center justify-center rounded-[16px] bg-accent-weak">
-          <svg width={26} height={26} viewBox="0 0 20 20" fill="none" stroke="var(--accent-text)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 10h1.5M8 5v10M12 3v14M16 8v4" />
-          </svg>
-        </div>
-        <div className="text-[21px] font-bold tracking-[-0.4px] text-fg">Teach the AI how you write</div>
-        <p className="mt-[11px] text-[13.5px] leading-[1.7] text-fg-mid">
-          Add a few cover letters you&rsquo;ve written before. The model studies your real tone, structure, and phrasing —
-          then drafts new letters that sound like <span className="text-accent-text">you</span>, not like generic AI.
-        </p>
+    <div className="p-7">
+      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6">
+        <SetupIntro
+          icon={
+            <svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="#fff" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 10h1.5M8 5v10M12 3v14M16 8v4" />
+            </svg>
+          }
+          title="Teach the AI how you write"
+          subtitle="Add cover letters you've written before — the model studies your real tone, structure, and phrasing, then drafts new letters that sound like you, not like generic AI."
+          privacyNote="Parsed on-device · nothing is uploaded"
+        />
 
         <button
           type="button"
           onClick={onAdd}
-          className="mt-6 block w-full cursor-pointer rounded-[14px] border border-dashed border-border-strong bg-input p-9 text-center outline-none transition-colors hover:border-accent focus-visible:border-accent"
+          className="block w-full cursor-pointer rounded-[16px] border border-dashed border-border-strong p-10 text-center outline-none transition-colors hover:border-accent focus-visible:border-accent"
+          style={{ background: "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 58%), var(--input)" }}
         >
-          <span className="mx-auto mb-[13px] flex h-[46px] w-[46px] items-center justify-center rounded-[13px] bg-surface-2">
-            <svg width={21} height={21} viewBox="0 0 20 20" fill="none" stroke="var(--accent)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+          <span
+            className="mx-auto mb-3.5 flex h-[52px] w-[52px] items-center justify-center rounded-[15px] text-white"
+            style={{ background: "var(--accent-grad)", boxShadow: "0 14px 32px -8px var(--accent-shadow)" }}
+          >
+            <svg width={22} height={22} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 13V4M6.5 7.5L10 4l3.5 3.5M4 15h12" />
             </svg>
           </span>
-          <span className="block text-[14px] font-semibold text-fg">Paste a past cover letter</span>
-          <span className="mt-[5px] block text-[12px] text-fg-low">It stays on your machine — nothing is uploaded</span>
+          <span className="block text-[15px] font-bold text-fg">Add a past letter</span>
+          <span className="mt-1 block text-[12.5px] text-fg-mid">Choose a .txt file or paste the text — it stays on your machine</span>
         </button>
 
-        <div className="mt-4 flex justify-center">
+        <div className="flex justify-center">
           <Button variant="primary" size="md" type="button" onClick={onAdd}>
-            <Plus size={15} /> Paste a letter
+            <Plus size={15} /> Add a letter
           </Button>
-        </div>
-
-        <div className="mt-[18px] inline-flex items-center gap-1.5 text-[11px] text-fg-low">
-          <StatDot tone="success" glow size={6} />
-          Parsed on-device · nothing is uploaded
         </div>
       </div>
     </div>
@@ -596,7 +596,17 @@ function AddLetterDialog({
 }) {
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const trimmed = text.trim();
+
+  async function readFile(file: File) {
+    try {
+      const content = await file.text();
+      setText(content);
+    } catch (e) {
+      toast.danger("Couldn't read the file", errorMessage(e));
+    }
+  }
 
   function handleOpenChange(next: boolean) {
     if (submitting) return;
@@ -622,7 +632,7 @@ function AddLetterDialog({
       <DialogContent className="w-[min(92vw,520px)]">
         <DialogTitle>Add a past letter</DialogTitle>
         <DialogDescription>
-          Paste the full text of a cover letter you wrote. It stays on your machine and teaches the AI how you write.
+          Paste the text of a cover letter you wrote, or choose a .txt file. It stays on your machine and teaches the AI how you write.
         </DialogDescription>
         <div className="mt-4">
           <Field label="Letter text" hint={trimmed ? `${wordCount(text)} words` : "Paste at least a paragraph or two"}>
@@ -634,6 +644,23 @@ function AddLetterDialog({
               autoFocus
             />
           </Field>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".txt,.md,.text,text/plain,text/markdown"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void readFile(file);
+            e.target.value = "";
+          }}
+        />
+        <div className="mt-3 flex items-center gap-2">
+          <Button variant="outline" size="sm" type="button" onClick={() => fileRef.current?.click()} disabled={submitting}>
+            <Upload size={14} /> Choose a .txt file
+          </Button>
+          <span className="text-[11.5px] text-fg-low">or paste the text above</span>
         </div>
         <div className="mt-5 flex justify-end gap-2.5">
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>Cancel</Button>
