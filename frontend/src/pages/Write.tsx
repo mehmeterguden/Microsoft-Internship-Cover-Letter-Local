@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
-  ArrowRight,
   Check,
   Copy,
   Download,
@@ -12,7 +11,6 @@ import {
   Info,
   RotateCw,
   Save,
-  Search,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
@@ -23,7 +21,7 @@ import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Label, Textarea } from "@/components/ui/field";
 import { Segmented, Slider, Toggle } from "@/components/ui/controls";
-import { Pill, Spinner } from "@/components/ui/feedback";
+import { Spinner } from "@/components/ui/feedback";
 import {
   exportLetter,
   inlineEditCvLetter,
@@ -376,36 +374,6 @@ export function Write() {
               <Field label={<>Job posting <span className="text-fg-low">· optional</span></>}>
                 <Textarea value={jobPosting} onChange={(e) => setJobPosting(e.target.value)} placeholder="Paste the full description for a sharper draft…" />
               </Field>
-            </div>
-
-            <div className="mt-4 border-t border-border pt-3.5">
-              <Link
-                to={
-                  company.trim()
-                    ? `/research?company=${encodeURIComponent(company.trim())}${role.trim() ? `&role=${encodeURIComponent(role.trim())}` : ""}`
-                    : "/research"
-                }
-                className="group flex items-center justify-between gap-3 rounded-[11px] border border-border bg-surface-2 p-3 transition-all hover:border-accent hover:bg-surface"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-white"
-                    style={{ background: "var(--accent-grad)", boxShadow: "0 6px 16px -4px var(--accent-shadow)" }}
-                  >
-                    <Search size={14} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-[12.5px] font-semibold text-fg flex items-center gap-1.5">
-                      <span>Multi-Agent Research</span>
-                      <Pill tone="accent" className="py-0 px-1.5 text-[9.5px]">Deep AI</Pill>
-                    </div>
-                    <div className="truncate text-[11px] text-fg-mid">
-                      {company.trim() ? `Analyze ${company} with 3 AI agents` : "Deep dive company culture & tech stack"}
-                    </div>
-                  </div>
-                </div>
-                <ArrowRight size={14} className="shrink-0 text-fg-low transition-transform group-hover:translate-x-0.5" />
-              </Link>
             </div>
           </section>
 

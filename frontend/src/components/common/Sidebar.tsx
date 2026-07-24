@@ -42,13 +42,6 @@ function NavGlyph({ name }: { name: NavIcon }) {
           <path d="M4 17c0-3.2 3-5 6-5s6 1.8 6 5" />
         </svg>
       );
-    case "research":
-      return (
-        <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
-          <circle cx="9" cy="9" r="5" />
-          <path d="M13 13l4 4" />
-        </svg>
-      );
     case "letters":
       return (
         <svg width="17" height="17" viewBox="0 0 20 20" {...svgBase}>
