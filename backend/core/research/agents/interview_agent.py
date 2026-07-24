@@ -1,8 +1,7 @@
-"""Interview agent — what the company's loop tends to test.
+"""Interview agent — ordered hiring loop focus areas & candidate prep notes.
 
-Researches the interview process for the role and returns an ordered set of focus
-areas with a short prep note each (coding, system design, behavioral, project
-deep-dive, …), grounded in what the sources describe about this company's process.
+Researches the company's technical/hiring interview process and returns an ordered list
+of rounds/focus areas with actionable preparation tips for the candidate.
 """
 
 from __future__ import annotations
@@ -16,9 +15,9 @@ from core.research.tools import registry
 from core.research.tools.registry import ToolResult
 
 _SYSTEM = (
-    "You are an interview coach. From what sources say about a company's hiring loop, "
-    "you produce an ordered list of focus areas with a concrete prep note each, and "
-    "return JSON. You keep it specific to this company/role and avoid generic filler."
+    "You are an executive tech interview coach. You analyze a company's hiring process "
+    "to provide candidates with an accurate, ordered breakdown of what the loop tests, "
+    "paired with high-impact, specific prep advice."
 )
 
 
@@ -36,8 +35,8 @@ class InterviewAgent(Agent):
         return [
             registry.call(
                 "web_search",
-                query=f"{ctx.company_name} {role} interview process what to expect questions rounds",
-                max_results=5,
+                query=f"{ctx.company_name} {role} interview process rounds system design coding questions loop",
+                max_results=6,
             )
         ]
 
@@ -45,14 +44,15 @@ class InterviewAgent(Agent):
         return sorted(validated.interview, key=lambda i: i.order)
 
     def build_messages(self, ctx: AgentContext, gathered: list[ToolResult]) -> list[Message]:
-        role = ctx.role_title or "the role"
+        role = ctx.role_title or "the target role"
         prompt = (
-            f'Company: "{ctx.company_name}", role: "{role}".\n\n'
-            f"Gathered sources:\n{format_gathered(gathered)}\n\n"
+            f'Target Company: "{ctx.company_name}", Role: "{role}".\n\n'
+            f"Gathered Interview Intel:\n{format_gathered(gathered)}\n\n"
             "Return ONLY:\n"
             '{"interview": [{"order": int, "area": str, "note": str}]}\n\n'
-            "- 3–5 focus areas the loop tends to test, ordered by `order` (1, 2, 3…).\n"
-            "- `area` is short (e.g. \"System design at scale\"); `note` is one concrete tip.\n"
-            "- Ground it in the sources; if specifics are thin, give the standard loop for this kind of role."
+            "Guidelines:\n"
+            "- Provide 3-5 ordered interview focus areas (1, 2, 3...).\n"
+            "- `area`: Specific round title (e.g., \"Coding & Problem Solving\", \"Distributed System Design\", \"Architecture & Past Projects Deep Dive\", \"Behavioral & Culture Alignment\").\n"
+            "- `note`: 1 concrete, actionable preparation tip for this specific company."
         )
         return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": prompt}]
