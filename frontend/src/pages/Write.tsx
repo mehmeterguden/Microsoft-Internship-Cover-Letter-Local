@@ -1282,14 +1282,16 @@ function ResearchPromptButton({
 }) {
   if (cachedAt) {
     return (
-      <div className="cll-fade mt-3.5 flex items-center gap-3 rounded-[12px] border border-accent/40 bg-surface-2 p-3.5 shadow-sm">
-        <StatDot tone="accent" pulse size={7} />
-        <div className="min-w-0 flex-1">
-          <span className="text-[12px] font-semibold text-fg">Already researched & brainstormed</span>
-          <span className="ml-2 font-mono text-[10px] text-fg-low">· cached {formatWhen(cachedAt)}</span>
+      <div className="cll-fade mt-3 flex items-center justify-between gap-3 rounded-[12px] border border-accent/40 bg-surface-2 px-3.5 py-2.5 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <StatDot tone="accent" pulse size={7} />
+          <span className="text-[12px] font-semibold text-fg truncate">Researched & Brainstormed</span>
+          <span className="font-mono text-[10px] text-fg-low shrink-0">· {formatWhen(cachedAt)}</span>
         </div>
-        <Button type="button" variant="solid" size="sm" className="shrink-0 h-7 px-3 text-[11px]" onClick={onViewCache}>View intel</Button>
-        <Button type="button" variant="ghost" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={onReRun}>Re-run</Button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button type="button" variant="solid" size="sm" className="h-7 px-2.5 text-[11px]" onClick={onViewCache}>View intel</Button>
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={onReRun}>Re-run</Button>
+        </div>
       </div>
     );
   }
@@ -1302,37 +1304,33 @@ function ResearchPromptButton({
       onClick={onRun}
       disabled={!active}
       className={cn(
-        "cll-fade mt-3.5 group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border p-3.5 text-left transition-all duration-200",
+        "cll-fade mt-3 flex w-full items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5 text-left transition-all duration-200",
         active
-          ? "border-accent/40 bg-gradient-to-r from-accent-weak/40 via-surface to-surface hover:border-accent hover:shadow-[0_8px_24px_-8px_var(--accent-shadow)] cursor-pointer"
-          : "border-border/60 bg-surface-2/60 opacity-60 cursor-not-allowed",
+          ? "border-accent/40 bg-gradient-to-r from-accent-weak/30 via-surface to-surface hover:border-accent hover:shadow-[0_4px_16px_-4px_var(--accent-shadow)] cursor-pointer"
+          : "border-border/50 bg-surface-2/40 opacity-65 cursor-not-allowed",
       )}
     >
-      <span
-        className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] transition-all",
-          active ? "bg-accent-grad text-white shadow-[0_4px_12px_-3px_var(--accent-shadow)] group-hover:scale-105" : "bg-input text-fg-low",
-        )}
-      >
-        {checking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="block text-[13px] font-bold text-fg group-hover:text-accent-text transition-colors">
-            {checking ? "Checking cache…" : company.trim() ? `Deep Research Company (${company})` : "Deep Research Company (Optional)"}
-          </span>
-          {active && (
-            <Pill tone="accent" mono className="text-[8.5px] py-0 px-1.5 shrink-0">
-              Optional Deep Research
-            </Pill>
+      <span className="flex items-center gap-2.5 min-w-0">
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] transition-all",
+            active ? "bg-accent-grad text-white shadow-sm" : "bg-input text-fg-low",
           )}
+        >
+          {checking ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
         </span>
-        <span className="mt-0.5 block font-mono text-[10.5px] text-fg-mid truncate">
-          {company.trim() ? "Analyze culture · tech stack · signals · fit score · hooks" : "Optional: Enter company name or job link to enrich with deep research"}
+        <span className="text-[12.5px] font-bold text-fg group-hover:text-accent-text transition-colors truncate">
+          {checking
+            ? "Checking cache…"
+            : company.trim()
+            ? `Run Deep Search on ${company}?`
+            : "Run Deep Search on Company? (Optional)"}
         </span>
       </span>
+
       {active && (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-accent/30 bg-accent-weak text-accent-text group-hover:bg-accent group-hover:text-white transition-all">
+        <span className="flex items-center gap-1 text-[11.5px] font-semibold text-accent-text shrink-0">
+          <span>Start Search</span>
           <ArrowRight size={13} />
         </span>
       )}
