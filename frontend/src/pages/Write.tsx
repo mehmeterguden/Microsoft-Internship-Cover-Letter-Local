@@ -1848,26 +1848,21 @@ export function Write() {
       : "None";
 
     const contextInstruction = `
-You are an elite Executive Recruiter and Senior Career Advisor. You are providing strategic counseling to the user about their application.
+You are an intelligent, friendly AI Assistant chatting with the candidate about their job application.
 
-[APPLICATION CONTEXT]
+REFERENCE CONTEXT (Use ONLY as background context if relevant to the user's query):
 - Target Company: ${company || "Not specified"}
 - Target Role: ${role || "Not specified"}
-- Job Description Snippet: ${jobPosting.slice(0, 400) || "None"}
-- Company Deep Research Intel: ${researchIntel}
-- Candidate Questionnaire Responses:
-${tailoringContext}
+- Current Cover Letter Draft Snippet:
+${letter ? letter.slice(0, 500) : "No draft created yet"}
+- Research Intel: ${researchIntel}
+- Questionnaire Answers: ${tailoringContext}
 
-[CURRENT COVER LETTER DRAFT]
-${letter || "Draft not generated yet"}
-
-[STRICT BEHAVIORAL DIRECTIVES]
-- You are a CONVERSATIONAL ADVISOR and MENTOR.
-- Do NOT edit or rewrite the document directly.
-- Answer the candidate's questions, critique their draft, evaluate recruiter impressions, or suggest phrasing improvements.
-- Keep your answer clear, encouraging, structured, and insightful.
-
-Candidate Question / Prompt: "${query}"
+STRICT CONVERSATIONAL DIRECTIVES:
+1. Respond DIRECTLY, NATURALLY, and CONCISELY to the user's exact message: "${query}".
+2. If the user says a greeting (like "Merhaba", "Hi", "Hello"), reply with a simple, friendly greeting in the same language (e.g. "Merhaba! Ön yazınız veya başvurunuzla ilgili size nasıl yardımcı olabilirim?") and ask how you can assist.
+3. DO NOT output pre-written formal evaluations, structured critiques, or unsolicited long essays UNLESS the user explicitly asks for feedback, critique, or advice.
+4. Speak naturally in the same language as the user.
 `;
 
     try {
@@ -2667,16 +2662,16 @@ Candidate Question / Prompt: "${query}"
 
           {/* Right Assistant & Control Sidebar */}
           <div className="flex flex-col gap-4">
-            {/* Card 1: Ask AI Career Advisor Inline Expandable Section */}
+            {/* Card 1: Ask AI Inline Expandable Section */}
             <section className="rounded-[16px] border border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 via-surface to-surface p-4 space-y-3 shadow-md relative overflow-hidden transition-all duration-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30">
-                    <Sparkles size={16} />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30">
+                    <Sparkles size={15} />
                   </span>
                   <div>
-                    <h3 className="text-xs font-bold text-fg">AI Career Advisor</h3>
-                    <span className="text-[10px] text-indigo-400 font-medium">Strategic Counseling & Context</span>
+                    <h3 className="text-xs font-bold text-fg">Ask AI</h3>
+                    <span className="text-[10px] text-indigo-400 font-medium">Ask anything about your application</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -2703,10 +2698,7 @@ Candidate Question / Prompt: "${query}"
 
               {!aiChatOpen ? (
                 /* Collapsed View */
-                <div className="space-y-3">
-                  <p className="text-[11.5px] text-fg-mid leading-relaxed">
-                    Chat with an AI mentor equipped with your CV, company research intel, and cover letter draft.
-                  </p>
+                <div>
                   <Button
                     type="button"
                     variant="primary"
@@ -2714,7 +2706,7 @@ Candidate Question / Prompt: "${query}"
                     onClick={() => setAiChatOpen(true)}
                     className="w-full text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/25 gap-2"
                   >
-                    <MessageSquare size={14} /> Expand AI Advisor Chat <ChevronDown size={14} className="ml-auto opacity-70" />
+                    <MessageSquare size={14} /> Ask AI <ChevronDown size={14} className="ml-auto opacity-70" />
                   </Button>
                 </div>
               ) : (
@@ -2724,16 +2716,16 @@ Candidate Question / Prompt: "${query}"
                   <div className="max-h-[360px] overflow-y-auto pr-1 space-y-3 border-t border-b border-indigo-500/20 py-3">
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
-                        <Bot size={22} className="text-indigo-400" />
+                        <Bot size={20} className="text-indigo-400" />
                         <p className="text-[11.5px] text-fg-mid leading-relaxed">
-                          Ask for recruiter critique, interview tips, or strategic ideas!
+                          Sorunuzu yazın veya hızlı konulardan birini seçin:
                         </p>
                         <div className="flex flex-col gap-1.5 w-full pt-1">
                           {[
-                            "🎯 Critique from recruiter POV",
-                            "🚀 How to stand out for this role?",
-                            "❓ Likely interview questions?",
-                            "💡 Suggest 3 intro improvements",
+                            "🎯 Mektubumu genel olarak değerlendir",
+                            "🚀 Bu rol için nasıl öne çıkabilirim?",
+                            "❓ İşe alım uzmanı neleri sorabilir?",
+                            "💡 Giriş paragrafı için 3 öneri ver",
                           ].map((preset) => (
                             <button
                               key={preset}
