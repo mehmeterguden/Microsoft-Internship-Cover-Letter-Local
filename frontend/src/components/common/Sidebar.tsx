@@ -1,12 +1,48 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { Check } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useAsync } from "@/lib/useAsync";
 import { useSettingsStore } from "@/store/settings";
 import { listJobs } from "@/api/jobs";
+import { listDocuments } from "@/api/cv";
+import { githubStatus } from "@/api/github";
+import { linkedinStatus } from "@/api/linkedin";
+import { getProfile } from "@/api/profile";
+import { getStyle } from "@/api/style";
 import type { LLMProviderId } from "@/api/types";
 import { MAIN_NAV, SETUP_NAV, type NavIcon, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+
+export type NavStatus = {
+  hasCv: boolean;
+  hasVoice: boolean;
+  githubConnected: boolean;
+  linkedinConnected: boolean;
+};
+
+async function fetchNavStatus(): Promise<NavStatus> {
+  const [docs, style, gh, li, profile] = await Promise.allSettled([
+    listDocuments(),
+    getStyle(),
+    githubStatus(),
+    linkedinStatus(),
+    getProfile(),
+  ]);
+
+  const docList = docs.status === "fulfilled" ? docs.value : [];
+  const styleData = style.status === "fulfilled" ? style.value : null;
+  const ghData = gh.status === "fulfilled" ? gh.value : null;
+  const liData = li.status === "fulfilled" ? li.value : null;
+  const profData = profile.status === "fulfilled" ? profile.value : null;
+
+  const hasCv = docList.length > 0 || Boolean(profData?.name || profData?.summary);
+  const hasVoice = Boolean((styleData?.samples ?? 0) > 0 || styleData?.style_profile);
+  const githubConnected = Boolean(ghData?.account_connected);
+  const linkedinConnected = Boolean(liData?.connected);
+
+  return { hasCv, hasVoice, githubConnected, linkedinConnected };
+}
 
 /** Provider labels for the footer model chip. */
 const PROVIDER_META: Record<LLMProviderId, { name: string; cloud: boolean }> = {
@@ -78,7 +114,74 @@ function NavGlyph({ name }: { name: NavIcon }) {
   }
 }
 
-function NavRow({ item, lettersCount }: { item: NavItem; lettersCount: number }) {
+function NavRow({
+  item,
+  lettersCount,
+  status,
+}: {
+  item: NavItem;
+  lettersCount: number;
+  status?: NavStatus | null;
+}) {
+  const renderBadge = () => {
+    if (item.count === "letters" && lettersCount > 0) {
+      return (
+        <span className="rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-fg-low">
+          {lettersCount}
+        </span>
+      );
+    }
+
+    if (!status || !item.statusKey) return null;
+
+    if (item.statusKey === "cv" && status.hasCv) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+          <Check size={11} className="shrink-0" />
+          <span>Added</span>
+        </span>
+      );
+    }
+
+    if (item.statusKey === "voice" && status.hasVoice) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+          <Check size={11} className="shrink-0" />
+          <span>Ready</span>
+        </span>
+      );
+    }
+
+    if (item.statusKey === "github" && status.githubConnected) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+          <Check size={11} className="shrink-0" />
+          <span>Linked</span>
+        </span>
+      );
+    }
+
+    if (item.statusKey === "linkedin" && status.linkedinConnected) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+          <Check size={11} className="shrink-0" />
+          <span>Linked</span>
+        </span>
+      );
+    }
+
+    if (item.statusKey === "profile" && status.hasCv) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+          <Check size={11} className="shrink-0" />
+          <span>Set</span>
+        </span>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <NavLink to={item.to} end={item.to === "/"} className="block outline-none">
       {({ isActive }) => (
@@ -98,11 +201,7 @@ function NavRow({ item, lettersCount }: { item: NavItem; lettersCount: number })
             <NavGlyph name={item.icon} />
           </span>
           <span className="flex-1 truncate">{item.label}</span>
-          {item.count === "letters" && lettersCount > 0 ? (
-            <span className="rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-fg-low">
-              {lettersCount}
-            </span>
-          ) : null}
+          {renderBadge()}
         </span>
       )}
     </NavLink>
@@ -124,6 +223,7 @@ export function Sidebar() {
   const { pathname } = useLocation();
   const jobs = useAsync(listJobs, [pathname]);
   const lettersCount = jobs.data?.length ?? 0;
+  const navStatusState = useAsync(fetchNavStatus, [pathname]);
 
   const provider = settings ? PROVIDER_META[settings.llm_provider] : undefined;
   const modelName = settings?.llm_model?.trim() || (loading ? "Loading…" : "Not configured");
@@ -190,14 +290,14 @@ export function Sidebar() {
       <nav className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto" aria-label="Primary">
         <div className="flex flex-col gap-0.5">
           {MAIN_NAV.map((item) => (
-            <NavRow key={item.to} item={item} lettersCount={lettersCount} />
+            <NavRow key={item.to} item={item} lettersCount={lettersCount} status={navStatusState.data} />
           ))}
         </div>
         <div className="mx-1 my-3.5 h-px bg-border" />
         <div className="mb-2 px-[11px] text-[11px] font-semibold tracking-[0.01em] text-fg-low">Setup</div>
         <div className="flex flex-col gap-0.5">
           {SETUP_NAV.map((item) => (
-            <NavRow key={item.to} item={item} lettersCount={lettersCount} />
+            <NavRow key={item.to} item={item} lettersCount={lettersCount} status={navStatusState.data} />
           ))}
         </div>
       </nav>
