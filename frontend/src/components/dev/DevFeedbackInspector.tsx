@@ -1,0 +1,324 @@
+// TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
+
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import html2canvas from "html2canvas";
+import { Check, Info, Loader2, MousePointer, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/field";
+import { toast } from "@/store/toast";
+import {
+  useDevFeedbackStore,
+  type DevFeedbackCategory,
+} from "@/store/devFeedback";
+
+interface TargetInfo {
+  element: HTMLElement;
+  tagName: string;
+  selector: string;
+  rect: { x: number; y: number; width: number; height: number };
+  textSnippet: string;
+}
+
+const buildSelector = (el: HTMLElement): string => {
+  if (el.id) return `#${el.id}`;
+  const parts: string[] = [];
+  let current: HTMLElement | null = el;
+
+  while (current && current !== document.body && parts.length < 3) {
+    let name = current.tagName.toLowerCase();
+    if (current.className && typeof current.className === "string") {
+      const classes = current.className
+        .split(" ")
+        .filter((c) => c && !c.startsWith("cll-") && !c.includes("hover:"))
+        .slice(0, 2);
+      if (classes.length > 0) {
+        name += `.${classes.join(".")}`;
+      }
+    }
+    parts.unshift(name);
+    current = current.parentElement;
+  }
+
+  return parts.join(" > ") || el.tagName.toLowerCase();
+};
+
+export function DevFeedbackInspector() {
+  const location = useLocation();
+  const { inspectorActive, toggleInspector, addFeedback } = useDevFeedbackStore();
+
+  const [hoveredRect, setHoveredRect] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    tagName: string;
+    selector: string;
+  } | null>(null);
+
+  const [selectedTarget, setSelectedTarget] = useState<TargetInfo | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(undefined);
+  const [capturing, setCapturing] = useState(false);
+
+  const [category, setCategory] = useState<DevFeedbackCategory>("ui_layout");
+  const [notes, setNotes] = useState("");
+
+  // Track mouse movement to highlight elements under cursor
+  useEffect(() => {
+    if (!inspectorActive || modalOpen) {
+      setHoveredRect(null);
+      return;
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || target.closest("[data-dev-inspector]")) {
+        setHoveredRect(null);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      setHoveredRect({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+        tagName: target.tagName.toLowerCase(),
+        selector: buildSelector(target),
+      });
+    };
+
+    const handleClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || target.closest("[data-dev-inspector]")) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = target.getBoundingClientRect();
+      const targetData: TargetInfo = {
+        element: target,
+        tagName: target.tagName.toLowerCase(),
+        selector: buildSelector(target),
+        rect: {
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+        textSnippet: target.innerText?.trim() || "",
+      };
+
+      setSelectedTarget(targetData);
+      setModalOpen(true);
+      setCapturing(true);
+
+      try {
+        // Capture element screenshot via html2canvas
+        const canvas = await html2canvas(target, {
+          logging: false,
+          useCORS: true,
+          scale: 1.5,
+          backgroundColor: null,
+        });
+        setScreenshotUrl(canvas.toDataURL("image/png"));
+      } catch (err) {
+        console.warn("Screenshot capture failed, continuing without image", err);
+        setScreenshotUrl(undefined);
+      } finally {
+        setCapturing(false);
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, true);
+    window.addEventListener("click", handleClick, true);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove, true);
+      window.removeEventListener("click", handleClick, true);
+    };
+  }, [inspectorActive, modalOpen]);
+
+  const handleSubmit = () => {
+    if (!selectedTarget) return;
+    if (!notes.trim()) {
+      toast.warning("Enter requested edit instructions");
+      return;
+    }
+
+    addFeedback({
+      route: location.pathname,
+      tagName: selectedTarget.tagName,
+      selector: selectedTarget.selector,
+      rect: selectedTarget.rect,
+      textSnippet: selectedTarget.textSnippet,
+      category,
+      notes: notes.trim(),
+      screenshotUrl,
+    });
+
+    toast.success("Feedback collected!", "View and export to AI in Settings -> Developer Feedback.");
+    setModalOpen(false);
+    setSelectedTarget(null);
+    setNotes("");
+    setScreenshotUrl(undefined);
+  };
+
+  const handleClose = () => {
+    setModalOpen(false);
+    setSelectedTarget(null);
+    setNotes("");
+    setScreenshotUrl(undefined);
+    toggleInspector(false);
+  };
+
+  return (
+    <div data-dev-inspector className="pointer-events-none">
+      {/* Active Inspector Mode Banner */}
+      {inspectorActive && !modalOpen && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-auto flex items-center gap-3 bg-indigo-600 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl border border-indigo-400/50 animate-bounce">
+          <MousePointer size={14} className="animate-pulse" />
+          <span>Click any element on screen to record feedback</span>
+          <button
+            type="button"
+            onClick={() => toggleInspector(false)}
+            className="ml-2 hover:bg-white/20 p-1 rounded-full transition"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Hover Bounding Box */}
+      {inspectorActive && hoveredRect && !modalOpen && (
+        <div
+          className="fixed pointer-events-none z-40 border-2 border-indigo-500 bg-indigo-500/10 rounded-sm transition-all duration-75"
+          style={{
+            left: hoveredRect.x,
+            top: hoveredRect.y,
+            width: hoveredRect.width,
+            height: hoveredRect.height,
+          }}
+        >
+          <span className="absolute -top-6 left-0 bg-indigo-600 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow-md whitespace-nowrap">
+            &lt;{hoveredRect.tagName}&gt; {hoveredRect.selector} ({Math.round(hoveredRect.width)}x{Math.round(hoveredRect.height)}px)
+          </span>
+        </div>
+      )}
+
+      {/* Feedback Input Modal */}
+      {modalOpen && selectedTarget && (
+        <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative flex max-h-[90vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border/80 px-6 py-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-indigo-500/20 text-indigo-400">
+                  <MousePointer size={16} />
+                </span>
+                <div>
+                  <h2 className="text-[15px] font-bold text-fg">Developer Feedback Inspector</h2>
+                  <p className="text-[11px] text-fg-mid font-mono">
+                    Page: {location.pathname} · &lt;{selectedTarget.tagName}&gt;
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="flex h-8 w-8 items-center justify-center rounded-[8px] text-fg-low hover:bg-surface-2 hover:text-fg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Target info card */}
+              <div className="rounded-xl border border-border bg-surface-2/50 p-3 space-y-2 text-xs">
+                <div className="flex items-center justify-between text-fg-mid font-mono text-[11px]">
+                  <span>Selector: <strong className="text-fg font-semibold">{selectedTarget.selector}</strong></span>
+                  <span>{Math.round(selectedTarget.rect.width)}x{Math.round(selectedTarget.rect.height)}px</span>
+                </div>
+                {screenshotUrl ? (
+                  <div className="mt-2 overflow-hidden rounded-lg border border-border bg-black/40 flex justify-center max-h-[140px] p-2">
+                    <img src={screenshotUrl} alt="Captured element" className="object-contain max-h-[120px] rounded" />
+                  </div>
+                ) : capturing ? (
+                  <div className="py-4 flex items-center justify-center gap-2 text-fg-mid text-[11.5px]">
+                    <Loader2 size={14} className="animate-spin text-indigo-400" />
+                    <span>Capturing element screenshot…</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Feedback Category */}
+              <div className="space-y-2">
+                <label className="text-[12px] font-medium text-fg">Feedback Category</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: "ui_layout", label: "UI / Layout" },
+                    { id: "bug_fix", label: "Bug Fix" },
+                    { id: "copy_text", label: "Copy / Text" },
+                    { id: "feature_request", label: "Feature Request" },
+                    { id: "other", label: "Other" },
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCategory(c.id as DevFeedbackCategory)}
+                      className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                        category === c.id
+                          ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-sm"
+                          : "bg-surface-2/40 border-border/60 text-fg-mid hover:bg-surface-2"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes / Edit Instructions */}
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-fg">Requested Edit / Instructions</label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Describe exact changes (e.g. 'Make this button wider', 'Change font size to 14px', 'Fix alignment issue')..."
+                  className="min-h-[90px] text-xs"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-fg-low bg-surface-2 p-2.5 rounded-lg border border-border/60">
+                <Info size={13} className="shrink-0 text-indigo-400" />
+                <span>Saved items can be copied as AI prompts in <strong>Settings → Developer Feedback</strong>.</span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-border/80 bg-surface-2/30 px-6 py-3.5">
+              <Button type="button" variant="outline" size="sm" onClick={handleClose} className="text-xs">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="solid"
+                size="sm"
+                onClick={handleSubmit}
+                className="text-xs px-4 bg-indigo-600 hover:bg-indigo-500 text-white"
+              >
+                <Check size={14} className="mr-1.5" />
+                Submit Feedback
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
