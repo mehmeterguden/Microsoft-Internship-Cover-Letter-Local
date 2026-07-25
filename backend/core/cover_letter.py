@@ -19,11 +19,60 @@ from collections.abc import Iterator
 from typing import Any
 
 from core import llm, style
-from core.prompts.cover_letter import build_messages, build_review_messages
+from core.prompts.cover_letter import (
+    build_messages,
+    build_review_messages,
+    build_tailoring_questions_messages,
+)
 from core.research.orchestrator import _cache_key
 from db import queries
 
 _MAX_PROFILE_CHARS = 3500
+
+
+def generate_tailoring_questions(
+    company_name: str,
+    role_title: str | None = None,
+    job_description: str | None = None,
+) -> list[dict[str, Any]]:
+    """Generate 3 targeted, job-specific tailoring questions using LLM."""
+    profile_context, _ = _load_profile_context()
+    research_context = _load_research_context(company_name, role_title)
+
+    messages = build_tailoring_questions_messages(
+        profile_context, company_name, role_title, job_description, research_context
+    )
+
+    try:
+        raw = llm.chat(messages, temperature=0.7, json_mode=True)
+        data = json.loads(raw)
+        questions = data.get("questions") if isinstance(data, dict) else []
+        if isinstance(questions, list) and questions:
+            return questions[:4]
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Fallback questions if LLM call fails or returns empty
+    return [
+        {
+            "id": "q1",
+            "question": f"What specific achievement or project makes you a great fit for {company_name}?",
+            "context": f"Connect your past experience directly to {company_name}'s mission.",
+            "placeholder": "e.g. Led a team of 4 to refactor legacy backend, reducing latency by 40%...",
+        },
+        {
+            "id": "q2",
+            "question": f"Why are you particularly interested in the {role_title or 'this'} role right now?",
+            "context": "Shows genuine motivation and alignment beyond a standard job application.",
+            "placeholder": "e.g. I have been following the company's recent work on...",
+        },
+        {
+            "id": "q3",
+            "question": "Is there a key technical skill or leadership experience you want highlighted?",
+            "context": "Ensures your highest-impact skill takes center stage in the letter.",
+            "placeholder": "e.g. Deep expertise in distributed systems and Rust...",
+        },
+    ]
 
 
 def stream(
@@ -32,6 +81,7 @@ def stream(
     job_description: str | None = None,
     tone: str = "professional",
     length: str = "standard",
+    tailoring_answers: dict[str, str] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield generation events: one `start`, many `token`, then `done`.
 
@@ -46,6 +96,7 @@ def stream(
         profile_context, company_name, role_title, job_description, research_context, tone,
         length=length,
         style_guide=voice["guide"], style_exemplars=voice["exemplars"],
+        tailoring_answers=tailoring_answers,
     )
 
     yield {

@@ -1,6 +1,6 @@
 import { client } from "./client";
 import { streamSSE } from "./sse";
-import type { PiiShieldMode, Tone } from "./types";
+import type { PiiShieldMode, TailoringQuestion, Tone } from "./types";
 
 export type LetterLength = "short" | "standard" | "detailed";
 
@@ -10,6 +10,20 @@ export interface CoverLetterRequest {
   job_description?: string | null;
   tone?: Tone;
   length?: LetterLength;
+  tailoring_answers?: Record<string, string>;
+}
+
+export async function fetchTailoringQuestions(
+  company_name: string,
+  role_title?: string | null,
+  job_description?: string | null,
+): Promise<TailoringQuestion[]> {
+  const { data } = await client.post<{ questions: TailoringQuestion[] }>("/cover-letter/questions", {
+    company_name,
+    role_title,
+    job_description,
+  });
+  return data.questions ?? [];
 }
 
 /** SSE events emitted by POST /cover-letter/generate. */

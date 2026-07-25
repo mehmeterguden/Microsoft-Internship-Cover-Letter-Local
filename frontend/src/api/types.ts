@@ -415,3 +415,10 @@ export interface ReportMeta {
   /** External tool/search calls this run made, against the per-run budget. */
   tool_calls: number;
 }
+
+export interface TailoringQuestion {
+  id: string;
+  question: string;
+  context: string;
+  placeholder?: string;
+}
