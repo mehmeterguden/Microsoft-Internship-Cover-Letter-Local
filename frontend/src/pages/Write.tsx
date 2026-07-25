@@ -1319,16 +1319,16 @@ function ResearchPromptButton({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="block text-[13px] font-bold text-fg group-hover:text-accent-text transition-colors">
-            {checking ? "Checking cache…" : company.trim() ? `AI Brainstorm & Deep Research (${company})` : "AI Brainstorm & Deep Research"}
+            {checking ? "Checking cache…" : company.trim() ? `Deep Research Company (${company})` : "Deep Research Company (Optional)"}
           </span>
           {active && (
             <Pill tone="accent" mono className="text-[8.5px] py-0 px-1.5 shrink-0">
-              Brainstorming
+              Optional Deep Research
             </Pill>
           )}
         </span>
         <span className="mt-0.5 block font-mono text-[10.5px] text-fg-mid truncate">
-          {company.trim() ? "Research culture · tech stack · signals · fit score · hooks" : "Enter company name or import a job link to start"}
+          {company.trim() ? "Analyze culture · tech stack · signals · fit score · hooks" : "Optional: Enter company name or job link to enrich with deep research"}
         </span>
       </span>
       {active && (
