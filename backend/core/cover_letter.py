@@ -293,12 +293,11 @@ def inline_edit(
         user_prompt = f"User instruction: {instruction or 'Improve this text'}\n\nSelected text:\n{selected_text}"
     elif action == "ask":
         sys_prompt = (
-            "You are a helpful AI writing mentor for job applications. Answer the user's question concisely "
-            "and constructively about the provided text snippet. Format your response in clean, human-readable "
-            "natural language with bold section headers (e.g. **Short Answer:**, **Suggestions:**) and bullet points (- item) for lists. "
-            "CRITICAL: Do NOT output raw JSON objects, stringified dictionaries, or code fence wrappers."
+            "You are a helpful, conversational AI Assistant for job applications. Respond directly, naturally, "
+            "and concisely to the user's message in their language. Do NOT force rigid section headers (like Short Answer or Suggestions) "
+            "or pre-written templates unless explicitly requested by the user."
         )
-        user_prompt = f"Question: {instruction or 'How can I improve this text?'}\n\nText snippet:\n{selected_text}"
+        user_prompt = instruction.strip() if (instruction and instruction.strip()) else f"Question: How can I improve this text?\n\nText snippet:\n{selected_text}"
     else:
         sys_prompt = "Rewrite the selected text concisely."
         user_prompt = selected_text
