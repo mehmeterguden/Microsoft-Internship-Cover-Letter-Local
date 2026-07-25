@@ -2,6 +2,9 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Sidebar } from "./Sidebar";
 
+// TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
+import { DevFeedbackInspector } from "@/components/dev/DevFeedbackInspector";
+
 /**
  * App frame: the drifting-glow + faint-grid atmosphere from the design,
  * a fixed sidebar, and a scrollable content area that renders the active
@@ -43,6 +46,7 @@ export function AppShell() {
       <div aria-hidden className="cll-grid pointer-events-none absolute inset-0" />
 
       <Sidebar />
+      <DevFeedbackInspector />
 
       <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
         <AnimatePresence mode="wait">

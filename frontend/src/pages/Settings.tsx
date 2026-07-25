@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+// TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
+import { useDevFeedbackStore } from "@/store/devFeedback";
 import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Copy,
   Database,
   Eye,
   EyeOff,
   Globe,
+  MousePointer,
   Plus,
   RotateCw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -51,7 +56,7 @@ import type {
    sensible defaults applied when a provider is picked — the field
    stays editable and its real value lives in settings. `curatedModels`
    is the fallback list shown when live discovery fails. */
-type Tab = "model" | "integrations" | "data";
+type Tab = "model" | "integrations" | "data" | "dev";
 
 type ProviderMeta = {
   id: LLMProviderId;
@@ -148,6 +153,7 @@ const NAV: { value: Tab; label: string }[] = [
   { value: "model", label: "Model & inference" },
   { value: "integrations", label: "Integrations" },
   { value: "data", label: "Data" },
+  { value: "dev", label: "Developer Feedback 🛠️" },
 ];
 
 const RETENTION_OPTIONS: { value: ResearchCacheRetention; label: string }[] = [
@@ -878,6 +884,8 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
               </div>
             </div>
           ) : null}
+
+          {tab === "dev" ? <DevFeedbackTab /> : null}
         </div>
       </div>
 
@@ -1360,6 +1368,164 @@ function Row({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[10px] border border-border bg-surface px-3.5 py-3">
       {children}
+    </div>
+  );
+}
+
+// TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
+function DevFeedbackTab() {
+  const { items, removeFeedback, clearAllFeedback, generateAiPrompt, toggleInspector } =
+    useDevFeedbackStore();
+
+  const handleCopyPrompt = () => {
+    const prompt = generateAiPrompt();
+    navigator.clipboard.writeText(prompt);
+    toast.success("AI Prompt Copied!", "Paste into Antigravity or AI assistant to perform edits.");
+  };
+
+  return (
+    <div key="dev" className="cll-fade flex flex-col gap-5">
+      <div className="flex items-center justify-between border-b border-border pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[16px] font-bold text-fg">Developer Feedback & Screen Edits</h2>
+            <span className="text-[9px] uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
+              Temp (To Be Removed)
+            </span>
+          </div>
+          <p className="mt-1 text-[12px] text-fg-mid">
+            Collected screen elements, requested edits, and screenshot annotations. Copy as AI prompt for automated refactoring.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => toggleInspector(true)}
+            className="text-xs"
+          >
+            <MousePointer size={14} className="mr-1.5 text-indigo-400" />
+            Inspect Screen
+          </Button>
+
+          {items.length > 0 && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearAllFeedback}
+                className="text-xs text-fg-low hover:text-danger"
+              >
+                <Trash2 size={13} className="mr-1" />
+                Clear All
+              </Button>
+
+              <Button
+                type="button"
+                variant="solid"
+                size="sm"
+                onClick={handleCopyPrompt}
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white"
+              >
+                <Copy size={13} className="mr-1.5" />
+                Copy AI Prompt ({items.length})
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="py-12 flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-border bg-surface-2/30 space-y-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400">
+            <Sparkles size={24} />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-fg">No Feedback Items Collected Yet</h3>
+            <p className="mt-1 text-xs text-fg-mid max-w-sm">
+              Use the <strong>Feedback Inspector</strong> in the left sidebar to click any element on screen and record requested edits.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="solid"
+            size="sm"
+            onClick={() => toggleInspector(true)}
+            className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white"
+          >
+            Start Screen Inspection
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {items.map((item, idx) => (
+            <div
+              key={item.id}
+              className="rounded-xl border border-border bg-surface-2/40 p-4 space-y-3 relative group"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-[11px] font-bold">
+                    #{idx + 1}
+                  </span>
+                  <span className="text-xs font-semibold text-fg">
+                    {item.category === "ui_layout"
+                      ? "UI / Layout Adjustment"
+                      : item.category === "bug_fix"
+                      ? "Bug Fix"
+                      : item.category === "copy_text"
+                      ? "Copy / Text Change"
+                      : item.category === "feature_request"
+                      ? "Feature Request"
+                      : "General Feedback"}
+                  </span>
+                  <span className="text-[10px] font-mono text-fg-low bg-surface px-2 py-0.5 rounded border border-border">
+                    {item.route}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeFeedback(item.id)}
+                  className="text-fg-low hover:text-danger p-1 rounded transition cursor-pointer"
+                  title="Remove item"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+
+              {/* Element info */}
+              <div className="text-[11.5px] text-fg-mid font-mono bg-black/30 p-2 rounded-lg border border-border/50 flex flex-wrap gap-x-4 gap-y-1">
+                <span>Selector: <strong className="text-fg font-semibold">{item.selector}</strong></span>
+                <span>Tag: <strong className="text-fg font-semibold">&lt;{item.tagName}&gt;</strong></span>
+                <span>Rect: <strong className="text-fg font-semibold">{Math.round(item.rect.width)}x{Math.round(item.rect.height)}px</strong></span>
+              </div>
+
+              {/* Requested edits */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-fg-low uppercase tracking-wider">Requested Edit:</span>
+                <p className="text-xs text-fg leading-relaxed bg-surface p-3 rounded-lg border border-border/80 font-medium">
+                  {item.notes}
+                </p>
+              </div>
+
+              {/* Screenshot thumbnail if available */}
+              {item.screenshotUrl && (
+                <div className="mt-2 overflow-hidden rounded-lg border border-border bg-black/40 p-2 max-h-[160px] flex justify-center">
+                  <img
+                    src={item.screenshotUrl}
+                    alt="Captured element preview"
+                    className="object-contain max-h-[140px] rounded"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
