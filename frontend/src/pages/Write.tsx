@@ -1848,21 +1848,20 @@ export function Write() {
       : "None";
 
     const contextInstruction = `
-You are an intelligent, friendly AI Assistant chatting with the candidate about their job application.
+[ROLE & APPLICATION ASSISTANT PERSONA]
+You are the AI Career & Application Assistant of the Cover Letter Local web application.
 
-REFERENCE CONTEXT (Use ONLY as background context if relevant to the user's query):
+[USER'S IMMEDIATE QUERY / MESSAGE]
+The candidate currently sent this exact message: "${query}".
+Your PRIMARY goal is to answer strictly, directly, concisely, and naturally to THIS user message. Do NOT dump long unsolicited formal reviews unless explicitly requested.
+
+[APPLICATION CONTEXT (For reference only if relevant to the query)]
 - Target Company: ${company || "Not specified"}
 - Target Role: ${role || "Not specified"}
 - Current Cover Letter Draft Snippet:
 ${letter ? letter.slice(0, 500) : "No draft created yet"}
 - Research Intel: ${researchIntel}
 - Questionnaire Answers: ${tailoringContext}
-
-STRICT CONVERSATIONAL DIRECTIVES:
-1. Respond DIRECTLY, NATURALLY, and CONCISELY to the user's exact message: "${query}".
-2. If the user says a greeting (like "Merhaba", "Hi", "Hello"), reply with a simple, friendly greeting in the same language (e.g. "Merhaba! Ön yazınız veya başvurunuzla ilgili size nasıl yardımcı olabilirim?") and ask how you can assist.
-3. DO NOT output pre-written formal evaluations, structured critiques, or unsolicited long essays UNLESS the user explicitly asks for feedback, critique, or advice.
-4. Speak naturally in the same language as the user.
 `;
 
     try {
