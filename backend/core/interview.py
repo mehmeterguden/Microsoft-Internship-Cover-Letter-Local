@@ -313,7 +313,19 @@ def apply_synthesis(approved_diffs: list[dict[str, Any]], session_info: dict[str
             queries.update("experiences", t_id, {"description": new_text})
             updated_count += 1
         elif t_type == "skill":
-            queries.update("skills", t_id, {"note": new_text})
+            queries.update("skills", t_id, {"description": new_text, "note": new_text})
+            updated_count += 1
+        elif t_type == "education":
+            queries.update("education", t_id, {"description": new_text})
+            updated_count += 1
+        elif t_type == "language":
+            queries.update("languages", t_id, {"description": new_text})
+            updated_count += 1
+        elif t_type == "certificate":
+            queries.update("certificates", t_id, {"description": new_text})
+            updated_count += 1
+        elif t_type == "training":
+            queries.update("trainings", t_id, {"description": new_text})
             updated_count += 1
 
     # Log session in DB
