@@ -351,36 +351,34 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                     </span>
                   </button>
                 ))}
-                <button
-                  type="button"
+                <div
                   onClick={() => setQuestionCountMode("custom")}
-                  className={`py-3 px-3 rounded-xl border text-xs font-semibold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                  className={`py-2.5 px-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                     questionCountMode === "custom"
                       ? "bg-indigo-600/25 border-indigo-500 text-indigo-200 shadow-lg shadow-indigo-500/10"
                       : "bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800"
                   }`}
                 >
-                  <span className="text-sm font-bold flex items-center gap-1"><SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" /> Custom</span>
-                  <span className="text-[10px] text-slate-500 font-normal">Specify amount</span>
-                </button>
-              </div>
-
-              {questionCountMode === "custom" && (
-                <div className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/60 p-3 rounded-xl">
-                  <SlidersHorizontal className="w-4 h-4 text-indigo-400 shrink-0" />
-                  <div className="flex-1 space-y-1">
-                    <div className="text-xs text-slate-300">Enter custom question count (1 to 15):</div>
+                  <span className="text-xs font-bold flex items-center gap-1 text-white">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" /> Custom
+                  </span>
+                  {questionCountMode === "custom" ? (
                     <input
                       type="number"
                       min={1}
                       max={15}
                       value={customCountInput}
                       onChange={(e) => setCustomCountInput(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Qty (1-15)"
+                      className="w-full h-7 bg-slate-900 border border-indigo-500/70 rounded-lg px-2 text-center text-xs text-white focus:border-indigo-400 focus:outline-none font-semibold"
+                      autoFocus
                     />
-                  </div>
+                  ) : (
+                    <span className="text-[10px] text-slate-500 font-normal">Enter count</span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Focus Area Option */}
@@ -420,43 +418,37 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
                     </button>
                   );
                 })}
-                <button
-                  type="button"
+                <div
                   onClick={() => setFocusAreaMode("custom")}
-                  className={`text-left p-3 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${
+                  className={`p-3 rounded-xl border transition-all flex flex-col justify-between gap-2.5 cursor-pointer ${
                     focusAreaMode === "custom"
                       ? "bg-indigo-600/20 border-indigo-500 text-white"
                       : "bg-slate-800/30 border-slate-700/50 text-slate-300 hover:bg-slate-800/60"
                   }`}
                 >
-                  <div className={`p-2 rounded-lg ${focusAreaMode === "custom" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}>
-                    <PenTool className="w-4 h-4" />
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${focusAreaMode === "custom" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}>
+                      <PenTool className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-white">Custom Topic</div>
+                      <div className="text-[11px] text-slate-400 leading-tight mt-0.5">Write custom topic or prompt</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-semibold text-white">Custom Topic</div>
-                    <div className="text-[11px] text-slate-400 leading-tight mt-0.5">Write custom topic or prompt</div>
-                  </div>
-                </button>
-              </div>
-
-              {focusAreaMode === "custom" && (
-                <div className="bg-slate-800/40 border border-slate-700/60 p-3.5 rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-medium text-indigo-300">
-                    <PenTool className="w-4 h-4 text-indigo-400" />
-                    Write Custom Interview Focus Topic or Prompt:
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="e.g. Microservices, Kafka streaming, cloud architecture & Kubernetes"
-                    value={customFocusInput}
-                    onChange={(e) => setCustomFocusInput(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    AI will tailor all interview questions specifically around your custom topic.
-                  </p>
+                  {focusAreaMode === "custom" && (
+                    <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        placeholder="e.g. Microservices, Kafka, Cloud Architecture..."
+                        value={customFocusInput}
+                        onChange={(e) => setCustomFocusInput(e.target.value)}
+                        className="w-full bg-slate-900 border border-indigo-500/70 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none font-medium"
+                        autoFocus
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-800 flex justify-end">
