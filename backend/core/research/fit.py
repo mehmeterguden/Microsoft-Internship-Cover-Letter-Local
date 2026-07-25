@@ -42,10 +42,70 @@ class LocalProfile:
     senior: bool = False                               # any senior/lead title held
     repo_count: int = 0
     has_summary: bool = False
+    total_years: float = 0.0
+    experiences: list[dict] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
         return not self.skills and self.experience_count == 0
+
+
+def _parse_year(date_str: str | None) -> float | None:
+    if not date_str:
+        return None
+    m = re.search(r"\b(19\d\d|20\d\d)\b", date_str)
+    if m:
+        year = float(m.group(1))
+        m_month = re.search(r"\b(0?[1-9]|1[0-2])\b", date_str)
+        if m_month and len(date_str) > 4:
+            month = float(m_month.group(1))
+            return year + (month - 1.0) / 12.0
+        return year
+    return None
+
+
+def _calc_total_experience_years(experiences: list[dict]) -> float:
+    import datetime
+    now_year = datetime.datetime.now().year + (datetime.datetime.now().month - 1.0) / 12.0
+    total = 0.0
+    for e in experiences:
+        start_y = _parse_year(e.get("start_date"))
+        end_y = _parse_year(e.get("end_date"))
+        if e.get("is_current") or not end_y:
+            end_y = now_year
+        if start_y and end_y and end_y >= start_y:
+            total += max(0.25, end_y - start_y)
+        else:
+            total += 0.5  # fallback 6 months if dates unparseable
+    return max(0.0, total)
+
+
+def _calc_role_experience_need(role: RoleAnalysis) -> tuple[float, int]:
+    """Return target years needed and role_need score threshold based on target role."""
+    title = (role.title or "").lower()
+    req_text = " ".join(role.must_haves + role.keywords + role.responsibilities).lower()
+
+    if re.search(r"\b(executive|director|vp|c-level|head of)\b", title):
+        return 7.0, 90
+    if re.search(r"\b(senior|lead|principal|staff|architect|manager)\b", title) or "5+ years" in req_text or "senior" in req_text:
+        return 5.0, 85
+    if re.search(r"\b(junior|intern|internship|associate|entry)\b", title) or "0-1 year" in req_text or "intern" in req_text:
+        return 1.0, 50
+    return 3.0, 70
+
+
+def _calc_experience_relevance(experiences: list[dict], required_norms: set[str]) -> float:
+    """Calculate ratio of required skills/keywords present in candidate's experience text."""
+    if not required_norms or not experiences:
+        return 0.5
+    exp_tokens = set()
+    for e in experiences:
+        text = f"{e.get('title', '')} {e.get('company', '')} {e.get('description', '')}".lower()
+        words = set(re.findall(r"\b[a-z0-9+#.]+\b", text))
+        exp_tokens.update(words)
+
+    hits = sum(1 for norm in required_norms if norm in exp_tokens or any(norm in t or t in norm for t in exp_tokens if len(t) >= 3))
+    return hits / len(required_norms)
 
 
 def load_local_profile() -> LocalProfile:
@@ -60,6 +120,7 @@ def load_local_profile() -> LocalProfile:
             display.setdefault(norm, name)
 
     experiences = queries.list_all("experiences")
+    total_years = _calc_total_experience_years(experiences)
     senior = any(
         re.search(r"\b(senior|lead|principal|staff|head|manager)\b", (e.get("title") or ""), re.I)
         for e in experiences
@@ -74,6 +135,8 @@ def load_local_profile() -> LocalProfile:
         senior=senior,
         repo_count=len(queries.list_all("github_repos")),
         has_summary=bool(profile.get("summary")),
+        total_years=total_years,
+        experiences=experiences,
     )
 
 
@@ -111,14 +174,31 @@ def compute_fit(
 
     coverage = len(matched) / len(required) if required else 0.0
     technical = round(coverage * 100)
-    experience = min(100, profile.experience_count * 22 + (12 if profile.has_current else 0)
-                     + (15 if profile.senior else 0))
+
+    # Smart Experience Scoring
+    target_years, role_exp_need = _calc_role_experience_need(role)
+    years = profile.total_years if profile.total_years > 0 else (profile.experience_count * 1.5)
+    duration_ratio = min(1.2, years / target_years) if target_years > 0 else 1.0
+
+    exp_relevance = (
+        _calc_experience_relevance(profile.experiences, set(required.keys()))
+        if profile.experiences
+        else (0.7 if profile.skills else 0.4)
+    )
+
+    if profile.experience_count == 0:
+        experience = 0
+    else:
+        # 60% duration vs target, 30% relevance to role, 10% current employment
+        raw_exp = (duration_ratio * 60) + (exp_relevance * 30) + (10 if profile.has_current else 0)
+        experience = max(10, min(100, round(raw_exp)))
+
     open_source = min(100, profile.repo_count * 14)
     domain = round(_domain_coverage(profile, role) * 100)
 
     dimensions = [
         FitDimension(name="Technical skills", you=technical, role_need=90),
-        FitDimension(name="Experience", you=experience, role_need=85 if profile.senior else 70),
+        FitDimension(name="Experience", you=experience, role_need=role_exp_need),
         FitDimension(name="Domain knowledge", you=domain, role_need=75),
         FitDimension(name="Open-source", you=open_source, role_need=55),
     ]
