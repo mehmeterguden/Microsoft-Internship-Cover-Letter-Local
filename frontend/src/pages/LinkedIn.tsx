@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/feedback";
-import { SetupEmpty, SetupIntro } from "@/components/setup/SetupScaffold";
+import { SetupEmpty, SetupScaffold } from "@/components/setup/SetupScaffold";
 import { useAsync } from "@/lib/useAsync";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
@@ -218,22 +218,16 @@ export function LinkedIn() {
   return (
     <Page
       eyebrow="Setup / LinkedIn Import"
-      title={
-        <span className="inline-flex items-center gap-2.5">
-          <LinkedInMark size={20} className="text-accent-text" />
-          LinkedIn Import
-        </span>
-      }
-      subtitle="Bring your LinkedIn profile in — nothing overwrites your profile until you review the changes."
+      title="LinkedIn Import"
+      subtitle="Import your profile PDF or paste text to prefill experience and education."
       bodyClassName="px-7 py-6"
     >
-      <div className="mx-auto flex max-w-[760px] flex-col gap-5">
-        <SetupIntro
-          icon={<LinkedInMark size={19} />}
-          title="Import from LinkedIn"
-          subtitle="Bring your LinkedIn profile in — export it as a PDF and drop it here. Nothing overwrites your profile until you review the changes."
-          privacyNote="Read on-device · reviewed before anything changes"
-        />
+      <SetupScaffold
+        icon={<LinkedInMark size={19} />}
+        title="Import from LinkedIn"
+        subtitle="Bring your LinkedIn profile in — export it as a PDF and drop it here. Nothing overwrites your profile until you review the changes."
+        privacyNote="Read on-device · reviewed before anything changes"
+      >
         <Segmented value={tab} onChange={setTab} options={tabs} />
 
         {/* ── Profile PDF ── */}
@@ -469,7 +463,7 @@ export function LinkedIn() {
             }
           />
         ) : null}
-      </div>
+      </SetupScaffold>
 
       <ConfirmDialog
         open={confirmDisconnect}

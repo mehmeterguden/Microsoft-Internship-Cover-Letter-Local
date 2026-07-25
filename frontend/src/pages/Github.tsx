@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ProgressBar, Spinner, StatDot } from "@/components/ui/feedback";
-import { SetupEmpty, SetupIntro } from "@/components/setup/SetupScaffold";
+import { SetupEmpty, SetupScaffold } from "@/components/setup/SetupScaffold";
 import { useAsync } from "@/lib/useAsync";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
@@ -712,30 +712,25 @@ export function Github() {
   return (
     <Page
       eyebrow="Setup / GitHub Import"
-      title={
-        <span className="inline-flex items-center gap-2.5">
-          <GithubMark size={21} />
-          GitHub Import
-        </span>
-      }
+      title="GitHub Import"
+      subtitle="Pull your public repositories and convert your projects & tech stack into profile data."
       actions={<AccountChip connected={status.data?.account_connected ?? false} profile={profile} />}
       bodyClassName="px-7 py-6"
     >
-      <SetupIntro
+      <SetupScaffold
         icon={<GithubMark size={20} />}
         title="Import from GitHub"
         subtitle="Pull your public repositories, select which ones to analyze, and turn them into skills and projects for your profile."
         privacyNote="Analyzed on-device · only the username is sent"
-        className="mb-6"
-      />
-      <AsyncBoundary
-        state={status}
-        skeleton={
-          <div className="flex items-center justify-center py-24 text-fg-mid">
-            <Spinner size={22} />
-          </div>
-        }
       >
+        <AsyncBoundary
+          state={status}
+          skeleton={
+            <div className="flex items-center justify-center py-24 text-fg-mid">
+              <Spinner size={22} />
+            </div>
+          }
+        >
         {(st) => (
           <div className="flex flex-col">
             <ConnectRow
@@ -886,6 +881,7 @@ export function Github() {
           </div>
         )}
       </AsyncBoundary>
+      </SetupScaffold>
 
       {selected ? (
         <RepoDetail

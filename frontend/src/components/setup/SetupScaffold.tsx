@@ -67,7 +67,7 @@ export function SetupScaffold({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("cll-fade mx-auto flex w-full max-w-[920px] flex-col gap-6", className)}>
+    <div className={cn("cll-fade mx-auto flex w-full max-w-[880px] flex-col gap-6", className)}>
       <SetupIntro icon={icon} title={title} subtitle={subtitle} privacyNote={privacyNote} actions={actions} />
       {children}
     </div>

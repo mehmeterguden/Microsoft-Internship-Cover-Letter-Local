@@ -290,7 +290,8 @@ export function Onboarding() {
   return (
     <Page
       eyebrow="Setup / Add CV"
-      title="Add your CV"
+      title="Add CV"
+      subtitle="Import your CV to prefill your profile, skills, and work history automatically."
       actions={
         <Link
           to="/"
@@ -300,7 +301,7 @@ export function Onboarding() {
         </Link>
       }
       bare={reviewing}
-      bodyClassName={reviewing ? "flex flex-col" : "px-7 py-7"}
+      bodyClassName={reviewing ? "flex flex-col" : "px-7 py-6"}
     >
       {reviewing ? (
         <ReviewScreen
@@ -319,7 +320,7 @@ export function Onboarding() {
           onSave={handleSave}
         />
       ) : (
-        <div className="mx-auto flex w-full max-w-[900px] flex-col">
+        <div className="mx-auto flex w-full max-w-[880px] flex-col">
           <Stepper steps={RAIL_STEPS} current={STEP_INDEX[state]} className="mb-7" />
 
           {state === "upload" ? (
