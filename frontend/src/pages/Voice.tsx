@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Plus, RotateCw, Trash2, Upload } from "lucide-react";
+import { Plus, RotateCw, Sparkles, Trash2, Upload } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -27,6 +27,7 @@ import { cn, relativeTime } from "@/lib/utils";
 
 const EYEBROW = "Setup / Writing Voice";
 const TITLE = "Writing Voice";
+const SUBTITLE = "Train the AI on your natural writing style by analyzing past cover letters.";
 
 /* ── Small text helpers over raw letter content ──────────────────── */
 function wordCount(text: string): number {
@@ -445,8 +446,15 @@ function DoneBody({
   onLearn: () => void;
 }) {
   return (
-    <div className="grid min-h-full grid-cols-1 gap-5 px-7 py-[22px] lg:grid-cols-[290px_1fr]">
-      {/* Left — the past letters */}
+    <div className="flex flex-col gap-6">
+      <SetupIntro
+        icon={<Sparkles size={20} className="text-white" />}
+        title="Writing Voice Profile"
+        subtitle="The model uses your analyzed letters as a reference for tone, structure, and phrasing when generating cover letters."
+        privacyNote="Analyzed on-device · style fingerprint stored locally"
+      />
+      <div className="grid min-h-full grid-cols-1 gap-5 lg:grid-cols-[290px_1fr]">
+        {/* Left — the past letters */}
       <section className="cll-fade flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your letters · {letters.length}</span>
@@ -478,6 +486,7 @@ function DoneBody({
           <NotLearnedPanel count={letters.length} analyzing={analyzing} onLearn={onLearn} />
         )}
       </section>
+    </div>
     </div>
   );
 }
@@ -853,23 +862,25 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   );
 
   return (
-    <Page eyebrow={EYEBROW} title={TITLE} actions={actions} bodyClassName="p-0">
-      {view === "learning" ? (
-        <LearningBody letters={letters} progress={progress} label={progressLabel} streamText={streamText} preview={preview} />
-      ) : view === "empty" ? (
-        <EmptyBody onAdd={() => setAddOpen(true)} />
-      ) : (
-        <DoneBody
-          letters={letters}
-          profile={profile}
-          analyzing={analyzing}
-          onOpen={setReader}
-          onRate={handleRate}
-          onDelete={setToDelete}
-          onAdd={() => setAddOpen(true)}
-          onLearn={() => void runLearn()}
-        />
-      )}
+    <Page eyebrow={EYEBROW} title={TITLE} subtitle={SUBTITLE} actions={actions} bodyClassName="px-7 py-6">
+      <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6">
+        {view === "learning" ? (
+          <LearningBody letters={letters} progress={progress} label={progressLabel} streamText={streamText} preview={preview} />
+        ) : view === "empty" ? (
+          <EmptyBody onAdd={() => setAddOpen(true)} />
+        ) : (
+          <DoneBody
+            letters={letters}
+            profile={profile}
+            analyzing={analyzing}
+            onOpen={setReader}
+            onRate={handleRate}
+            onDelete={setToDelete}
+            onAdd={() => setAddOpen(true)}
+            onLearn={() => void runLearn()}
+          />
+        )}
+      </div>
 
       <AddLetterDialog open={addOpen} onOpenChange={setAddOpen} onSubmit={handleAdd} />
       {reader ? <LetterModal letter={reader} onClose={() => setReader(null)} /> : null}
