@@ -177,6 +177,120 @@ function fitColor(tone: "success" | "warning" | "accent") {
 }
 
 /* ───────────────────────────────────────────────────────────────────
+   Rich AI Chat Message Content Renderer with Streaming Tag Safety
+────────────────────────────────────────────────────────────────────*/
+function RichAiMessageContent({ content, role }: { content: string; role: "user" | "assistant" }) {
+  if (!content) return null;
+
+  if (role === "user") {
+    return <span className="whitespace-pre-wrap">{content}</span>;
+  }
+
+  const lines = content.split("\n");
+
+  const parseFormattedInlineText = (text: string) => {
+    let cleanText = text;
+
+    // Streaming tag safety: If an unclosed {**} tag exists at the end of text while typing/streaming,
+    // strip the opening tag mark so raw {**} never flickers awkwardly on screen.
+    const openBoldCount = (cleanText.match(/\{\*\*\}/g) || []).length;
+    if (openBoldCount % 2 !== 0) {
+      const lastIdx = cleanText.lastIndexOf("{**}");
+      if (lastIdx !== -1) {
+        cleanText = cleanText.slice(0, lastIdx) + cleanText.slice(lastIdx + 4);
+      }
+    }
+
+    const openHighlight = cleanText.lastIndexOf("{highlight}");
+    const closeHighlight = cleanText.lastIndexOf("{/highlight}");
+    if (openHighlight !== -1 && openHighlight > closeHighlight) {
+      cleanText = cleanText.slice(0, openHighlight) + cleanText.slice(openHighlight + 11);
+    }
+
+    const openMarkdownBoldCount = (cleanText.match(/\*\*/g) || []).length;
+    if (openMarkdownBoldCount % 2 !== 0) {
+      const lastIdx = cleanText.lastIndexOf("**");
+      if (lastIdx !== -1) {
+        cleanText = cleanText.slice(0, lastIdx) + cleanText.slice(lastIdx + 2);
+      }
+    }
+
+    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\*\*.*?\*\*)/g;
+    const parts = cleanText.split(regex);
+
+    return parts.map((part, index) => {
+      if (part.startsWith("{**}") && part.endsWith("{**}")) {
+        const inner = part.slice(4, -4);
+        return (
+          <strong key={index} className="font-semibold text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 mx-0.5 shadow-xs">
+            {inner}
+          </strong>
+        );
+      }
+      if (part.startsWith("**") && part.endsWith("**")) {
+        const inner = part.slice(2, -2);
+        return (
+          <strong key={index} className="font-semibold text-indigo-300 bg-indigo-500/10 px-1 py-0.5 rounded mx-0.5">
+            {inner}
+          </strong>
+        );
+      }
+      if (part.startsWith("{highlight}") && part.endsWith("{/highlight}")) {
+        const inner = part.slice(11, -12);
+        return (
+          <span key={index} className="inline-flex items-center gap-1 font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md text-[10.5px] border border-amber-500/20 mx-0.5">
+            ✨ {inner}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  return (
+    <div className="space-y-1.5 leading-relaxed text-[11.5px]">
+      {lines.map((line, lIdx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={lIdx} className="h-0.5" />;
+
+        if (trimmed.startsWith("#")) {
+          const headingText = trimmed.replace(/^#+\s*/, "");
+          return (
+            <div key={lIdx} className="font-bold text-xs text-indigo-300 border-l-2 border-indigo-500 pl-2 py-0.5 my-1 bg-indigo-500/10 rounded-r">
+              {parseFormattedInlineText(headingText)}
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+          const bulletText = trimmed.slice(2);
+          return (
+            <div key={lIdx} className="flex items-start gap-2 pl-0.5 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0 mt-1.5 shadow-xs" />
+              <div className="flex-1">{parseFormattedInlineText(bulletText)}</div>
+            </div>
+          );
+        }
+
+        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+        if (numMatch) {
+          return (
+            <div key={lIdx} className="flex items-start gap-2 pl-0.5 py-0.5">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[9.5px] font-bold border border-indigo-500/30">
+                {numMatch[1]}
+              </span>
+              <div className="flex-1">{parseFormattedInlineText(numMatch[2])}</div>
+            </div>
+          );
+        }
+
+        return <p key={lIdx}>{parseFormattedInlineText(line)}</p>;
+      })}
+    </div>
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────
    JSON live stream token colouriser (syntax-highlight without deps)
 ────────────────────────────────────────────────────────────────────*/
 function formatJsonStream(raw: string): string {
@@ -1851,6 +1965,12 @@ export function Write() {
 [ROLE & APPLICATION ASSISTANT PERSONA]
 You are the AI Career & Application Assistant of the Cover Letter Local web application.
 
+[FORMATTING DIRECTIVES]
+- When you want to bold or emphasize important text, wrap it in {**}text{**}.
+- When you want to highlight key skills, metrics, or recommendations, wrap them in {highlight}text{/highlight}.
+- Use clean bullet points (- item) or numbered lists (1. item) for lists.
+- Do NOT use giant raw # H1 headers. Use neat titles or bullet points with highlights.
+
 [USER'S IMMEDIATE QUERY / MESSAGE]
 The candidate currently sent this exact message: "${query}".
 Your PRIMARY goal is to answer strictly, directly, concisely, and naturally to THIS user message. Do NOT dump long unsolicited formal reviews unless explicitly requested.
@@ -2755,10 +2875,10 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                               className={`rounded-xl px-3 py-2 text-[11.5px] leading-relaxed ${
                                 msg.role === "user"
                                   ? "bg-accent text-white rounded-tr-xs"
-                                  : "bg-surface-2 border border-border text-fg rounded-tl-xs whitespace-pre-wrap"
+                                  : "bg-surface-2 border border-border text-fg rounded-tl-xs"
                               }`}
                             >
-                              {msg.content}
+                              <RichAiMessageContent content={msg.content} role={msg.role} />
                             </div>
                             <span className="text-[9.5px] text-fg-low font-mono px-1">{msg.timestamp}</span>
                           </div>
