@@ -17,17 +17,19 @@ export type NavItem = {
   icon: NavIcon;
   /** optional key for a trailing count badge (resolved in the Sidebar) */
   count?: "letters";
+  /** optional status key for setup completion badges */
+  statusKey?: "cv" | "voice" | "github" | "linkedin" | "profile";
 };
 
 export const MAIN_NAV: NavItem[] = [
   { to: "/", label: "Home", icon: "home" },
-  { to: "/profile", label: "Profile & Skills", icon: "profile" },
+  { to: "/profile", label: "Profile & Skills", icon: "profile", statusKey: "profile" },
   { to: "/cover-letters", label: "Cover Letters", icon: "letters", count: "letters" },
 ];
 
 export const SETUP_NAV: NavItem[] = [
-  { to: "/onboarding", label: "Add CV", icon: "addcv" },
-  { to: "/voice", label: "Writing Voice", icon: "voice" },
-  { to: "/github", label: "GitHub Import", icon: "github" },
-  { to: "/linkedin", label: "LinkedIn Import", icon: "linkedin" },
+  { to: "/onboarding", label: "Add CV", icon: "addcv", statusKey: "cv" },
+  { to: "/voice", label: "Writing Voice", icon: "voice", statusKey: "voice" },
+  { to: "/github", label: "GitHub Import", icon: "github", statusKey: "github" },
+  { to: "/linkedin", label: "LinkedIn Import", icon: "linkedin", statusKey: "linkedin" },
 ];
