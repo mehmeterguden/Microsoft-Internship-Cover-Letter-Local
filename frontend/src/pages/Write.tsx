@@ -12,7 +12,6 @@ import {
   ExternalLink,
   FileDown,
   FileText,
-  HelpCircle,
   Info,
   Link as LinkIcon,
   Loader2,
@@ -20,7 +19,6 @@ import {
   RotateCw,
   Save,
   Search,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Wand2,
@@ -31,7 +29,7 @@ import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Label, Textarea } from "@/components/ui/field";
 import { Segmented, Slider, Toggle } from "@/components/ui/controls";
-import { Pill, Spinner, StatDot } from "@/components/ui/feedback";
+import { Pill, StatDot } from "@/components/ui/feedback";
 import { ScoreRing, SourceChip } from "@/components/ui/data";
 import {
   exportLetter,
@@ -1784,7 +1782,7 @@ export function Write() {
 
   const [claims, setClaims] = useState<ReviewClaim[] | null>(null);
   const [reviewing, setReviewing] = useState(false);
-  const [pii, setPii] = useState<PiiFinding[]>([]);
+  const [_pii, setPii] = useState<PiiFinding[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
@@ -2087,14 +2085,35 @@ export function Write() {
     finally { setSaving(false); }
   }
 
-  /* Selection AI */
-  const handleTextareaSelect = () => {
+  const [floatingPos, setFloatingPos] = useState<{ top: number; left: number } | null>(null);
+
+  const handleTextareaSelect = (e?: React.SyntheticEvent<HTMLTextAreaElement>) => {
     if (!textareaRef.current) return;
     const start = textareaRef.current.selectionStart;
     const end = textareaRef.current.selectionEnd;
     if (start != null && end != null && end - start >= 3) {
       const sel = letter.substring(start, end);
-      if (sel.trim().length >= 3) { setSelectedText(sel); setSelectionRange({ start, end }); setAiMode("menu"); setAiAnswer(null); }
+      if (sel.trim().length >= 3) {
+        setSelectedText(sel);
+        setSelectionRange({ start, end });
+        setAiMode("menu");
+        setAiAnswer(null);
+
+        if (e && "nativeEvent" in e && e.nativeEvent instanceof MouseEvent) {
+          const mouseEvt = e.nativeEvent as MouseEvent;
+          const rect = textareaRef.current.parentElement?.getBoundingClientRect();
+          if (rect) {
+            const relativeLeft = Math.min(
+              rect.width - 340,
+              Math.max(16, mouseEvt.clientX - rect.left - 160)
+            );
+            const relativeTop = Math.max(12, mouseEvt.clientY - rect.top - 64);
+            setFloatingPos({ top: relativeTop, left: relativeLeft });
+          }
+        } else if (!floatingPos) {
+          setFloatingPos({ top: 30, left: 40 });
+        }
+      }
     }
   };
 
@@ -2108,7 +2127,7 @@ export function Write() {
         const updated = letter.substring(0, selectionRange.start) + res.result + letter.substring(selectionRange.end);
         setLetter(updated);
         toast.success("Text updated by AI", "The selected snippet has been rewritten.");
-        setSelectedText(""); setSelectionRange(null); setAiMode("menu"); setAiInput("");
+        setSelectedText(""); setSelectionRange(null); setAiMode("menu"); setAiInput(""); setFloatingPos(null);
         if (grounded) void runReview(updated);
       }
     } catch (err) { toast.danger("AI action failed", errorMessage(err)); }
@@ -2181,58 +2200,82 @@ export function Write() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
-        {/* Left: inputs */}
-        <div className="cll-fade flex min-w-0 flex-col gap-4">
-          <section className="rounded-[14px] border border-border bg-surface p-5">
-            <div className="text-[15px] font-semibold text-fg">What are you applying to?</div>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-fg-mid">
-              Fill in the details and I&apos;ll ground the draft in your profile.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <Field label="Company">
-                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Anthropic" />
+      {/* INITIAL STATE: Centered Form View (No Letter Generated Yet) */}
+      {!hasLetter && !streaming ? (
+        <div className="mx-auto max-w-[760px] space-y-6 cll-fade py-2">
+          {/* Main Application Details Card */}
+          <section className="rounded-[16px] border border-border bg-surface p-6 shadow-md space-y-5">
+            <div className="flex items-center justify-between border-b border-border/70 pb-4">
+              <div>
+                <h2 className="text-[17px] font-bold text-fg">What role are you applying for?</h2>
+                <p className="mt-1 text-[13px] text-fg-mid">
+                  Provide company details to generate a grounded, personalized draft in your exact voice.
+                </p>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-weak text-accent-text">
+                <Sparkles size={20} />
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Company Name">
+                <Input
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g. Anthropic, Google, Stripe"
+                  className="h-10 text-sm"
+                />
               </Field>
-              <Field label="Role">
-                <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. ML Engineer" />
+              <Field label="Role Title">
+                <Input
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="e.g. Senior Software Engineer"
+                  className="h-10 text-sm"
+                />
               </Field>
             </div>
 
             {/* Job Posting Link Import */}
-            <div className="mt-3">
-              <Field label={<>Job posting link <span className="text-fg-low">· auto-fill</span></>}>
+            <div>
+              <Field label={<>Job posting link <span className="text-fg-low">· optional auto-fill</span></>}>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Input
                       value={jobUrl}
                       onChange={(e) => setJobUrl(e.target.value)}
-                      placeholder="Paste job link (LinkedIn, Greenhouse, Lever…)"
-                      className="pl-8 text-[12.5px]"
+                      placeholder="Paste job posting URL (LinkedIn, Greenhouse, Lever…)"
+                      className="pl-9 h-10 text-sm"
                     />
-                    <LinkIcon size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-low" />
+                    <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-low" />
                   </div>
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="md"
                     loading={importingUrl}
                     disabled={!jobUrl.trim() || importingUrl}
                     onClick={handleJobUrlImport}
-                    className="shrink-0 h-9 px-3 text-[12px]"
+                    className="shrink-0 h-10 px-4 text-xs font-semibold"
                   >
-                    <Download size={13} /> Import
+                    <Download size={14} /> Import
                   </Button>
                 </div>
               </Field>
             </div>
 
-            <div className="mt-3">
-              <Field label={<>Job posting <span className="text-fg-low">· optional</span></>}>
-                <Textarea value={jobPosting} onChange={(e) => setJobPosting(e.target.value)} placeholder="Paste the full description for a sharper draft…" />
+            <div>
+              <Field label={<>Job Description <span className="text-fg-low">· optional</span></>}>
+                <Textarea
+                  value={jobPosting}
+                  onChange={(e) => setJobPosting(e.target.value)}
+                  placeholder="Paste full job description or key requirements to tailor experience match..."
+                  className="min-h-[110px] text-xs"
+                />
               </Field>
             </div>
 
-            {/* Research section */}
+            {/* Deep Research Section */}
             {researchPhase === "idle" ? (
               <ResearchPromptButton
                 company={company} onRun={handleResearchRun} onReRun={() => startResearch(true)} checking={checkingCache}
@@ -2268,7 +2311,7 @@ export function Write() {
               </div>
             ) : null}
 
-            {/* Tailoring questions section */}
+            {/* Tailoring Questions Wizard Section */}
             <TailoringQuestionsButton
               company={company}
               answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
@@ -2276,14 +2319,15 @@ export function Write() {
             />
           </section>
 
-          <section className="flex flex-col gap-4 rounded-[14px] border border-border bg-surface p-5">
+          {/* Tone & Length Preferences */}
+          <section className="rounded-[16px] border border-border bg-surface p-6 shadow-md space-y-5">
             <Field
               label={
                 <div className="flex items-center justify-between w-full">
-                  <span>Tone</span>
+                  <span className="font-semibold text-fg">Tone of Voice</span>
                   {toneAutoDetected && (
-                    <span className="font-mono text-[9.5px] font-semibold text-accent-text flex items-center gap-1">
-                      <Sparkles size={10} className="text-accent" /> Auto-set from past letters
+                    <span className="font-mono text-[10px] font-semibold text-accent-text flex items-center gap-1">
+                      <Sparkles size={11} className="text-accent" /> Auto-detected from past letters
                     </span>
                   )}
                 </div>
@@ -2291,245 +2335,357 @@ export function Write() {
             >
               <Segmented options={TONES} value={tone} onChange={(v) => { setTone(v); setToneAutoDetected(false); }} />
             </Field>
-            <div className="flex flex-col gap-2">
+
+            <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
-                <Label>Length</Label>
-                <span className="font-mono text-[10px] tracking-[0.02em] text-accent-text">{lenLabel} · ~{words} words</span>
+                <Label className="font-semibold text-fg">Target Length</Label>
+                <span className="font-mono text-[11px] font-semibold text-accent-text">{lenLabel} · ~{words} words</span>
               </div>
               <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
-              <div className="flex justify-between text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">
+              <div className="flex justify-between text-[11px] font-semibold text-fg-low">
                 <span>Brief</span><span>Detailed</span>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-[11px] border border-border bg-surface-2 px-3.5 py-3">
+
+            <div className="flex items-center justify-between gap-3 rounded-[12px] border border-border bg-surface-2 p-4">
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-fg">Check claims before sending</div>
-                <p className="mt-0.5 text-[11.5px] leading-snug text-fg-mid">Flag anything the draft states that your profile doesn&apos;t back up.</p>
+                <div className="text-[13px] font-semibold text-fg">Groundedness Claim Verification</div>
+                <p className="mt-0.5 text-[11.5px] text-fg-mid">Audit & flag any state statements not present in your profile.</p>
               </div>
               <Toggle checked={grounded} onChange={setGrounded} aria-label="Check claims before sending" />
             </div>
           </section>
+
+          {/* Big Primary Generation CTA */}
+          <div className="pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={generate}
+              loading={streaming}
+              className="w-full py-4 text-[15px] font-bold shadow-xl shadow-accent/25 hover:shadow-accent/35 transition-all"
+            >
+              <Sparkles size={18} className="mr-2 animate-pulse" />
+              Generate Cover Letter
+            </Button>
+          </div>
         </div>
-
-        {/* Right: letter + review */}
-        <div className="flex min-w-0 flex-col gap-4">
-          <section className="cll-fade relative flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-reading">
-            {streaming && (
-              <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-border bg-input px-2.5 py-1 text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" style={{ animation: "cll-pulse 1.3s ease-in-out infinite" }} />
-                Streaming
-              </div>
-            )}
-
-            {/* Research grounding badge */}
-            {researchPhase === "done" && researchReport && !streaming && (
-              <div className="flex items-center gap-1.5 border-b border-border bg-accent-weak px-4 py-2 text-[10.5px] font-semibold text-accent-text">
-                <Sparkles size={11} />
-                Grounded in company intel · {researchReport.company_name}
-                <button type="button" onClick={() => setModalOpen(true)} className="ml-auto flex items-center gap-1 text-[10px] hover:underline">
-                  <Search size={10} /> View report
-                </button>
-              </div>
-            )}
-
-            {/* Selection AI Floating Box */}
-            {selectedText && !streaming && (
-              <div
-                className="cll-fade border-b border-border bg-surface-2 p-3.5 shadow-elevated"
-                style={{ background: "radial-gradient(130% 120% at 50% -10%, var(--accent-weak), transparent 60%), var(--surface-2)" }}
-              >
-                <div className="flex items-center justify-between gap-2 pb-2">
-                  <div className="flex items-center gap-2 text-[12px] font-semibold text-fg">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-[6px] text-white" style={{ background: "var(--accent-grad)" }}>
-                      <Sparkles size={11} />
+      ) : (
+        /* GENERATED STATE: 2-Column Editor + Compact Settings View */
+        <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+          {/* Main Left: Cover Letter Editor */}
+          <div className="flex min-w-0 flex-col gap-4">
+            <section className="cll-fade relative flex min-h-[540px] flex-1 flex-col overflow-hidden rounded-[16px] border border-border bg-reading shadow-lg">
+              {/* Header Info Bar */}
+              <div className="flex items-center justify-between border-b border-border/80 bg-surface-2/60 px-5 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-weak text-accent-text">
+                    <Sparkles size={14} />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold text-fg">
+                      {company || "Untitled"} {role ? `· ${role}` : ""}
+                    </h3>
+                    <span className="text-[10.5px] font-mono text-fg-low">
+                      {words} words · Grounded Draft
                     </span>
-                    <span className="text-accent-text font-mono text-[11px]">AI Selection Helper:</span>
-                    <span className="truncate text-fg-mid max-w-[280px]">"{selectedText}"</span>
                   </div>
-                  <button type="button" onClick={() => { setSelectedText(""); setSelectionRange(null); }} className="text-fg-mid hover:text-fg">
-                    <X size={14} />
+                </div>
+
+                {streaming ? (
+                  <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-weak px-3 py-1 text-[11px] font-semibold text-accent-text">
+                    <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                    Streaming draft…
+                  </span>
+                ) : (
+                  <Button variant="outline" size="xs" onClick={generate} loading={streaming} className="text-xs">
+                    <RotateCw size={12} className="mr-1" /> Regenerate
+                  </Button>
+                )}
+              </div>
+
+              {/* Research grounding banner */}
+              {researchPhase === "done" && researchReport && !streaming && (
+                <div className="flex items-center gap-1.5 border-b border-border bg-accent-weak px-4 py-2 text-[10.5px] font-semibold text-accent-text">
+                  <Sparkles size={11} />
+                  Grounded in company intel · {researchReport.company_name}
+                  <button type="button" onClick={() => setModalOpen(true)} className="ml-auto flex items-center gap-1 text-[10px] hover:underline">
+                    <Search size={10} /> View report
                   </button>
                 </div>
-                {aiMode === "menu" ? (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("regenerate")}>
-                      <RotateCw size={12} /> Rephrase
-                    </Button>
-                    <Button variant="outline" size="xs" onClick={() => setAiMode("custom")}><Wand2 size={12} /> Edit with AI</Button>
-                    <Button variant="ghost" size="xs" onClick={() => setAiMode("ask")}><HelpCircle size={12} /> Ask AI</Button>
-                  </div>
-                ) : aiMode === "custom" ? (
-                  <div className="flex items-center gap-2 pt-1">
-                    <Input value={aiInput} onChange={(e) => setAiInput(e.target.value)} placeholder="e.g. Make this sound more confident…" className="h-8 text-[12px]" onKeyDown={(e) => { if (e.key === "Enter") handleInlineAction("custom"); }} />
-                    <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("custom")}>Apply</Button>
-                    <Button variant="ghost" size="xs" onClick={() => setAiMode("menu")}>Cancel</Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2 pt-1">
-                    <div className="flex items-center gap-2">
-                      <Input value={aiInput} onChange={(e) => setAiInput(e.target.value)} placeholder="Ask a question about this selected text…" className="h-8 text-[12px]" onKeyDown={(e) => { if (e.key === "Enter") handleInlineAction("ask"); }} />
-                      <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("ask")}>Ask</Button>
-                      <Button variant="ghost" size="xs" onClick={() => setAiMode("menu")}>Cancel</Button>
+              )}
+
+              {/* Editor Container with Relative Positioning for Floating Popover */}
+              <div className="relative flex-1 flex flex-col">
+                {/* FLOATING SELECTION AI TOOLBAR OVER SELECTED TEXT */}
+                {selectedText && floatingPos && !streaming && (
+                  <div
+                    className="absolute z-40 flex flex-col rounded-xl border border-indigo-500/50 bg-surface/95 p-3 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 max-w-[420px]"
+                    style={{ top: `${floatingPos.top}px`, left: `${floatingPos.left}px` }}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2 mb-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+                          <Sparkles size={11} />
+                        </span>
+                        <span className="font-mono text-[11px] text-indigo-400">Inline AI Helper:</span>
+                        <span className="truncate max-w-[180px] text-fg-mid font-medium">"{selectedText}"</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedText(""); setSelectionRange(null); setFloatingPos(null); }}
+                        className="text-fg-low hover:text-fg rounded p-0.5"
+                      >
+                        <X size={13} />
+                      </button>
                     </div>
-                    {aiAnswer && (
-                      <div className="mt-2 flex flex-col gap-1.5">
-                        <div className="text-[11px] font-mono font-semibold uppercase tracking-[0.04em] text-accent-text flex items-center gap-1.5">
-                          <Sparkles size={11} /> AI Answer:
-                        </div>
-                        <AiAnswerView
-                          text={aiAnswer}
-                          onApply={(replacement) => {
-                            if (!selectionRange) return;
-                            const updated = letter.substring(0, selectionRange.start) + replacement + letter.substring(selectionRange.end);
-                            setLetter(updated);
-                            toast.success("Text replaced", "Selection updated with AI suggestion.");
-                            setSelectedText(""); setSelectionRange(null); setAiMode("menu"); setAiInput("");
-                          }}
+
+                    {/* Actions */}
+                    {aiMode === "menu" ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("regenerate")}>
+                          <RotateCw size={11} /> Rephrase
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          loading={aiWorking}
+                          onClick={() => handleInlineAction("custom", "Make this sound more professional, polished and compelling.")}
+                        >
+                          <Sparkles size={11} className="text-amber-400" /> Professional
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          loading={aiWorking}
+                          onClick={() => handleInlineAction("custom", "Make this selection shorter and more concise.")}
+                        >
+                          Shorten
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          loading={aiWorking}
+                          onClick={() => handleInlineAction("custom", "Expand on this point with more concrete impact.")}
+                        >
+                          Expand
+                        </Button>
+
+                        <Button variant="ghost" size="xs" onClick={() => setAiMode("custom")}>
+                          <Wand2 size={11} /> Custom AI
+                        </Button>
+                      </div>
+                    ) : aiMode === "custom" ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={aiInput}
+                          onChange={(e) => setAiInput(e.target.value)}
+                          placeholder="Custom AI instruction..."
+                          className="h-8 text-[12px]"
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleInlineAction("custom"); }}
                         />
+                        <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("custom")}>
+                          Apply
+                        </Button>
+                        <Button variant="ghost" size="xs" onClick={() => setAiMode("menu")}>
+                          Back
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={aiInput}
+                            onChange={(e) => setAiInput(e.target.value)}
+                            placeholder="Ask AI about this text..."
+                            className="h-8 text-[12px]"
+                            autoFocus
+                            onKeyDown={(e) => { if (e.key === "Enter") handleInlineAction("ask"); }}
+                          />
+                          <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("ask")}>
+                            Ask
+                          </Button>
+                        </div>
+                        {aiAnswer && (
+                          <AiAnswerView
+                            text={aiAnswer}
+                            onApply={(replacement) => {
+                              if (!selectionRange) return;
+                              const updated = letter.substring(0, selectionRange.start) + replacement + letter.substring(selectionRange.end);
+                              setLetter(updated);
+                              toast.success("Text replaced");
+                              setSelectedText(""); setSelectionRange(null); setFloatingPos(null);
+                            }}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {!hasLetter && !streaming ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-                <div className="mb-3 grid h-12 w-12 place-items-center rounded-[14px] border border-border-strong bg-surface-2 text-accent-text">
-                  <Sparkles size={22} />
-                </div>
-                <div className="text-[15px] font-semibold text-fg">Your letter appears here</div>
-                <p className="mt-1 max-w-xs text-[13px] text-fg-mid">
-                  Fill in the company and hit <b className="text-fg">Generate</b> — it streams in, grounded in your profile.
-                </p>
-                {researchPhase === "done" && (
-                  <div className="mt-3 flex items-center gap-1.5 rounded-[8px] border border-border bg-surface-2 px-3 py-1.5 text-[11px] text-accent-text">
-                    <Sparkles size={11} /> Company intel ready — will be used in generation
+                {/* Textarea */}
+                {streaming ? (
+                  <div className="flex-1 overflow-auto p-7 sm:px-8">
+                    <div className="max-w-[640px] whitespace-pre-wrap text-[15px] leading-[1.85] text-reading-ink">
+                      {letter}<span className="cll-caret" aria-hidden />
+                    </div>
                   </div>
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    value={letter}
+                    onChange={(e) => setLetter(e.target.value)}
+                    onSelect={handleTextareaSelect}
+                    onMouseUp={handleTextareaSelect}
+                    onKeyUp={handleTextareaSelect}
+                    spellCheck
+                    className="min-h-[420px] flex-1 resize-none border-0 bg-transparent p-7 text-[15px] leading-[1.85] text-reading-ink outline-none sm:px-8"
+                    aria-label="Cover letter (editable)"
+                  />
                 )}
               </div>
-            ) : streaming ? (
-              <div className="flex-1 overflow-auto p-7 sm:px-8">
-                <div className="max-w-[600px] whitespace-pre-wrap text-[15px] leading-[1.85] text-reading-ink">
-                  {letter}<span className="cll-caret" aria-hidden />
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col">
-                <textarea
-                  ref={textareaRef}
-                  value={letter}
-                  onChange={(e) => setLetter(e.target.value)}
-                  onSelect={handleTextareaSelect}
-                  onMouseUp={handleTextareaSelect}
-                  onKeyUp={handleTextareaSelect}
-                  spellCheck
-                  className="min-h-[360px] flex-1 resize-none border-0 bg-transparent p-7 text-[15px] leading-[1.85] text-reading-ink outline-none sm:px-8"
-                  aria-label="Cover letter (editable)"
-                />
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3">
-                  <span className="flex items-center gap-1.5 text-[10.5px] text-fg-low">
-                    <Info size={12} strokeWidth={1.6} /> Select text to edit or ask AI · edit freely
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <Button variant="ghost" size="xs" onClick={copyLetter}><Copy size={13} /> Copy</Button>
-                    <Button variant="ghost" size="xs" onClick={downloadTxt}><Download size={13} /> .txt</Button>
-                    <Button variant="ghost" size="xs" onClick={() => download("pdf")} loading={exporting === "pdf"} disabled={exporting !== null}><FileDown size={13} /> PDF</Button>
-                    <Button variant="ghost" size="xs" onClick={() => download("docx")} loading={exporting === "docx"} disabled={exporting !== null}><FileText size={13} /> Word</Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
 
-          {/* Claim check */}
-          {grounded && done && (
-            <section className="cll-fade rounded-[14px] border border-border bg-surface p-[18px]">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
-                  <ShieldCheck size={16} strokeWidth={1.6} className="text-success" /> Claim check
+              {/* Bottom Actions Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3 bg-surface-2/40">
+                <span className="flex items-center gap-1.5 text-[11px] text-fg-low">
+                  <Info size={12} strokeWidth={1.6} /> Select text to trigger Floating AI Toolbar
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="outline" size="xs" onClick={saveDraft} loading={saving}>
+                    <Save size={13} /> Save Draft
+                  </Button>
+                  <Button variant="ghost" size="xs" onClick={copyLetter}><Copy size={13} /> Copy</Button>
+                  <Button variant="ghost" size="xs" onClick={downloadTxt}><Download size={13} /> .txt</Button>
+                  <Button variant="ghost" size="xs" onClick={() => download("pdf")} loading={exporting === "pdf"} disabled={exporting !== null}><FileDown size={13} /> PDF</Button>
+                  <Button variant="ghost" size="xs" onClick={() => download("docx")} loading={exporting === "docx"} disabled={exporting !== null}><FileText size={13} /> Word</Button>
                 </div>
-                <div className="flex items-center gap-3">
+              </div>
+            </section>
+
+            {/* Claim check section */}
+            {grounded && done && (
+              <section className="cll-fade rounded-[14px] border border-border bg-surface p-[18px]">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+                    <ShieldCheck size={16} strokeWidth={1.6} className="text-success" /> Claim check
+                  </div>
                   {claims && claims.length > 0 && (
-                    <Button variant="primary" size="xs" onClick={handleFixAllClaims} className="gap-1 rounded-[7px] text-[11px]">
-                      <Wand2 size={11} /> Fix All Flagged ({claims.length})
+                    <Button variant="outline" size="xs" onClick={handleFixAllClaims}>
+                      <Wand2 size={12} /> Auto-fix all claims
                     </Button>
                   )}
-                  {reviewing ? (
-                    <span className="flex items-center gap-1.5 text-[10.5px] font-semibold text-fg-mid"><Spinner size={12} /> checking…</span>
-                  ) : (
-                    <button type="button" onClick={() => { void runReview(letter); void runPiiScan(letter); }} className="flex items-center gap-1.5 text-[10.5px] font-semibold text-accent-text hover:brightness-110">
-                      <RotateCw size={11} /> re-check
-                    </button>
-                  )}
                 </div>
-              </div>
-              {reviewing ? (
-                <p className="text-[12.5px] text-fg-mid">Looking for anything your profile doesn&apos;t back up…</p>
-              ) : claims && claims.length > 0 ? (
-                <div className="flex flex-col gap-2.5">
-                  <p className="text-[12px] text-fg-mid">These claims need double-checking. Click <b className="text-fg">Fix</b> to rephrase:</p>
-                  {claims.map((c, i) => (
-                    <div key={i} className="flex flex-col gap-2 rounded-[12px] border border-[color:var(--warning)]/30 bg-warning-weak p-3.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-2 text-[12.5px] text-fg">
-                          <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-warning" />
-                          <span className="italic font-medium">"{c.text}"</span>
+                {reviewing ? (
+                  <div className="py-4 flex items-center justify-center gap-2 text-[12px] text-fg-mid">
+                    <Loader2 size={14} className="animate-spin text-accent" /> Checking claims against your profile…
+                  </div>
+                ) : claims && claims.length > 0 ? (
+                  <div className="space-y-2">
+                    {claims.map((claim, idx) => (
+                      <div key={idx} className="rounded-lg border border-warning/30 bg-warning-weak p-3 text-xs flex items-start justify-between gap-3">
+                        <div>
+                          <span className="font-semibold text-fg font-mono">"{claim.text}"</span>
+                          <p className="mt-1 text-fg-mid">{claim.reason}</p>
+                          {claim.suggestion && <p className="mt-1 font-medium text-accent-text">Suggestion: {claim.suggestion}</p>}
                         </div>
-                        <Button variant="outline" size="xs" onClick={() => handleFixClaim(c, i)} className="shrink-0 gap-1.5 rounded-[8px] border-warning/40 bg-surface text-fg hover:border-warning hover:bg-warning-weak">
-                          <Wand2 size={12} className="text-warning" /> Fix
+                        <Button variant="outline" size="xs" onClick={() => handleFixClaim(claim, idx)}>
+                          Fix
                         </Button>
                       </div>
-                      {c.reason && <div className="pl-5.5 text-[11.5px] text-fg-mid"><b className="text-fg-low">Note:</b> {c.reason}</div>}
-                      {c.suggestion && <div className="pl-5.5 text-[11.5px] text-accent-text"><b className="font-semibold">Suggested fix:</b> "{c.suggestion}"</div>}
-                    </div>
-                  ))}
-                </div>
-              ) : claims === null ? (
-                <p className="text-[12.5px] text-fg-mid">Not checked yet — hit <b className="text-fg">re-check</b> to scan.</p>
-              ) : (
-                <div className="flex items-center gap-2.5 rounded-[10px] border border-[color:var(--success)]/25 bg-success-weak px-3 py-3 text-[13px] text-fg">
-                  <Check size={16} strokeWidth={2.4} className="shrink-0 text-success" />
-                  Every claim is backed by your profile. Nothing to double-check.
-                </div>
-              )}
-            </section>
-          )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-success font-medium flex items-center gap-1.5">
+                    <Check size={14} /> All claims verified against your profile!
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
 
-          {/* PII shield */}
-          {done && pii.length > 0 && (
-            <section className="cll-fade rounded-[14px] border border-[color:var(--warning)]/30 bg-warning-weak p-[18px]">
-              <div className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-fg">
-                <ShieldAlert size={16} strokeWidth={1.7} className="text-warning" /> Personal data detected
+          {/* Right Compact Settings & Refinement Panel */}
+          <div className="flex flex-col gap-4">
+            <section className="rounded-[16px] border border-border bg-surface p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-border/70 pb-3">
+                <h3 className="text-sm font-bold text-fg">Refine Settings</h3>
+                <span className="text-[10.5px] font-mono text-fg-low">Compact Options</span>
               </div>
-              <p className="mb-3 text-[12px] leading-relaxed text-fg-mid">
-                This letter contains what looks like personal or sensitive information. Detected locally, nothing left your device.
-              </p>
+
+              <Field label="Company">
+                <Input value={company} onChange={(e) => setCompany(e.target.value)} className="h-8 text-xs" />
+              </Field>
+
+              <Field label="Role">
+                <Input value={role} onChange={(e) => setRole(e.target.value)} className="h-8 text-xs" />
+              </Field>
+
+              <Field label="Tone">
+                <Segmented options={TONES} value={tone} onChange={(v) => { setTone(v); setToneAutoDetected(false); }} />
+              </Field>
+
               <div className="flex flex-col gap-2">
-                {pii.map((f) => {
-                  const dot = f.severity === "high" ? "bg-danger" : f.severity === "medium" ? "bg-warning" : "bg-fg-low";
-                  return (
-                    <div key={f.type} className="flex items-start gap-2.5 rounded-[10px] border border-border bg-surface px-3 py-2.5">
-                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-[12.5px] text-fg">
-                          <span className="font-semibold">{f.label}</span>
-                          {f.count > 1 && <span className="font-mono text-[10px] text-fg-low">×{f.count}</span>}
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          {f.samples.map((s, i) => (
-                            <span key={i} className="rounded-[6px] bg-input px-2 py-[2px] font-mono text-[10px] text-fg-mid">{s}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="flex items-center justify-between text-xs font-semibold text-fg">
+                  <span>Length</span>
+                  <span className="font-mono text-[10px] text-accent-text">{lenLabel}</span>
+                </div>
+                <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  onClick={generate}
+                  loading={streaming}
+                  className="w-full text-xs font-bold"
+                >
+                  <RotateCw size={14} className="mr-1.5" />
+                  Regenerate Draft
+                </Button>
               </div>
             </section>
-          )}
+
+            {/* Research & Questions summaries */}
+            <section className="rounded-[16px] border border-border bg-surface p-4 space-y-3">
+              <h4 className="text-xs font-bold text-fg border-b border-border/60 pb-2">Context & Intel</h4>
+
+              {researchPhase === "done" && researchReport ? (
+                <div className="rounded-lg border border-border bg-surface-2 p-2.5 text-xs space-y-1">
+                  <div className="font-semibold text-accent-text flex items-center justify-between">
+                    <span>{researchReport.company_name}</span>
+                    <button type="button" onClick={() => setModalOpen(true)} className="text-[10px] hover:underline">
+                      Details
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-fg-mid line-clamp-2">
+                    {typeof researchReport.overview === "string"
+                      ? researchReport.overview
+                      : (researchReport.overview as { summary?: string })?.summary || researchReport.company_name}
+                  </p>
+                </div>
+              ) : (
+                <ResearchPromptButton
+                  company={company} onRun={handleResearchRun} onReRun={() => startResearch(true)} checking={checkingCache}
+                  cachedAt={researchCacheHit} onViewCache={loadCachedResearch}
+                />
+              )}
+
+              <TailoringQuestionsButton
+                company={company}
+                answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
+                onClick={handleOpenTailoringModal}
+              />
+            </section>
+          </div>
         </div>
-      </div>
+      )}
 
       {tailoringModalOpen && (
         <TailoringQuestionsModal
