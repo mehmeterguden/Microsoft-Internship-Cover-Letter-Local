@@ -16,9 +16,12 @@ import {
   Link as LinkIcon,
   Loader2,
   MessageSquare,
+  Pencil,
+  Plus,
   RotateCw,
   Save,
   Search,
+  Send,
   ShieldCheck,
   Sparkles,
   Wand2,
@@ -1800,6 +1803,35 @@ export function Write() {
   const [aiWorking, setAiWorking] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
 
+  // App Info Modal & Sidebar Ask AI Assistant
+  const [editAppModalOpen, setEditAppModalOpen] = useState(false);
+  const [sidebarAskInput, setSidebarAskInput] = useState("");
+  const [sidebarAskAnswer, setSidebarAskAnswer] = useState<string | null>(null);
+  const [sidebarAskWorking, setSidebarAskWorking] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState("");
+
+  const handleSidebarAsk = async (promptText?: string) => {
+    const query = promptText || sidebarAskInput;
+    if (!query.trim() || !letter.trim()) return;
+    setSidebarAskWorking(true);
+    setSidebarAskAnswer(null);
+    try {
+      const res = await inlineEditCvLetter({
+        selected_text: letter.slice(0, 300),
+        action: "ask",
+        instruction: query,
+        full_letter: letter,
+        company_name: company,
+        role_title: role,
+      });
+      setSidebarAskAnswer(res.result);
+    } catch (err) {
+      toast.danger("AI Ask failed", errorMessage(err));
+    } finally {
+      setSidebarAskWorking(false);
+    }
+  };
+
   const { length, label: lenLabel, words } = useMemo(() => lengthFor(lengthPct), [lengthPct]);
 
   /* Research state */
@@ -2372,37 +2404,47 @@ export function Write() {
           </div>
         </div>
       ) : (
-        /* GENERATED STATE: 2-Column Editor + Compact Settings View */
-        <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        /* GENERATED STATE: 2-Column Editor + Rich Assistant & Control Sidebar */
+        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
           {/* Main Left: Cover Letter Editor */}
           <div className="flex min-w-0 flex-col gap-4">
             <section className="cll-fade relative flex min-h-[540px] flex-1 flex-col overflow-hidden rounded-[16px] border border-border bg-reading shadow-lg">
-              {/* Header Info Bar */}
-              <div className="flex items-center justify-between border-b border-border/80 bg-surface-2/60 px-5 py-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-weak text-accent-text">
-                    <Sparkles size={14} />
+              {/* Top Header Bar: Company Badge + Edit Info + Top-Right Export Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-surface-2/60 px-5 py-3.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-weak text-accent-text font-bold">
+                    <Sparkles size={15} />
                   </span>
-                  <div>
-                    <h3 className="text-xs font-bold text-fg">
-                      {company || "Untitled"} {role ? `· ${role}` : ""}
-                    </h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-fg truncate max-w-[240px]">
+                        {company || "Untitled Application"} {role ? `· ${role}` : ""}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setEditAppModalOpen(true)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-text hover:underline cursor-pointer bg-accent-weak/60 px-2 py-0.5 rounded-full border border-accent/20"
+                        title="Edit company, role, or job posting description"
+                      >
+                        <Pencil size={11} /> Edit Info
+                      </button>
+                    </div>
                     <span className="text-[10.5px] font-mono text-fg-low">
                       {words} words · Grounded Draft
                     </span>
                   </div>
                 </div>
 
-                {streaming ? (
-                  <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-weak px-3 py-1 text-[11px] font-semibold text-accent-text">
-                    <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                    Streaming draft…
-                  </span>
-                ) : (
-                  <Button variant="outline" size="xs" onClick={generate} loading={streaming} className="text-xs">
-                    <RotateCw size={12} className="mr-1" /> Regenerate
+                {/* Top-Right Exports & Actions Bar */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button variant="outline" size="xs" onClick={saveDraft} loading={saving} className="text-xs">
+                    <Save size={12} className="mr-1" /> Save
                   </Button>
-                )}
+                  <Button variant="ghost" size="xs" onClick={copyLetter} title="Copy text"><Copy size={13} /> Copy</Button>
+                  <Button variant="ghost" size="xs" onClick={downloadTxt} title="Download TXT"><Download size={13} /> .txt</Button>
+                  <Button variant="ghost" size="xs" onClick={() => download("pdf")} loading={exporting === "pdf"} disabled={exporting !== null} title="Export PDF"><FileDown size={13} /> PDF</Button>
+                  <Button variant="ghost" size="xs" onClick={() => download("docx")} loading={exporting === "docx"} disabled={exporting !== null} title="Export Word"><FileText size={13} /> Word</Button>
+                </div>
               </div>
 
               {/* Research grounding banner */}
@@ -2545,85 +2587,110 @@ export function Write() {
                     onMouseUp={handleTextareaSelect}
                     onKeyUp={handleTextareaSelect}
                     spellCheck
-                    className="min-h-[420px] flex-1 resize-none border-0 bg-transparent p-7 text-[15px] leading-[1.85] text-reading-ink outline-none sm:px-8"
+                    className="min-h-[440px] flex-1 resize-none border-0 bg-transparent p-7 text-[15px] leading-[1.85] text-reading-ink outline-none sm:px-8"
                     aria-label="Cover letter (editable)"
                   />
                 )}
               </div>
 
-              {/* Bottom Actions Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3 bg-surface-2/40">
-                <span className="flex items-center gap-1.5 text-[11px] text-fg-low">
+              <div className="flex items-center justify-between border-t border-border px-5 py-2.5 bg-surface-2/30 text-[11px] text-fg-low">
+                <span className="flex items-center gap-1.5">
                   <Info size={12} strokeWidth={1.6} /> Select text to trigger Floating AI Toolbar
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <Button variant="outline" size="xs" onClick={saveDraft} loading={saving}>
-                    <Save size={13} /> Save Draft
-                  </Button>
-                  <Button variant="ghost" size="xs" onClick={copyLetter}><Copy size={13} /> Copy</Button>
-                  <Button variant="ghost" size="xs" onClick={downloadTxt}><Download size={13} /> .txt</Button>
-                  <Button variant="ghost" size="xs" onClick={() => download("pdf")} loading={exporting === "pdf"} disabled={exporting !== null}><FileDown size={13} /> PDF</Button>
-                  <Button variant="ghost" size="xs" onClick={() => download("docx")} loading={exporting === "docx"} disabled={exporting !== null}><FileText size={13} /> Word</Button>
-                </div>
+                <span>Press Save or export anytime</span>
               </div>
             </section>
-
-            {/* Claim check section */}
-            {grounded && done && (
-              <section className="cll-fade rounded-[14px] border border-border bg-surface p-[18px]">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
-                    <ShieldCheck size={16} strokeWidth={1.6} className="text-success" /> Claim check
-                  </div>
-                  {claims && claims.length > 0 && (
-                    <Button variant="outline" size="xs" onClick={handleFixAllClaims}>
-                      <Wand2 size={12} /> Auto-fix all claims
-                    </Button>
-                  )}
-                </div>
-                {reviewing ? (
-                  <div className="py-4 flex items-center justify-center gap-2 text-[12px] text-fg-mid">
-                    <Loader2 size={14} className="animate-spin text-accent" /> Checking claims against your profile…
-                  </div>
-                ) : claims && claims.length > 0 ? (
-                  <div className="space-y-2">
-                    {claims.map((claim, idx) => (
-                      <div key={idx} className="rounded-lg border border-warning/30 bg-warning-weak p-3 text-xs flex items-start justify-between gap-3">
-                        <div>
-                          <span className="font-semibold text-fg font-mono">"{claim.text}"</span>
-                          <p className="mt-1 text-fg-mid">{claim.reason}</p>
-                          {claim.suggestion && <p className="mt-1 font-medium text-accent-text">Suggestion: {claim.suggestion}</p>}
-                        </div>
-                        <Button variant="outline" size="xs" onClick={() => handleFixClaim(claim, idx)}>
-                          Fix
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-[12px] text-success font-medium flex items-center gap-1.5">
-                    <Check size={14} /> All claims verified against your profile!
-                  </div>
-                )}
-              </section>
-            )}
           </div>
 
-          {/* Right Compact Settings & Refinement Panel */}
+          {/* Right Assistant & Control Sidebar */}
           <div className="flex flex-col gap-4">
-            <section className="rounded-[16px] border border-border bg-surface p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-border/70 pb-3">
-                <h3 className="text-sm font-bold text-fg">Refine Settings</h3>
-                <span className="text-[10.5px] font-mono text-fg-low">Compact Options</span>
+            {/* Card 1: Ask AI Assistant */}
+            <section className="rounded-[16px] border border-indigo-500/30 bg-surface p-4 space-y-3 shadow-md">
+              <div className="flex items-center justify-between border-b border-border/70 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-600 text-white font-bold">
+                    <Sparkles size={13} />
+                  </span>
+                  <h3 className="text-xs font-bold text-fg">Ask AI Assistant</h3>
+                </div>
+                <span className="text-[10px] text-indigo-400 font-semibold font-mono">Live Helper</span>
               </div>
 
-              <Field label="Company">
-                <Input value={company} onChange={(e) => setCompany(e.target.value)} className="h-8 text-xs" />
-              </Field>
+              <p className="text-[11.5px] text-fg-mid leading-relaxed">
+                Ask questions about your draft, role fit, or requested changes:
+              </p>
 
-              <Field label="Role">
-                <Input value={role} onChange={(e) => setRole(e.target.value)} className="h-8 text-xs" />
-              </Field>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={sidebarAskInput}
+                  onChange={(e) => setSidebarAskInput(e.target.value)}
+                  placeholder="e.g. How can I emphasize leadership?"
+                  className="h-8 text-xs"
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleSidebarAsk(); }}
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  loading={sidebarAskWorking}
+                  onClick={() => void handleSidebarAsk()}
+                  className="h-8 px-3 bg-indigo-600 hover:bg-indigo-500 text-white"
+                >
+                  <Send size={12} />
+                </Button>
+              </div>
+
+              {/* Quick Prompt Preset Chips */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  "Improve intro hook",
+                  "Highlight technical skills",
+                  "Make more concise",
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => {
+                      setSidebarAskInput(chip);
+                      void handleSidebarAsk(chip);
+                    }}
+                    className="text-[10px] font-semibold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2 py-0.5 rounded-full transition cursor-pointer"
+                  >
+                    + {chip}
+                  </button>
+                ))}
+              </div>
+
+              {sidebarAskAnswer && (
+                <div className="mt-3 p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 space-y-2 text-xs">
+                  <div className="font-semibold text-indigo-300 flex items-center gap-1.5 text-[11px]">
+                    <Sparkles size={12} /> AI Response:
+                  </div>
+                  <p className="text-fg-mid leading-relaxed text-[11.5px]">{sidebarAskAnswer}</p>
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => {
+                        setLetter((prev) => `${prev}\n\n${sidebarAskAnswer}`);
+                        toast.success("Added to letter");
+                      }}
+                      className="text-[10px]"
+                    >
+                      <Plus size={11} className="mr-1" /> Append to letter
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Card 2: Regenerate & Refine Options */}
+            <section className="rounded-[16px] border border-border bg-surface p-4 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-border/70 pb-2">
+                <h3 className="text-xs font-bold text-fg">Regenerate Options</h3>
+                <span className="text-[10px] font-mono text-fg-low">Refine Controls</span>
+              </div>
 
               <Field label="Tone">
                 <Segmented options={TONES} value={tone} onChange={(v) => { setTone(v); setToneAutoDetected(false); }} />
@@ -2631,20 +2698,29 @@ export function Write() {
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between text-xs font-semibold text-fg">
-                  <span>Length</span>
+                  <span>Target Length</span>
                   <span className="font-mono text-[10px] text-accent-text">{lenLabel}</span>
                 </div>
                 <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
               </div>
 
-              <div className="pt-2">
+              <Field label={<>Custom AI Direction <span className="text-fg-low">· optional</span></>}>
+                <Input
+                  value={customInstruction}
+                  onChange={(e) => setCustomInstruction(e.target.value)}
+                  placeholder="e.g. Emphasize backend scaling experience..."
+                  className="h-8 text-xs"
+                />
+              </Field>
+
+              <div className="pt-1">
                 <Button
                   type="button"
                   variant="primary"
                   size="md"
                   onClick={generate}
                   loading={streaming}
-                  className="w-full text-xs font-bold"
+                  className="w-full text-xs font-bold shadow-md shadow-accent/20"
                 >
                   <RotateCw size={14} className="mr-1.5" />
                   Regenerate Draft
@@ -2652,23 +2728,40 @@ export function Write() {
               </div>
             </section>
 
-            {/* Research & Questions summaries */}
+            {/* Card 3: Company Intel & Search Influence */}
             <section className="rounded-[16px] border border-border bg-surface p-4 space-y-3">
-              <h4 className="text-xs font-bold text-fg border-b border-border/60 pb-2">Context & Intel</h4>
+              <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                <h4 className="text-xs font-bold text-fg flex items-center gap-1.5">
+                  <Search size={13} className="text-accent" /> Company Intel
+                </h4>
+                {researchPhase === "done" && (
+                  <span className="text-[9.5px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Active</span>
+                )}
+              </div>
 
               {researchPhase === "done" && researchReport ? (
-                <div className="rounded-lg border border-border bg-surface-2 p-2.5 text-xs space-y-1">
+                <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs space-y-2">
                   <div className="font-semibold text-accent-text flex items-center justify-between">
                     <span>{researchReport.company_name}</span>
-                    <button type="button" onClick={() => setModalOpen(true)} className="text-[10px] hover:underline">
-                      Details
+                    <button type="button" onClick={() => setModalOpen(true)} className="text-[10px] text-fg-mid hover:text-fg hover:underline">
+                      View details
                     </button>
                   </div>
-                  <p className="text-[11px] text-fg-mid line-clamp-2">
+                  <p className="text-[11px] text-fg-mid line-clamp-3">
                     {typeof researchReport.overview === "string"
                       ? researchReport.overview
                       : (researchReport.overview as { summary?: string })?.summary || researchReport.company_name}
                   </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={generate}
+                    loading={streaming}
+                    className="w-full mt-1 text-[11px]"
+                  >
+                    <Sparkles size={11} className="mr-1 text-accent" /> Influence & Regenerate with Intel
+                  </Button>
                 </div>
               ) : (
                 <ResearchPromptButton
@@ -2676,13 +2769,133 @@ export function Write() {
                   cachedAt={researchCacheHit} onViewCache={loadCachedResearch}
                 />
               )}
-
-              <TailoringQuestionsButton
-                company={company}
-                answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
-                onClick={handleOpenTailoringModal}
-              />
             </section>
+
+            {/* Card 4: Claim Check & Groundedness Audit */}
+            {grounded && done && (
+              <section className="cll-fade rounded-[16px] border border-border bg-surface p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-fg">
+                    <ShieldCheck size={15} strokeWidth={1.6} className="text-emerald-400" /> Claim Check
+                  </div>
+                  {claims && claims.length > 0 && (
+                    <Button variant="outline" size="xs" onClick={handleFixAllClaims} className="text-[10px] h-6 px-2">
+                      <Wand2 size={10} className="mr-1" /> Fix all ({claims.length})
+                    </Button>
+                  )}
+                </div>
+
+                {reviewing ? (
+                  <div className="py-3 flex items-center justify-center gap-2 text-[11px] text-fg-mid">
+                    <Loader2 size={13} className="animate-spin text-accent" /> Checking claims against profile…
+                  </div>
+                ) : claims && claims.length > 0 ? (
+                  <div className="space-y-2">
+                    {claims.map((claim, idx) => (
+                      <div key={idx} className="rounded-lg border border-warning/30 bg-warning-weak p-2.5 text-[11.5px] space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold text-fg font-mono leading-tight">"{claim.text}"</span>
+                          <Button variant="outline" size="xs" onClick={() => handleFixClaim(claim, idx)} className="h-6 text-[10px] px-2 shrink-0">
+                            Fix
+                          </Button>
+                        </div>
+                        <p className="text-fg-mid text-[11px]">{claim.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11.5px] text-emerald-400 font-medium flex items-center gap-1.5 py-1">
+                    <Check size={14} /> All claims verified against your profile!
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Application Info Modal Dialog */}
+      {editAppModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative flex w-full max-w-[540px] flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl space-y-4 p-6">
+            <div className="flex items-center justify-between border-b border-border/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-weak text-accent-text font-bold">
+                  <Pencil size={16} />
+                </span>
+                <div>
+                  <h3 className="text-[15px] font-bold text-fg">Edit Application Info</h3>
+                  <p className="text-[11.5px] text-fg-mid">Update target company, role, or job description</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditAppModalOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-fg-low hover:bg-surface-2 hover:text-fg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Company Name">
+                  <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Anthropic" />
+                </Field>
+                <Field label="Role Title">
+                  <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. ML Engineer" />
+                </Field>
+              </div>
+
+              <Field label={<>Job posting link <span className="text-fg-low">· auto-fill</span></>}>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={jobUrl}
+                    onChange={(e) => setJobUrl(e.target.value)}
+                    placeholder="Paste URL (LinkedIn, Greenhouse…)"
+                    className="text-xs"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={importingUrl}
+                    disabled={!jobUrl.trim() || importingUrl}
+                    onClick={handleJobUrlImport}
+                    className="shrink-0 text-xs"
+                  >
+                    Import
+                  </Button>
+                </div>
+              </Field>
+
+              <Field label="Job Description">
+                <Textarea
+                  value={jobPosting}
+                  onChange={(e) => setJobPosting(e.target.value)}
+                  placeholder="Paste full job description text..."
+                  className="min-h-[120px] text-xs"
+                />
+              </Field>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/80">
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditAppModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="solid"
+                size="sm"
+                onClick={() => {
+                  setEditAppModalOpen(false);
+                  toast.success("Application details updated", "Generate or regenerate draft to reflect new info.");
+                }}
+                className="bg-accent text-white"
+              >
+                <Check size={14} className="mr-1" /> Save Changes
+              </Button>
+            </div>
           </div>
         </div>
       )}
