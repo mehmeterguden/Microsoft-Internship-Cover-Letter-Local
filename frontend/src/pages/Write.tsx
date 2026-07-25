@@ -179,6 +179,9 @@ function fitColor(tone: "success" | "warning" | "accent") {
 /* ───────────────────────────────────────────────────────────────────
    Rich AI Chat Message Content Renderer with Streaming Tag Safety
 ────────────────────────────────────────────────────────────────────*/
+/* ───────────────────────────────────────────────────────────────────
+   Rich AI Chat Message Content Renderer with Streaming Tag Safety & Custom UI Cards
+────────────────────────────────────────────────────────────────────*/
 function RichAiMessageContent({ content, role }: { content: string; role: "user" | "assistant" }) {
   if (!content) return null;
 
@@ -186,26 +189,53 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
     return <span className="whitespace-pre-wrap">{content}</span>;
   }
 
-  const lines = content.split("\n");
+  // Typewriter effect state for assistant messages
+  const [displayedLength, setDisplayedLength] = useState(content.length > 60 ? 1 : content.length);
+  const [isTyping, setIsTyping] = useState(content.length > 60);
+
+  useEffect(() => {
+    if (content.length <= 60) {
+      setDisplayedLength(content.length);
+      setIsTyping(false);
+      return;
+    }
+
+    setDisplayedLength(1);
+    setIsTyping(true);
+
+    const interval = setInterval(() => {
+      setDisplayedLength((prev) => {
+        if (prev >= content.length) {
+          clearInterval(interval);
+          setIsTyping(false);
+          return content.length;
+        }
+        return Math.min(content.length, prev + 3);
+      });
+    }, 15);
+
+    return () => clearInterval(interval);
+  }, [content]);
+
+  const activeText = content.slice(0, displayedLength);
 
   const parseFormattedInlineText = (text: string) => {
     let cleanText = text;
 
-    // Streaming tag safety: If an unclosed {**} tag exists at the end of text while typing/streaming,
-    // strip the opening tag mark so raw {**} never flickers awkwardly on screen.
-    const openBoldCount = (cleanText.match(/\{\*\*\}/g) || []).length;
-    if (openBoldCount % 2 !== 0) {
-      const lastIdx = cleanText.lastIndexOf("{**}");
-      if (lastIdx !== -1) {
-        cleanText = cleanText.slice(0, lastIdx) + cleanText.slice(lastIdx + 4);
-      }
-    }
+    const inlineTags = [
+      { open: "{**}", close: "{**}" },
+      { open: "{highlight}", close: "{/highlight}" },
+      { open: "{pro}", close: "{/pro}" },
+      { open: "{con}", close: "{/con}" },
+    ];
 
-    const openHighlight = cleanText.lastIndexOf("{highlight}");
-    const closeHighlight = cleanText.lastIndexOf("{/highlight}");
-    if (openHighlight !== -1 && openHighlight > closeHighlight) {
-      cleanText = cleanText.slice(0, openHighlight) + cleanText.slice(openHighlight + 11);
-    }
+    inlineTags.forEach(({ open, close }) => {
+      const openIdx = cleanText.lastIndexOf(open);
+      const closeIdx = cleanText.lastIndexOf(close);
+      if (openIdx !== -1 && (open === close ? (cleanText.match(new RegExp(open.replace(/[\{\*\}]/g, "\\$&"), "g")) || []).length % 2 !== 0 : openIdx > closeIdx)) {
+        cleanText = cleanText.slice(0, openIdx) + cleanText.slice(openIdx + open.length);
+      }
+    });
 
     const openMarkdownBoldCount = (cleanText.match(/\*\*/g) || []).length;
     if (openMarkdownBoldCount % 2 !== 0) {
@@ -215,7 +245,7 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       }
     }
 
-    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\*\*.*?\*\*)/g;
+    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\{pro\}.*?\{\/pro\}|\{con\}.*?\{\/con\}|\*\*.*?\*\*)/g;
     const parts = cleanText.split(regex);
 
     return parts.map((part, index) => {
@@ -243,49 +273,147 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
           </span>
         );
       }
+      if (part.startsWith("{pro}") && part.endsWith("{/pro}")) {
+        const inner = part.slice(5, -6);
+        return (
+          <span key={index} className="inline-flex items-center gap-1 font-semibold text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-md text-[10.5px] border border-emerald-500/30 mx-0.5">
+            ✓ {inner}
+          </span>
+        );
+      }
+      if (part.startsWith("{con}") && part.endsWith("{/con}")) {
+        const inner = part.slice(5, -6);
+        return (
+          <span key={index} className="inline-flex items-center gap-1 font-semibold text-rose-300 bg-rose-500/15 px-2 py-0.5 rounded-md text-[10.5px] border border-rose-500/30 mx-0.5">
+            ⚠️ {inner}
+          </span>
+        );
+      }
       return part;
     });
   };
 
+  const parseBlockTagsAndLines = (rawContent: string) => {
+    let clean = rawContent;
+
+    const blockTags = ["suggestion", "recruiter", "example", "comment"];
+    blockTags.forEach((t) => {
+      const openIdx = clean.lastIndexOf(`{${t}}`);
+      const closeIdx = clean.lastIndexOf(`{/${t}}`);
+      if (openIdx !== -1 && openIdx > closeIdx) {
+        clean = clean.slice(0, openIdx) + clean.slice(openIdx + t.length + 2);
+      }
+    });
+
+    const blockRegex = /(\{suggestion\}[\s\S]*?\{\/suggestion\}|\{recruiter\}[\s\S]*?\{\/recruiter\}|\{example\}[\s\S]*?\{\/example\}|\{comment\}[\s\S]*?\{\/comment\})/g;
+    const blocks = clean.split(blockRegex);
+
+    return blocks.map((block, bIdx) => {
+      if (block.startsWith("{suggestion}") && block.endsWith("{/suggestion}")) {
+        const inner = block.slice(12, -13).trim();
+        return (
+          <div key={`b-${bIdx}`} className="my-2 rounded-xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/15 via-surface-2 to-emerald-500/10 p-3 shadow-xs space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-500/20 text-amber-300 text-[11px]">💡</span>
+              <span>Öneri / Actionable Suggestion</span>
+            </div>
+            <div className="text-[11.5px] text-fg-mid leading-relaxed pt-0.5">
+              {parseFormattedInlineText(inner)}
+            </div>
+          </div>
+        );
+      }
+
+      if (block.startsWith("{recruiter}") && block.endsWith("{/recruiter}")) {
+        const inner = block.slice(11, -12).trim();
+        return (
+          <div key={`b-${bIdx}`} className="my-2 rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-surface-2 to-purple-900/10 p-3 shadow-xs space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-500/20 text-purple-300 text-[11px]">👔</span>
+              <span>İşe Alım Uzmanı Notu / Recruiter Insight</span>
+            </div>
+            <div className="text-[11.5px] text-fg-mid leading-relaxed pt-0.5">
+              {parseFormattedInlineText(inner)}
+            </div>
+          </div>
+        );
+      }
+
+      if (block.startsWith("{example}") && block.endsWith("{/example}")) {
+        const inner = block.slice(9, -10).trim();
+        return (
+          <div key={`b-${bIdx}`} className="my-2 rounded-lg border border-border/80 bg-surface-3/90 p-2.5 space-y-1 font-mono text-[11px]">
+            <div className="flex items-center justify-between text-[10px] font-sans font-semibold text-fg-mid">
+              <span className="flex items-center gap-1 text-indigo-400">📝 Cümle Önerisi / Example Snippet</span>
+            </div>
+            <div className="text-indigo-200 leading-relaxed bg-black/20 p-2 rounded border border-white/5 whitespace-pre-wrap">
+              {inner}
+            </div>
+          </div>
+        );
+      }
+
+      if (block.startsWith("{comment}") && block.endsWith("{/comment}")) {
+        const inner = block.slice(9, -10).trim();
+        return (
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-lg border border-border/50 bg-surface-2/40 p-2 text-[10.5px] text-fg-low italic flex items-start gap-1.5">
+            <span className="not-italic shrink-0 opacity-70">💬</span>
+            <span>{inner}</span>
+          </div>
+        );
+      }
+
+      const lines = block.split("\n");
+      return (
+        <div key={`b-${bIdx}`} className="space-y-1.5">
+          {lines.map((line, lIdx) => {
+            const trimmed = line.trim();
+            if (!trimmed) return <div key={lIdx} className="h-0.5" />;
+
+            if (trimmed.startsWith("#")) {
+              const headingText = trimmed.replace(/^#+\s*/, "");
+              return (
+                <div key={lIdx} className="font-bold text-xs text-indigo-300 border-l-2 border-indigo-500 pl-2 py-0.5 my-1 bg-indigo-500/10 rounded-r">
+                  {parseFormattedInlineText(headingText)}
+                </div>
+              );
+            }
+
+            if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+              const bulletText = trimmed.slice(2);
+              return (
+                <div key={lIdx} className="flex items-start gap-2 pl-0.5 py-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0 mt-1.5 shadow-xs" />
+                  <div className="flex-1">{parseFormattedInlineText(bulletText)}</div>
+                </div>
+              );
+            }
+
+            const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+            if (numMatch) {
+              return (
+                <div key={lIdx} className="flex items-start gap-2 pl-0.5 py-0.5">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[9.5px] font-bold border border-indigo-500/30">
+                    {numMatch[1]}
+                  </span>
+                  <div className="flex-1">{parseFormattedInlineText(numMatch[2])}</div>
+                </div>
+              );
+            }
+
+            return <p key={lIdx}>{parseFormattedInlineText(line)}</p>;
+          })}
+        </div>
+      );
+    });
+  };
+
   return (
-    <div className="space-y-1.5 leading-relaxed text-[11.5px]">
-      {lines.map((line, lIdx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={lIdx} className="h-0.5" />;
-
-        if (trimmed.startsWith("#")) {
-          const headingText = trimmed.replace(/^#+\s*/, "");
-          return (
-            <div key={lIdx} className="font-bold text-xs text-indigo-300 border-l-2 border-indigo-500 pl-2 py-0.5 my-1 bg-indigo-500/10 rounded-r">
-              {parseFormattedInlineText(headingText)}
-            </div>
-          );
-        }
-
-        if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-          const bulletText = trimmed.slice(2);
-          return (
-            <div key={lIdx} className="flex items-start gap-2 pl-0.5 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0 mt-1.5 shadow-xs" />
-              <div className="flex-1">{parseFormattedInlineText(bulletText)}</div>
-            </div>
-          );
-        }
-
-        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
-        if (numMatch) {
-          return (
-            <div key={lIdx} className="flex items-start gap-2 pl-0.5 py-0.5">
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300 font-mono text-[9.5px] font-bold border border-indigo-500/30">
-                {numMatch[1]}
-              </span>
-              <div className="flex-1">{parseFormattedInlineText(numMatch[2])}</div>
-            </div>
-          );
-        }
-
-        return <p key={lIdx}>{parseFormattedInlineText(line)}</p>;
-      })}
+    <div className="space-y-1.5 leading-relaxed text-[11.5px] relative">
+      {parseBlockTagsAndLines(activeText)}
+      {isTyping && (
+        <span className="inline-block w-1.5 h-3 bg-indigo-400 animate-pulse ml-0.5 align-middle rounded-xs" />
+      )}
     </div>
   );
 }
@@ -1965,11 +2093,21 @@ export function Write() {
 [ROLE & APPLICATION ASSISTANT PERSONA]
 You are the AI Career & Application Assistant of the Cover Letter Local web application.
 
-[FORMATTING DIRECTIVES]
-- When you want to bold or emphasize important text, wrap it in {**}text{**}.
-- When you want to highlight key skills, metrics, or recommendations, wrap them in {highlight}text{/highlight}.
-- Use clean bullet points (- item) or numbered lists (1. item) for lists.
-- Do NOT use giant raw # H1 headers. Use neat titles or bullet points with highlights.
+[FORMATTING DIRECTIVES & STRICT WHITELIST]
+You can use rich formatting tags to render interactive UI components:
+- Bold text: {**}important term{**}
+- Skill / Metric highlight: {highlight}key skill{/highlight}
+- Positive candidate advantage: {pro}strong skill/fit{/pro}
+- Risk / Missing keyword warning: {con}missing keyword/gap{/con}
+- Actionable writing suggestion card: {suggestion}specific actionable recommendation{/suggestion}
+- Recruiter POV insight card: {recruiter}executive recruiter tip{/recruiter}
+- Example phrasing snippet: {example}suggested alternative sentence{/example}
+- Secondary internal note / comment: {comment}footnote or internal tip{/comment}
+- Bullet lists (- item) or numbered lists (1. item). Do NOT use giant raw # H1 headers.
+
+STRICT WHITELIST RULE:
+You MUST ONLY use the allowed tags specified above ({**}, {highlight}, {pro}, {con}, {suggestion}, {recruiter}, {example}, {comment}).
+Do NOT invent, output, or attempt to render any other custom HTML tags, raw XML shapes, ASCII art, or unrecognized bracket notations outside of this exact whitelist.
 
 [USER'S IMMEDIATE QUERY / MESSAGE]
 The candidate currently sent this exact message: "${query}".
