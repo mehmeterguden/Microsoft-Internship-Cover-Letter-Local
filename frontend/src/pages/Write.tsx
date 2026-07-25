@@ -16,6 +16,7 @@ import {
   Info,
   Link as LinkIcon,
   Loader2,
+  MessageSquare,
   RotateCw,
   Save,
   Search,
@@ -34,6 +35,7 @@ import { Pill, Spinner, StatDot } from "@/components/ui/feedback";
 import { ScoreRing, SourceChip } from "@/components/ui/data";
 import {
   exportLetter,
+  fetchTailoringQuestions,
   inlineEditCvLetter,
   reviewCoverLetter,
   scanPii,
@@ -52,7 +54,7 @@ import {
 import { getStyle } from "@/api/style";
 import { errorMessage } from "@/api/client";
 import { createJob, getJob, updateJob } from "@/api/jobs";
-import type { Tone } from "@/api/types";
+import type { TailoringQuestion, Tone } from "@/api/types";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
@@ -1339,6 +1341,187 @@ function ResearchPromptButton({
 }
 
 /* ───────────────────────────────────────────────────────────────────
+   Tailoring Questions button & modal
+────────────────────────────────────────────────────────────────────*/
+function TailoringQuestionsButton({
+  company,
+  answeredCount,
+  onClick,
+}: {
+  company: string;
+  answeredCount: number;
+  onClick: () => void;
+}) {
+  const active = Boolean(company.trim());
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!active}
+      className={cn(
+        "cll-fade mt-2 flex w-full items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5 text-left transition-all duration-200",
+        active
+          ? "border-accent/40 bg-gradient-to-r from-accent-weak/30 via-surface to-surface hover:border-accent hover:shadow-[0_4px_16px_-4px_var(--accent-shadow)] cursor-pointer"
+          : "border-border/50 bg-surface-2/40 opacity-65 cursor-not-allowed",
+      )}
+    >
+      <span className="flex items-center gap-2.5 min-w-0">
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] transition-all",
+            active ? "bg-accent-grad text-white shadow-sm" : "bg-input text-fg-low",
+          )}
+        >
+          <MessageSquare size={14} />
+        </span>
+        <span className="text-[12.5px] font-bold text-fg group-hover:text-accent-text transition-colors truncate">
+          {answeredCount > 0
+            ? `Tailoring Q&A (${answeredCount} Answered)`
+            : company.trim()
+            ? `Answer Tailoring Questions for ${company}?`
+            : "Answer Tailoring Questions? (Optional)"}
+        </span>
+      </span>
+
+      {active && (
+        <span className="flex items-center gap-1 text-[11.5px] font-semibold text-accent-text shrink-0">
+          <span>{answeredCount > 0 ? "Edit Answers" : "Open Q&A"}</span>
+          <ArrowRight size={13} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function TailoringQuestionsModal({
+  company,
+  questions,
+  answers,
+  loading,
+  onSave,
+  onClear,
+  onClose,
+}: {
+  company: string;
+  questions: TailoringQuestion[];
+  answers: Record<string, string>;
+  loading: boolean;
+  onSave: (newAnswers: Record<string, string>) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({ ...answers });
+
+  const answeredCount = Object.values(draftAnswers).filter((v) => v.trim()).length;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative flex max-h-[85vh] w-full max-w-[620px] flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border/80 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-accent-grad text-white shadow-sm">
+              <MessageSquare size={16} />
+            </span>
+            <div>
+              <h2 className="text-[16px] font-bold text-fg">Targeted Application Questions</h2>
+              <p className="text-[11.5px] text-fg-mid">
+                {company ? `Tailored specifically for ${company}` : "Targeted Q&A for your cover letter"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-fg-low hover:bg-surface-2 hover:text-fg transition-all"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Loader2 size={24} className="animate-spin text-accent" />
+              <p className="mt-3 text-[13px] font-medium text-fg">Generating job-specific AI questions…</p>
+              <p className="mt-1 text-[11.5px] text-fg-mid">Analyzing your profile & target role context</p>
+            </div>
+          ) : questions.length === 0 ? (
+            <div className="py-8 text-center text-fg-mid text-[13px]">
+              No tailoring questions available right now. You can proceed directly to generate your cover letter!
+            </div>
+          ) : (
+            questions.map((q, idx) => (
+              <div key={q.id || idx} className="rounded-[14px] border border-border/80 bg-surface-2/40 p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-[13px] font-bold text-fg leading-snug">
+                    <span className="text-accent mr-1">Q{idx + 1}.</span> {q.question}
+                  </span>
+                </div>
+                {q.context && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-accent-text font-medium bg-accent-weak/40 rounded-[6px] px-2.5 py-1 w-fit">
+                    <Info size={12} className="shrink-0" />
+                    <span>Why ask: {q.context}</span>
+                  </div>
+                )}
+                <Textarea
+                  value={draftAnswers[q.question] || ""}
+                  onChange={(e) =>
+                    setDraftAnswers((prev) => ({
+                      ...prev,
+                      [q.question]: e.target.value,
+                    }))
+                  }
+                  placeholder={q.placeholder || "Type your specific story, metric, or answer here…"}
+                  className="mt-2 text-[12.5px] min-h-[75px]"
+                />
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border/80 bg-surface-2/30 px-6 py-3.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setDraftAnswers({});
+              onClear();
+            }}
+            className="text-[12px] text-fg-low hover:text-danger"
+          >
+            Clear All
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-[12px]">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="solid"
+              size="sm"
+              onClick={() => {
+                onSave(draftAnswers);
+                onClose();
+              }}
+              className="text-[12px] px-4"
+            >
+              <Check size={14} className="mr-1.5" />
+              {answeredCount > 0 ? `Apply ${answeredCount} Answer${answeredCount > 1 ? "s" : ""}` : "Save & Close"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────
    Main Write component
 ────────────────────────────────────────────────────────────────────*/
 export function Write() {
@@ -1445,9 +1628,32 @@ export function Write() {
   const researchAbortRef = useRef<AbortController | null>(null);
   const agentStartRef = useRef<Record<string, number>>({});
 
+  /* Tailoring Questions state */
+  const [tailoringModalOpen, setTailoringModalOpen] = useState(false);
+  const [tailoringQuestions, setTailoringQuestions] = useState<TailoringQuestion[]>([]);
+  const [tailoringAnswers, setTailoringAnswers] = useState<Record<string, string>>({});
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  const handleOpenTailoringModal = async () => {
+    setTailoringModalOpen(true);
+    if (tailoringQuestions.length === 0 && company.trim()) {
+      setLoadingQuestions(true);
+      try {
+        const q = await fetchTailoringQuestions(company.trim(), role.trim() || null, jobPosting.trim() || null);
+        setTailoringQuestions(q);
+      } catch (err) {
+        toast.danger("Failed to generate questions", errorMessage(err));
+      } finally {
+        setLoadingQuestions(false);
+      }
+    }
+  };
+
   // Reset research when company changes
   const setCompany = (v: string) => {
     setCompanyRaw(v);
+    setTailoringQuestions([]);
+    setTailoringAnswers({});
     if (researchPhase !== "idle") {
       researchAbortRef.current?.abort();
       setResearchPhase("idle");
@@ -1634,8 +1840,18 @@ export function Write() {
     setSelectedText(""); setSelectionRange(null);
     let acc = "";
     try {
+      const validTailoringAnswers = Object.fromEntries(
+        Object.entries(tailoringAnswers).filter(([, v]) => v.trim())
+      );
       await streamCoverLetter(
-        { company_name: company.trim(), role_title: role.trim() || null, job_description: jobPosting.trim() || null, tone, length },
+        {
+          company_name: company.trim(),
+          role_title: role.trim() || null,
+          job_description: jobPosting.trim() || null,
+          tone,
+          length,
+          tailoring_answers: Object.keys(validTailoringAnswers).length > 0 ? validTailoringAnswers : undefined,
+        },
         (ev) => { if (ev.type === "token") { acc += ev.text; setLetter(acc); } else if (ev.type === "fatal") toast.danger("Generation failed", ev.error); },
         ac.signal,
       );
@@ -1864,6 +2080,13 @@ export function Write() {
                 </Button>
               </div>
             ) : null}
+
+            {/* Tailoring questions section */}
+            <TailoringQuestionsButton
+              company={company}
+              answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
+              onClick={handleOpenTailoringModal}
+            />
           </section>
 
           <section className="flex flex-col gap-4 rounded-[14px] border border-border bg-surface p-5">
@@ -2120,6 +2343,18 @@ export function Write() {
           )}
         </div>
       </div>
+
+      {tailoringModalOpen && (
+        <TailoringQuestionsModal
+          company={company}
+          questions={tailoringQuestions}
+          answers={tailoringAnswers}
+          loading={loadingQuestions}
+          onSave={(newAnswers) => setTailoringAnswers(newAnswers)}
+          onClear={() => setTailoringAnswers({})}
+          onClose={() => setTailoringModalOpen(false)}
+        />
+      )}
     </Page>
   );
 }

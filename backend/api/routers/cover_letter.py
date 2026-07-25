@@ -51,6 +51,13 @@ class CoverLetterRequest(BaseModel):
     job_description: str | None = None
     tone: str = "professional"
     length: str = "standard"  # short | standard | detailed
+    tailoring_answers: dict[str, str] | None = None
+
+
+class QuestionsRequest(BaseModel):
+    company_name: str = Field(min_length=1, max_length=200)
+    role_title: str | None = Field(default=None, max_length=200)
+    job_description: str | None = None
 
 
 class ReviewRequest(BaseModel):
@@ -95,6 +102,18 @@ class ReviseRequest(BaseModel):
     flagged: list[Claim] = Field(default_factory=list)
 
 
+@router.post("/questions", summary="Generate targeted job-specific tailoring questions")
+async def get_tailoring_questions(payload: QuestionsRequest) -> dict:
+    """Return 3 targeted questions tailored specifically for this application."""
+    questions = await run_in_threadpool(
+        cover_letter.generate_tailoring_questions,
+        company_name=payload.company_name,
+        role_title=payload.role_title,
+        job_description=payload.job_description,
+    )
+    return {"questions": questions}
+
+
 @router.post("/generate", summary="Stream a generated cover letter (SSE)")
 async def generate(payload: CoverLetterRequest) -> StreamingResponse:
     """Generate a cover letter and stream it token by token as Server-Sent Events."""
@@ -109,6 +128,7 @@ async def generate(payload: CoverLetterRequest) -> StreamingResponse:
             job_description=payload.job_description,
             tone=payload.tone,
             length=payload.length,
+            tailoring_answers=payload.tailoring_answers,
         )
         try:
             async for event in iterate_in_threadpool(generator):
