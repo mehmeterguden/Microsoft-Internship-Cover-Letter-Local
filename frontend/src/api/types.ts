@@ -100,6 +100,7 @@ export interface Skill extends Sourced {
   years_experience?: number | null;
   cv_mentioned?: boolean;
   note?: string | null;
+  description?: string | null;
 }
 
 export interface GithubRepo {
@@ -160,6 +161,7 @@ export interface Education extends Sourced {
   gpa?: string | null;
   /** Relevant coursework, shown as small pills. */
   courses?: string[];
+  description?: string | null;
 }
 
 export interface Training extends Sourced {
@@ -180,12 +182,14 @@ export interface Certificate extends Sourced {
   expiry_date?: string | null;
   credential_id?: string | null;
   url?: string | null;
+  description?: string | null;
 }
 
 export interface Language extends Sourced {
   id?: number | null;
   name: string;
   proficiency?: LanguageLevel | null;
+  description?: string | null;
 }
 
 export interface Link extends Sourced {

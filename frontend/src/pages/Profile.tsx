@@ -8,7 +8,7 @@ import { SearchSelect, DateField, TagField } from "@/components/ui/pickers";
 import {
   toOptions, DEGREES, SKILL_CATEGORIES, FIELDS_OF_STUDY, LANGUAGES, COUNTRIES, TECHNOLOGIES, CERT_ISSUERS, UNIVERSITIES,
 } from "@/lib/suggestions";
-import { Pill, Spinner, StatDot, type Tone } from "@/components/ui/feedback";
+import { Pill, Spinner } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
@@ -203,38 +203,7 @@ function fieldSrc(p: ProfileModel, key: string): FieldSource | undefined {
   return p.field_sources?.[key];
 }
 
-/** Overall "synced from" status shown in the header, from real provenance. */
-function sourceSummary(b: Bundle): { tone: Tone; text: string } {
-  const total =
-    b.skills.length +
-    b.experiences.length +
-    b.education.length +
-    b.languages.length +
-    b.projects.length +
-    b.certificates.length +
-    b.trainings.length +
-    b.links.length;
-  const hasIdentity = Boolean(b.profile.name || b.profile.email || b.profile.summary);
-  if (total === 0 && !hasIdentity) return { tone: "neutral", text: "Nothing yet — import a CV or let AI infer it" };
 
-  const found = new Set<Source>();
-  const lists: { source?: Source }[][] = [
-    b.skills,
-    b.experiences,
-    b.education,
-    b.languages,
-    b.projects,
-    b.certificates,
-    b.trainings,
-    b.links,
-  ];
-  for (const list of lists) for (const it of list) if (it.source && it.source !== "manual") found.add(it.source);
-  for (const fs of Object.values(b.profile.field_sources ?? {})) if (fs.source && fs.source !== "manual") found.add(fs.source);
-
-  if (found.size === 0) return { tone: "warning", text: "Manual entries only" };
-  const names = [...found].map((s) => SOURCE_META[s].label);
-  return { tone: "success", text: `Synced from ${names.join(" & ")}` };
-}
 
 /* ── Skill / language display maps ────────────────────────────────── */
 type SkillWeight = "primary" | "strong" | "normal" | "learning";
@@ -293,6 +262,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "self_rating", label: "Proficiency", type: "select", options: RATING_OPTIONS },
     { name: "years_experience", label: "Years", type: "number" },
     { name: "note", label: "Note", type: "textarea", full: true },
+    { name: "description", label: "Description", type: "textarea", full: true },
   ],
   experience: [
     { name: "title", label: "Title", type: "text", required: true },
@@ -314,6 +284,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "is_current", label: "Currently studying", type: "checkbox" },
     { name: "gpa", label: "GPA", type: "text" },
     { name: "courses", label: "Relevant coursework", type: "tags", full: true, placeholder: "Add a course and press Enter" },
+    { name: "description", label: "Description", type: "textarea", full: true },
   ],
   project: [
     { name: "name", label: "Project", type: "text", required: true },
@@ -332,6 +303,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
     { name: "expiry_date", label: "Expires", type: "month" },
     { name: "credential_id", label: "Credential ID", type: "text" },
     { name: "url", label: "URL", type: "text", full: true },
+    { name: "description", label: "Description", type: "textarea", full: true },
   ],
   training: [
     { name: "name", label: "Training", type: "text", required: true },
@@ -343,6 +315,7 @@ const FORM_FIELDS: Record<Kind, FieldDesc[]> = {
   language: [
     { name: "name", label: "Language", type: "combo", options: toOptions(LANGUAGES), required: true, placeholder: "e.g. English" },
     { name: "proficiency", label: "Proficiency", type: "select", options: LANG_OPTIONS },
+    { name: "description", label: "Description", type: "textarea", full: true },
   ],
   link: [
     { name: "label", label: "Label", type: "text", required: true },
@@ -485,9 +458,6 @@ export function Profile() {
   const [interviewOpen, setInterviewOpen] = useState(false);
 
   const bundle = state.data;
-  const status = bundle
-    ? sourceSummary(bundle)
-    : ({ tone: "neutral", text: state.loading ? "Loading profile…" : "" } as { tone: Tone; text: string });
 
   const openAdd = (kind: Kind) => setForm({ kind, existing: null });
   const openDetail = (kind: Kind, item: EntityItem) => setDetail({ kind, item });
@@ -513,12 +483,6 @@ export function Profile() {
       title="Profile & Skills"
       actions={
         <>
-          {status.text ? (
-            <span className="hidden items-center gap-1.5 text-[11.5px] text-fg-mid sm:flex">
-              <StatDot tone={status.tone} glow size={6} />
-              {status.text}
-            </span>
-          ) : null}
           <Button
             variant="outline"
             size="md"
@@ -1535,9 +1499,9 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
               <span key={n} className="h-2 flex-1 rounded-[4px]" style={{ background: n <= level ? "var(--accent-grad)" : "var(--input)" }} />
             ))}
           </div>
-          {sk.note ? (
+          {sk.note || sk.description ? (
             <div className="mt-3.5 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
-              {sk.note}
+              {sk.description || sk.note}
             </div>
           ) : null}
           {prov(sk)}
@@ -1627,6 +1591,11 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
               ))}
             </div>
           ) : null}
+          {ed.description ? (
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              {ed.description}
+            </div>
+          ) : null}
           {prov(ed)}
         </>
       );
@@ -1639,6 +1608,11 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
             <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Proficiency</span>
             <span className="text-[13px] font-semibold text-accent-text">{langLabel(lg.proficiency)}</span>
           </div>
+          {lg.description ? (
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              {lg.description}
+            </div>
+          ) : null}
           {prov(lg)}
         </>
       );
@@ -1668,6 +1642,11 @@ function renderDetailBody(kind: Kind, item: EntityItem): ReactNode {
                   {m}
                 </span>
               ))}
+            </div>
+          ) : null}
+          {ct.description ? (
+            <div className="mt-3 rounded-[10px] bg-reading px-3.5 py-3 text-[12.5px] leading-relaxed text-reading-ink">
+              {ct.description}
             </div>
           ) : null}
           {ct.url ? <DetailLink url={ct.url} /> : null}

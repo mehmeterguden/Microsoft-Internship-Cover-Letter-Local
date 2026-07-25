@@ -329,52 +329,43 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
 
             {/* Question Count Option */}
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-300">How many questions would you like to answer?</label>
-                <div className="flex gap-2">
+              <label className="text-xs font-medium text-slate-300">How many questions would you like to answer?</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[3, 5, 10].map((num) => (
                   <button
+                    key={num}
                     type="button"
-                    onClick={() => setQuestionCountMode("preset")}
-                    className={`text-[11px] font-medium px-2 py-0.5 rounded transition-colors ${
-                      questionCountMode === "preset" ? "text-indigo-400 font-semibold" : "text-slate-500 hover:text-slate-300"
+                    onClick={() => {
+                      setQuestionCountMode("preset");
+                      setPresetCount(num);
+                    }}
+                    className={`py-3 px-3 rounded-xl border text-xs font-semibold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                      questionCountMode === "preset" && presetCount === num
+                        ? "bg-indigo-600/25 border-indigo-500 text-indigo-200 shadow-lg shadow-indigo-500/10"
+                        : "bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800"
                     }`}
                   >
-                    Presets
+                    <span className="text-sm font-bold">{num} Questions</span>
+                    <span className="text-[10px] text-slate-500 font-normal">
+                      {num === 3 ? "~2 min quick" : num === 5 ? "~4 min standard" : "~8 min deep dive"}
+                    </span>
                   </button>
-                  <span className="text-slate-700">|</span>
-                  <button
-                    type="button"
-                    onClick={() => setQuestionCountMode("custom")}
-                    className={`text-[11px] font-medium px-2 py-0.5 rounded transition-colors ${
-                      questionCountMode === "custom" ? "text-indigo-400 font-semibold" : "text-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    Custom Number
-                  </button>
-                </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setQuestionCountMode("custom")}
+                  className={`py-3 px-3 rounded-xl border text-xs font-semibold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                    questionCountMode === "custom"
+                      ? "bg-indigo-600/25 border-indigo-500 text-indigo-200 shadow-lg shadow-indigo-500/10"
+                      : "bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="text-sm font-bold flex items-center gap-1"><SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" /> Custom</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Specify amount</span>
+                </button>
               </div>
 
-              {questionCountMode === "preset" ? (
-                <div className="grid grid-cols-3 gap-3">
-                  {[3, 5, 10].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setPresetCount(num)}
-                      className={`py-3 px-4 rounded-xl border text-sm font-semibold transition-all flex flex-col items-center gap-1 ${
-                        presetCount === num
-                          ? "bg-indigo-600/25 border-indigo-500 text-indigo-200 shadow-lg shadow-indigo-500/10"
-                          : "bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800"
-                      }`}
-                    >
-                      <span className="text-lg">{num} Questions</span>
-                      <span className="text-[10px] text-slate-500 font-normal">
-                        {num === 3 ? "~2 min quick check" : num === 5 ? "~4 min standard" : "~8 min deep dive"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
+              {questionCountMode === "custom" && (
                 <div className="flex items-center gap-3 bg-slate-800/40 border border-slate-700/60 p-3 rounded-xl">
                   <SlidersHorizontal className="w-4 h-4 text-indigo-400 shrink-0" />
                   <div className="flex-1 space-y-1">
@@ -394,65 +385,61 @@ export function ProfileInterviewModal({ isOpen, onClose, onProfileUpdated }: Pro
 
             {/* Focus Area Option */}
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-300">Select Focus Area or Enter Custom Topic</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFocusAreaMode("preset")}
-                    className={`text-[11px] font-medium px-2 py-0.5 rounded transition-colors ${
-                      focusAreaMode === "preset" ? "text-indigo-400 font-semibold" : "text-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    Presets
-                  </button>
-                  <span className="text-slate-700">|</span>
-                  <button
-                    type="button"
-                    onClick={() => setFocusAreaMode("custom")}
-                    className={`text-[11px] font-medium px-2 py-0.5 rounded transition-colors ${
-                      focusAreaMode === "custom" ? "text-indigo-400 font-semibold" : "text-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    Write Custom Topic
-                  </button>
-                </div>
+              <label className="text-xs font-medium text-slate-300">Select Focus Area</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  { id: "all", label: "All / Mixed Profile", desc: "Balanced check across projects & skills", icon: Layers },
+                  { id: "projects", label: "Projects & Architecture", desc: "System design, stacks, scaling", icon: Code2 },
+                  { id: "experiences", label: "Career & Experience", desc: "Team impact, leadership, scope", icon: Briefcase },
+                  { id: "skills", label: "Technical Skills", desc: "Tool mastery & production depth", icon: Wrench },
+                  { id: "challenges", label: "Obstacles & Challenges", desc: "Debugging, trade-offs, learnings", icon: Flame },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const selected = focusAreaMode === "preset" && presetFocus === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setFocusAreaMode("preset");
+                        setPresetFocus(item.id);
+                      }}
+                      className={`text-left p-3 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${
+                        selected
+                          ? "bg-indigo-600/20 border-indigo-500 text-white"
+                          : "bg-slate-800/30 border-slate-700/50 text-slate-300 hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg ${selected ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-white">{item.label}</div>
+                        <div className="text-[11px] text-slate-400 leading-tight mt-0.5">{item.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setFocusAreaMode("custom")}
+                  className={`text-left p-3 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${
+                    focusAreaMode === "custom"
+                      ? "bg-indigo-600/20 border-indigo-500 text-white"
+                      : "bg-slate-800/30 border-slate-700/50 text-slate-300 hover:bg-slate-800/60"
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${focusAreaMode === "custom" ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}>
+                    <PenTool className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-white">Custom Topic</div>
+                    <div className="text-[11px] text-slate-400 leading-tight mt-0.5">Write custom topic or prompt</div>
+                  </div>
+                </button>
               </div>
 
-              {focusAreaMode === "preset" ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {[
-                    { id: "all", label: "All / Mixed Profile", desc: "Balanced check across projects & skills", icon: Layers },
-                    { id: "projects", label: "Projects & Architecture", desc: "System design, stacks, scaling", icon: Code2 },
-                    { id: "experiences", label: "Career & Experience", desc: "Team impact, leadership, scope", icon: Briefcase },
-                    { id: "skills", label: "Technical Skills", desc: "Tool mastery & production depth", icon: Wrench },
-                    { id: "challenges", label: "Obstacles & Challenges", desc: "Debugging, trade-offs, learnings", icon: Flame },
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    const selected = presetFocus === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setPresetFocus(item.id)}
-                        className={`text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
-                          selected
-                            ? "bg-indigo-600/20 border-indigo-500 text-white"
-                            : "bg-slate-800/30 border-slate-700/50 text-slate-300 hover:bg-slate-800/60"
-                        }`}
-                      >
-                        <div className={`p-2 rounded-lg ${selected ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"}`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-white">{item.label}</div>
-                          <div className="text-[11px] text-slate-400 leading-tight mt-0.5">{item.desc}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
+              {focusAreaMode === "custom" && (
                 <div className="bg-slate-800/40 border border-slate-700/60 p-3.5 rounded-xl space-y-2">
                   <div className="flex items-center gap-2 text-xs font-medium text-indigo-300">
                     <PenTool className="w-4 h-4 text-indigo-400" />

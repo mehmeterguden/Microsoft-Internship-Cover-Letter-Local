@@ -297,6 +297,7 @@ class Language(Sourced):
     id: int | None = None
     name: str
     proficiency: LanguageLevel | None = None
+    description: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -311,6 +312,7 @@ class Skill(Sourced):
     years_experience: float | None = None  # years of experience (optional)
     cv_mentioned: bool = False
     note: str | None = None              # where learned / context to mention when using it
+    description: str | None = None
 
 
 class SkillLink(BaseModel):
@@ -388,6 +390,7 @@ class Education(Sourced):
     is_current: bool = False
     gpa: str | None = None
     courses: list[str] = []              # relevant coursework, shown as small pills
+    description: str | None = None
 
     @field_validator("courses", mode="before")
     @classmethod
@@ -413,6 +416,7 @@ class Certificate(Sourced):
     expiry_date: str | None = None       # None = no expiry
     credential_id: str | None = None
     url: str | None = None
+    description: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────

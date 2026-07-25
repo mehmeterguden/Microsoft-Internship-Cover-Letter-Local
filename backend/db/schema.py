@@ -338,8 +338,18 @@ _TABLE_COLUMNS_ADDED = {
     "projects": {
         "stars": "INTEGER",  # GitHub stars, copied for repo-linked projects
     },
+    "skills": {
+        "description": "TEXT",
+    },
     "education": {
         "courses": "TEXT",  # JSON: list[str] relevant coursework
+        "description": "TEXT",
+    },
+    "languages": {
+        "description": "TEXT",
+    },
+    "certificates": {
+        "description": "TEXT",
     },
     "jobs": {
         "letter": "TEXT",  # JSON: saved cover-letter snapshot {content, design}
