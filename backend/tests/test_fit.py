@@ -64,3 +64,37 @@ def test_stretch_verdict_when_coverage_low():
                                             senior=False, repo_count=0))
     assert fit.verdict == "STRETCH" and fit.score < 60
     assert "Rust" in fit.gaps
+
+
+def test_smart_experience_scoring_scales_with_role_seniority():
+    senior_role = RoleAnalysis(title="Senior Backend Engineer", keywords=["Python", "FastAPI"])
+    junior_role = RoleAnalysis(title="Junior Developer", keywords=["Python"])
+
+    short_profile = _profile(
+        experience_count=1,
+        total_years=0.5,
+        experiences=[{"title": "Software Intern", "company": "Acme", "start_date": "2023-01", "end_date": "2023-06"}]
+    )
+
+    fit_senior, _ = compute_fit(senior_role, [], short_profile)
+    fit_junior, _ = compute_fit(junior_role, [], short_profile)
+
+    exp_dim_senior = next(d for d in fit_senior.dimensions if d.name == "Experience")
+    exp_dim_junior = next(d for d in fit_junior.dimensions if d.name == "Experience")
+
+    # Short 6-month experience should NOT get 100 for a Senior role!
+    assert exp_dim_senior.you < 50
+    assert exp_dim_senior.role_need == 85
+    # Junior role requirement threshold should be lower and match better
+    assert exp_dim_junior.role_need == 50
+    assert exp_dim_junior.you > exp_dim_senior.you
+
+
+def test_zero_experience_yields_zero_experience_score():
+    role = RoleAnalysis(title="Software Engineer", keywords=["Python"])
+    no_exp_profile = _profile(experience_count=0, total_years=0.0, experiences=[])
+
+    fit, _ = compute_fit(role, [], no_exp_profile)
+    exp_dim = next(d for d in fit.dimensions if d.name == "Experience")
+    assert exp_dim.you == 0
+
