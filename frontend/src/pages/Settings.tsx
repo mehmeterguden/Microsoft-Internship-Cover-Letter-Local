@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Check,
@@ -207,7 +207,7 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
   const [tab, setTab] = useState<Tab>("model");
   const [draft, setDraft] = useState<SettingsModel>(initial);
   const [saved, setSaved] = useState<SettingsModel>(initial);
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [reveal, setReveal] = useState(false);
 
   const provider = PROVIDERS.find((p) => p.id === draft.llm_provider) ?? PROVIDERS[0];
@@ -264,6 +264,43 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
 
   const dirty = useMemo(() => MAIN_FIELDS.some((k) => norm(draft[k]) !== norm(saved[k])), [draft, saved]);
 
+  const poolRef = useRef(pool);
+  poolRef.current = pool;
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+
+  const performSave = useCallback(async (currentDraft: SettingsModel) => {
+    setSaveStatus("saving");
+    try {
+      const payload: SettingsModel = {
+        ...savedRef.current,
+        ...currentDraft,
+        // keep the Gemini pool authoritative from its own endpoints, never clobber it
+        ...(poolRef.current
+          ? { gemini_api_keys: poolRef.current.keys, gemini_active_key_id: poolRef.current.active_id, key_switch_mode: poolRef.current.mode }
+          : {}),
+      };
+      const result = await useSettingsStore.getState().updateSettings(payload);
+      setSaved(result);
+      setSaveStatus("saved");
+    } catch (e) {
+      setSaveStatus("error");
+      toast.danger("Couldn't auto-save settings", errorMessage(e));
+    }
+  }, []);
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!dirty) return;
+
+    setSaveStatus("saving");
+    const timer = setTimeout(() => {
+      void performSave(draft);
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [draft, dirty, performSave]);
+
   const setField = <K extends keyof SettingsModel>(key: K, value: SettingsModel[K]) =>
     setDraft((d) => ({ ...d, [key]: value }) as SettingsModel);
 
@@ -296,33 +333,6 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
     } finally {
       setTesting(false);
     }
-  };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const payload: SettingsModel = {
-        ...saved,
-        ...draft,
-        // keep the Gemini pool authoritative from its own endpoints, never clobber it
-        ...(pool
-          ? { gemini_api_keys: pool.keys, gemini_active_key_id: pool.active_id, key_switch_mode: pool.mode }
-          : {}),
-      };
-      const result = await useSettingsStore.getState().updateSettings(payload);
-      setSaved(result);
-      setDraft(result);
-      toast.success("Settings saved");
-    } catch (e) {
-      toast.danger("Couldn't save settings", errorMessage(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const discard = () => {
-    setDraft(saved);
-    setDiscoBaseUrl(saved.llm_base_url);
   };
 
   // ── Gemini pool actions (persist immediately + toast) ──
@@ -394,17 +404,19 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
       bodyClassName="px-7 py-5"
       actions={
         <div className="flex items-center gap-2.5">
-          {dirty ? (
-            <Pill tone="warning" mono dot>
-              Unsaved
-            </Pill>
-          ) : null}
-          <Button variant="ghost" size="sm" onClick={discard} disabled={!dirty || saving}>
-            Discard
-          </Button>
-          <Button variant="solid" size="sm" onClick={save} loading={saving} disabled={!dirty}>
-            Save changes
-          </Button>
+          {saveStatus === "saving" ? (
+            <span className="flex items-center gap-1.5 text-xs text-amber-300 font-medium bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20">
+              <Spinner className="w-3 h-3 text-amber-400" /> Auto-saving...
+            </span>
+          ) : saveStatus === "error" ? (
+            <span className="flex items-center gap-1.5 text-xs text-rose-300 font-medium bg-rose-500/10 px-3 py-1.5 rounded-full border border-rose-500/20">
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> Save failed
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
+              <Check className="w-3.5 h-3.5 text-emerald-400" /> Auto-saved
+            </span>
+          )}
         </div>
       }
     >
