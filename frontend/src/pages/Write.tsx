@@ -1398,6 +1398,7 @@ function TailoringQuestionsModal({
   questions,
   answers,
   loading,
+  onGenerateQuestions,
   onSave,
   onClear,
   onClose,
@@ -1406,17 +1407,57 @@ function TailoringQuestionsModal({
   questions: TailoringQuestion[];
   answers: Record<string, string>;
   loading: boolean;
+  onGenerateQuestions: (count: number, focus: string) => Promise<void>;
   onSave: (newAnswers: Record<string, string>) => void;
   onClear: () => void;
   onClose: () => void;
 }) {
+  const [modalStep, setModalStep] = useState<"setup" | "qna">(questions.length > 0 ? "qna" : "setup");
+
+  // Setup Parameters
+  const [countMode, setCountMode] = useState<"preset" | "custom">("preset");
+  const [presetCount, setPresetCount] = useState<number>(3);
+  const [customCountInput, setCustomCountInput] = useState<string>("5");
+
+  const [focusMode, setFocusMode] = useState<"preset" | "custom">("preset");
+  const [presetFocus, setPresetFocus] = useState<string>("all");
+  const [customFocusInput, setCustomFocusInput] = useState<string>("");
+
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({ ...answers });
 
   const answeredCount = Object.values(draftAnswers).filter((v) => v.trim()).length;
 
+  const getEffectiveCount = (): number => {
+    if (countMode === "custom") {
+      const parsed = parseInt(customCountInput.trim(), 10);
+      return !isNaN(parsed) && parsed > 0 ? Math.min(10, parsed) : 3;
+    }
+    return presetCount;
+  };
+
+  const getEffectiveFocus = (): string => {
+    if (focusMode === "custom") {
+      return customFocusInput.trim() || "all";
+    }
+    return presetFocus;
+  };
+
+  const handleStartGeneration = async () => {
+    const finalCount = getEffectiveCount();
+    const finalFocus = getEffectiveFocus();
+
+    if (focusMode === "custom" && !customFocusInput.trim()) {
+      toast.danger("Please enter a custom focus topic or choose a preset.");
+      return;
+    }
+
+    setModalStep("qna");
+    await onGenerateQuestions(finalCount, finalFocus);
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="relative flex max-h-[85vh] w-full max-w-[620px] flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl">
+      <div className="relative flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/80 px-6 py-4">
           <div className="flex items-center gap-3">
@@ -1440,8 +1481,130 @@ function TailoringQuestionsModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {loading ? (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {modalStep === "setup" ? (
+            <div className="space-y-6 pt-1">
+              <div className="space-y-1">
+                <h3 className="text-[14px] font-semibold text-fg">Customize Your Question Session</h3>
+                <p className="text-[12px] text-fg-mid">
+                  Select how many questions to generate and choose a focus topic tailored for {company || "the company"}.
+                </p>
+              </div>
+
+              {/* Question Count Option */}
+              <div className="space-y-2.5">
+                <label className="text-[12px] font-medium text-fg">How many questions would you like to answer?</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[3, 5, 10].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => {
+                        setCountMode("preset");
+                        setPresetCount(num);
+                      }}
+                      className={cn(
+                        "py-3 px-3 rounded-xl border text-xs font-semibold transition-all flex flex-col items-center gap-1 cursor-pointer",
+                        countMode === "preset" && presetCount === num
+                          ? "bg-accent-weak border-accent text-accent-text shadow-sm"
+                          : "bg-surface-2/60 border-border/60 text-fg-mid hover:bg-surface-2",
+                      )}
+                    >
+                      <span className="text-sm font-bold text-fg">{num} Questions</span>
+                      <span className="text-[10px] text-fg-low font-normal">
+                        {num === 3 ? "~2 min quick" : num === 5 ? "~4 min standard" : "~8 min deep dive"}
+                      </span>
+                    </button>
+                  ))}
+                  <div
+                    onClick={() => setCountMode("custom")}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer",
+                      countMode === "custom"
+                        ? "bg-accent-weak border-accent text-accent-text shadow-sm"
+                        : "bg-surface-2/60 border-border/60 text-fg-mid hover:bg-surface-2",
+                    )}
+                  >
+                    <span className="text-xs font-bold flex items-center gap-1 text-fg">
+                      Custom
+                    </span>
+                    {countMode === "custom" ? (
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={customCountInput}
+                        onChange={(e) => setCustomCountInput(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Qty (1-10)"
+                        className="w-full h-7 bg-surface border border-accent rounded-lg px-2 text-center text-xs text-fg focus:outline-none font-semibold"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="text-[10px] text-fg-low font-normal">Enter count</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Focus Area Option */}
+              <div className="space-y-2.5">
+                <label className="text-[12px] font-medium text-fg">Select Focus Topic / Area</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {[
+                    { id: "all", label: "All-Round Fit", desc: "Balanced profile alignment" },
+                    { id: "technical", label: "Technical Deep Dive", desc: "Architecture & engineering" },
+                    { id: "culture", label: "Culture & Mission", desc: "Values & team alignment" },
+                    { id: "projects", label: "Projects & Metrics", desc: "Key wins & measurable impact" },
+                    { id: "gaps", label: "Skill Gaps & Growth", desc: "Address role requirements" },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        setFocusMode("preset");
+                        setPresetFocus(f.id);
+                      }}
+                      className={cn(
+                        "p-3 rounded-xl border text-left transition-all flex flex-col gap-0.5 cursor-pointer",
+                        focusMode === "preset" && presetFocus === f.id
+                          ? "bg-accent-weak border-accent text-accent-text shadow-sm"
+                          : "bg-surface-2/60 border-border/60 text-fg-mid hover:bg-surface-2",
+                      )}
+                    >
+                      <span className="text-[12px] font-bold text-fg">{f.label}</span>
+                      <span className="text-[10px] text-fg-low">{f.desc}</span>
+                    </button>
+                  ))}
+
+                  <div
+                    onClick={() => setFocusMode("custom")}
+                    className={cn(
+                      "p-2.5 rounded-xl border transition-all flex flex-col justify-between gap-1.5 cursor-pointer",
+                      focusMode === "custom"
+                        ? "bg-accent-weak border-accent text-accent-text shadow-sm"
+                        : "bg-surface-2/60 border-border/60 text-fg-mid hover:bg-surface-2",
+                    )}
+                  >
+                    <span className="text-[12px] font-bold text-fg">Custom Topic</span>
+                    {focusMode === "custom" ? (
+                      <input
+                        type="text"
+                        value={customFocusInput}
+                        onChange={(e) => setCustomFocusInput(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="e.g. AI Safety, Distributed Systems..."
+                        className="w-full h-7 bg-surface border border-accent rounded-lg px-2 text-xs text-fg focus:outline-none font-medium"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="text-[10px] text-fg-low">Type custom focus</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Loader2 size={24} className="animate-spin text-accent" />
               <p className="mt-3 text-[13px] font-medium text-fg">Generating job-specific AI questions…</p>
@@ -1483,37 +1646,68 @@ function TailoringQuestionsModal({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border/80 bg-surface-2/30 px-6 py-3.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setDraftAnswers({});
-              onClear();
-            }}
-            className="text-[12px] text-fg-low hover:text-danger"
-          >
-            Clear All
-          </Button>
+          {modalStep === "setup" ? (
+            <>
+              <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-[12px]">
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="solid"
+                size="sm"
+                onClick={handleStartGeneration}
+                className="text-[12px] px-4"
+              >
+                <Sparkles size={14} className="mr-1.5" />
+                Generate {getEffectiveCount()} Questions
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setModalStep("setup")}
+                  className="text-[12px]"
+                >
+                  Change Setup
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDraftAnswers({});
+                    onClear();
+                  }}
+                  className="text-[12px] text-fg-low hover:text-danger"
+                >
+                  Clear All
+                </Button>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-[12px]">
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="solid"
-              size="sm"
-              onClick={() => {
-                onSave(draftAnswers);
-                onClose();
-              }}
-              className="text-[12px] px-4"
-            >
-              <Check size={14} className="mr-1.5" />
-              {answeredCount > 0 ? `Apply ${answeredCount} Answer${answeredCount > 1 ? "s" : ""}` : "Save & Close"}
-            </Button>
-          </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-[12px]">
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="solid"
+                  size="sm"
+                  onClick={() => {
+                    onSave(draftAnswers);
+                    onClose();
+                  }}
+                  className="text-[12px] px-4"
+                >
+                  <Check size={14} className="mr-1.5" />
+                  {answeredCount > 0 ? `Apply ${answeredCount} Answer${answeredCount > 1 ? "s" : ""}` : "Save & Close"}
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>,
@@ -1634,23 +1828,12 @@ export function Write() {
   const [tailoringAnswers, setTailoringAnswers] = useState<Record<string, string>>({});
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
-  const handleOpenTailoringModal = async () => {
+  const handleOpenTailoringModal = () => {
     if (!company.trim()) {
       toast.warning("Enter a company first", "Type a company name so AI can generate targeted tailoring questions.");
       return;
     }
     setTailoringModalOpen(true);
-    if (tailoringQuestions.length === 0) {
-      setLoadingQuestions(true);
-      try {
-        const q = await fetchTailoringQuestions(company.trim(), role.trim() || null, jobPosting.trim() || null);
-        setTailoringQuestions(q);
-      } catch (err) {
-        toast.danger("Failed to generate questions", errorMessage(err));
-      } finally {
-        setLoadingQuestions(false);
-      }
-    }
   };
 
   // Reset research when company changes
@@ -2354,6 +2537,17 @@ export function Write() {
           questions={tailoringQuestions}
           answers={tailoringAnswers}
           loading={loadingQuestions}
+          onGenerateQuestions={async (cnt, foc) => {
+            setLoadingQuestions(true);
+            try {
+              const q = await fetchTailoringQuestions(company.trim(), role.trim() || null, jobPosting.trim() || null, cnt, foc);
+              setTailoringQuestions(q);
+            } catch (err) {
+              toast.danger("Failed to generate questions", errorMessage(err));
+            } finally {
+              setLoadingQuestions(false);
+            }
+          }}
           onSave={(newAnswers) => setTailoringAnswers(newAnswers)}
           onClear={() => setTailoringAnswers({})}
           onClose={() => setTailoringModalOpen(false)}

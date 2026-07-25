@@ -17,11 +17,15 @@ export async function fetchTailoringQuestions(
   company_name: string,
   role_title?: string | null,
   job_description?: string | null,
+  count: number = 3,
+  focus: string = "all",
 ): Promise<TailoringQuestion[]> {
   const { data } = await client.post<{ questions: TailoringQuestion[] }>("/cover-letter/questions", {
     company_name,
     role_title,
     job_description,
+    count,
+    focus,
   });
   return data.questions ?? [];
 }

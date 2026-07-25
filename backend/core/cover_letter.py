@@ -34,13 +34,17 @@ def generate_tailoring_questions(
     company_name: str,
     role_title: str | None = None,
     job_description: str | None = None,
+    count: int = 3,
+    focus: str = "all",
 ) -> list[dict[str, Any]]:
-    """Generate 3 targeted, job-specific tailoring questions using LLM."""
+    """Generate targeted, job-specific tailoring questions using LLM."""
     profile_context, _ = _load_profile_context()
     research_context = _load_research_context(company_name, role_title)
 
+    target_count = max(1, min(10, count))
     messages = build_tailoring_questions_messages(
-        profile_context, company_name, role_title, job_description, research_context
+        profile_context, company_name, role_title, job_description, research_context,
+        count=target_count, focus=focus,
     )
 
     try:
@@ -48,7 +52,7 @@ def generate_tailoring_questions(
         data = json.loads(raw)
         questions = data.get("questions") if isinstance(data, dict) else []
         if isinstance(questions, list) and questions:
-            return questions[:4]
+            return questions[:target_count]
     except Exception:  # noqa: BLE001
         pass
 

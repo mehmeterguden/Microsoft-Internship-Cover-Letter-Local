@@ -138,8 +138,10 @@ def build_tailoring_questions_messages(
     role_title: str | None,
     job_description: str | None,
     research_context: str | None,
+    count: int = 3,
+    focus: str = "all",
 ) -> list[Message]:
-    """Messages for generating 3 job-specific tailoring questions."""
+    """Messages for generating job-specific tailoring questions."""
     parts = [
         "=== APPLICANT PROFILE ===",
         profile_context or "(no profile imported)",
@@ -154,7 +156,8 @@ def build_tailoring_questions_messages(
     if research_context:
         parts += ["", "=== COMPANY RESEARCH INTEL ===", research_context]
 
-    parts += ["", "Generate 3 highly specific tailoring questions for this application now."]
+    focus_line = f" Focus specifically on: '{focus}'." if focus and focus.lower() != "all" else ""
+    parts += ["", f"Generate exactly {count} highly specific tailoring questions for this application now.{focus_line}"]
     return [
         {"role": "system", "content": _TAILORING_QUESTIONS_SYSTEM},
         {"role": "user", "content": "\n".join(parts)},

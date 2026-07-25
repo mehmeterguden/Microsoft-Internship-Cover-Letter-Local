@@ -58,6 +58,8 @@ class QuestionsRequest(BaseModel):
     company_name: str = Field(min_length=1, max_length=200)
     role_title: str | None = Field(default=None, max_length=200)
     job_description: str | None = None
+    count: int = Field(default=3, ge=1, le=10)
+    focus: str = Field(default="all")
 
 
 class ReviewRequest(BaseModel):
@@ -104,12 +106,14 @@ class ReviseRequest(BaseModel):
 
 @router.post("/questions", summary="Generate targeted job-specific tailoring questions")
 async def get_tailoring_questions(payload: QuestionsRequest) -> dict:
-    """Return 3 targeted questions tailored specifically for this application."""
+    """Return targeted questions tailored specifically for this application."""
     questions = await run_in_threadpool(
         cover_letter.generate_tailoring_questions,
         company_name=payload.company_name,
         role_title=payload.role_title,
         job_description=payload.job_description,
+        count=payload.count,
+        focus=payload.focus,
     )
     return {"questions": questions}
 
