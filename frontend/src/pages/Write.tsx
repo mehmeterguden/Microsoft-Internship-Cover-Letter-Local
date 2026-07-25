@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  Bot,
   Check,
   ChevronDown,
   ChevronUp,
@@ -15,15 +16,17 @@ import {
   Info,
   Link as LinkIcon,
   Loader2,
+  Maximize2,
   MessageSquare,
   Pencil,
-  Plus,
   RotateCw,
   Save,
   Search,
   Send,
   ShieldCheck,
   Sparkles,
+  Trash2,
+  User,
   Wand2,
   X,
   Zap,
@@ -1803,32 +1806,93 @@ export function Write() {
   const [aiWorking, setAiWorking] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
 
-  // App Info Modal & Sidebar Ask AI Assistant
+  // App Info Modal & Custom Instruction
   const [editAppModalOpen, setEditAppModalOpen] = useState(false);
-  const [sidebarAskInput, setSidebarAskInput] = useState("");
-  const [sidebarAskAnswer, setSidebarAskAnswer] = useState<string | null>(null);
-  const [sidebarAskWorking, setSidebarAskWorking] = useState(false);
   const [customInstruction, setCustomInstruction] = useState("");
 
-  const handleSidebarAsk = async (promptText?: string) => {
-    const query = promptText || sidebarAskInput;
-    if (!query.trim() || !letter.trim()) return;
-    setSidebarAskWorking(true);
-    setSidebarAskAnswer(null);
+  // AI Career Advisor Chat Modal & Context State
+  interface ChatMessage {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    timestamp: string;
+  }
+
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatWorking, setChatWorking] = useState(false);
+
+  const handleSendChatMessage = async (presetMessage?: string) => {
+    const query = (presetMessage || chatInput).trim();
+    if (!query || chatWorking) return;
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: "user",
+      content: query,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    if (!presetMessage) setChatInput("");
+    setChatWorking(true);
+
+    const researchIntel = researchReport
+      ? typeof researchReport.overview === "string"
+        ? researchReport.overview
+        : (researchReport.overview as { summary?: string })?.summary || JSON.stringify(researchReport.overview)
+      : "None";
+
+    const tailoringContext = Object.keys(tailoringAnswers).length > 0
+      ? Object.entries(tailoringAnswers).map(([q, a]) => `Q: ${q}\nA: ${a}`).join("\n")
+      : "None";
+
+    const contextInstruction = `
+You are an elite Executive Recruiter and Senior Career Advisor. You are providing strategic counseling to the user about their application.
+
+[APPLICATION CONTEXT]
+- Target Company: ${company || "Not specified"}
+- Target Role: ${role || "Not specified"}
+- Job Description Snippet: ${jobPosting.slice(0, 400) || "None"}
+- Company Deep Research Intel: ${researchIntel}
+- Candidate Questionnaire Responses:
+${tailoringContext}
+
+[CURRENT COVER LETTER DRAFT]
+${letter || "Draft not generated yet"}
+
+[STRICT BEHAVIORAL DIRECTIVES]
+- You are a CONVERSATIONAL ADVISOR and MENTOR.
+- Do NOT edit or rewrite the document directly.
+- Answer the candidate's questions, critique their draft, evaluate recruiter impressions, or suggest phrasing improvements.
+- Keep your answer clear, encouraging, structured, and insightful.
+
+Candidate Question / Prompt: "${query}"
+`;
+
     try {
       const res = await inlineEditCvLetter({
         selected_text: letter.slice(0, 300),
         action: "ask",
-        instruction: query,
+        instruction: contextInstruction,
         full_letter: letter,
         company_name: company,
         role_title: role,
       });
-      setSidebarAskAnswer(res.result);
+
+      const aiMsg: ChatMessage = {
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        content: res.result,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setChatMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
-      toast.danger("AI Ask failed", errorMessage(err));
+      toast.danger("Chat failed", errorMessage(err));
     } finally {
-      setSidebarAskWorking(false);
+      setChatWorking(false);
     }
   };
 
@@ -2604,85 +2668,38 @@ export function Write() {
 
           {/* Right Assistant & Control Sidebar */}
           <div className="flex flex-col gap-4">
-            {/* Card 1: Ask AI Assistant */}
-            <section className="rounded-[16px] border border-indigo-500/30 bg-surface p-4 space-y-3 shadow-md">
-              <div className="flex items-center justify-between border-b border-border/70 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-600 text-white font-bold">
-                    <Sparkles size={13} />
+            {/* Card 1: Ask AI Career Advisor Expandable Trigger */}
+            <section className="rounded-[16px] border border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 via-surface to-surface p-4 space-y-3 shadow-md relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30">
+                    <Sparkles size={16} />
                   </span>
-                  <h3 className="text-xs font-bold text-fg">Ask AI Assistant</h3>
+                  <div>
+                    <h3 className="text-xs font-bold text-fg">AI Career Advisor</h3>
+                    <span className="text-[10px] text-indigo-400 font-medium">Strategic Counseling & Context</span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-indigo-400 font-semibold font-mono">Live Helper</span>
+                {chatMessages.length > 0 && (
+                  <span className="text-[10px] font-mono font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/30">
+                    {chatMessages.length} msgs
+                  </span>
+                )}
               </div>
 
               <p className="text-[11.5px] text-fg-mid leading-relaxed">
-                Ask questions about your draft, role fit, or requested changes:
+                Chat with an AI mentor equipped with your CV, company research intel, and cover letter draft.
               </p>
 
-              <div className="flex items-center gap-2">
-                <Input
-                  value={sidebarAskInput}
-                  onChange={(e) => setSidebarAskInput(e.target.value)}
-                  placeholder="e.g. How can I emphasize leadership?"
-                  className="h-8 text-xs"
-                  onKeyDown={(e) => { if (e.key === "Enter") void handleSidebarAsk(); }}
-                />
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  loading={sidebarAskWorking}
-                  onClick={() => void handleSidebarAsk()}
-                  className="h-8 px-3 bg-indigo-600 hover:bg-indigo-500 text-white"
-                >
-                  <Send size={12} />
-                </Button>
-              </div>
-
-              {/* Quick Prompt Preset Chips */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {[
-                  "Improve intro hook",
-                  "Highlight technical skills",
-                  "Make more concise",
-                ].map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => {
-                      setSidebarAskInput(chip);
-                      void handleSidebarAsk(chip);
-                    }}
-                    className="text-[10px] font-semibold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2 py-0.5 rounded-full transition cursor-pointer"
-                  >
-                    + {chip}
-                  </button>
-                ))}
-              </div>
-
-              {sidebarAskAnswer && (
-                <div className="mt-3 p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 space-y-2 text-xs">
-                  <div className="font-semibold text-indigo-300 flex items-center gap-1.5 text-[11px]">
-                    <Sparkles size={12} /> AI Response:
-                  </div>
-                  <p className="text-fg-mid leading-relaxed text-[11.5px]">{sidebarAskAnswer}</p>
-                  <div className="flex justify-end pt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => {
-                        setLetter((prev) => `${prev}\n\n${sidebarAskAnswer}`);
-                        toast.success("Added to letter");
-                      }}
-                      className="text-[10px]"
-                    >
-                      <Plus size={11} className="mr-1" /> Append to letter
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={() => setAiChatOpen(true)}
+                className="w-full text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/25 gap-2"
+              >
+                <MessageSquare size={14} /> Open AI Advisor Chat <Maximize2 size={12} className="ml-auto opacity-70" />
+              </Button>
             </section>
 
             {/* Card 2: Regenerate & Refine Options */}
@@ -2810,6 +2827,159 @@ export function Write() {
                 )}
               </section>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* AI Career Advisor Full Chat Drawer Overlay */}
+      {aiChatOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="flex w-full max-w-[540px] h-full flex-col border-l border-border bg-surface shadow-2xl animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border/80 bg-surface-2/70 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30">
+                  <Sparkles size={18} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-fg flex items-center gap-2">
+                    AI Career Advisor Chat
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Full Context</span>
+                  </h3>
+                  <p className="text-[11px] text-fg-mid">
+                    {company || "General"} {role ? `· ${role}` : ""} ({words} word draft loaded)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {chatMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setChatMessages([])}
+                    className="p-1.5 text-fg-low hover:text-fg rounded-lg transition"
+                    title="Clear Chat History"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAiChatOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-fg-low hover:bg-surface-2 hover:text-fg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Messages Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {chatMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    <Bot size={24} />
+                  </div>
+                  <h4 className="text-sm font-bold text-fg">Ask me anything about your application!</h4>
+                  <p className="text-xs text-fg-mid max-w-[360px] leading-relaxed">
+                    I have full context of your cover letter draft, target role, company research, and profile data. Ask for critique, interview advice, or strategic ideas.
+                  </p>
+
+                  <div className="flex flex-col gap-2 w-full pt-2">
+                    {[
+                      "🎯 Critique this cover letter from a recruiter's perspective",
+                      "🚀 How can I stand out more for this specific role?",
+                      "❓ What interview questions might they ask based on this letter?",
+                      "💡 Suggest 3 high-impact improvements for my intro",
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => void handleSendChatMessage(preset)}
+                        className="text-left text-xs text-fg hover:text-indigo-300 bg-surface-2/60 hover:bg-indigo-500/10 border border-border/80 hover:border-indigo-500/30 p-3 rounded-xl transition cursor-pointer font-medium"
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+                  >
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                        msg.role === "user" ? "bg-accent text-white" : "bg-indigo-600 text-white"
+                      }`}
+                    >
+                      {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
+                    </div>
+                    <div
+                      className={`flex flex-col max-w-[82%] space-y-1 ${
+                        msg.role === "user" ? "items-end" : "items-start"
+                      }`}
+                    >
+                      <div
+                        className={`rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-accent text-white rounded-tr-xs"
+                            : "bg-surface-2 border border-border text-fg rounded-tl-xs whitespace-pre-wrap"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                      <span className="text-[10px] text-fg-low px-1 font-mono">{msg.timestamp}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {chatWorking && (
+                <div className="flex items-start gap-3 animate-pulse">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold">
+                    <Bot size={14} />
+                  </div>
+                  <div className="rounded-2xl rounded-tl-xs bg-surface-2 border border-border px-4 py-3 text-xs text-fg-mid flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin text-indigo-400" /> Analyzing application context & formulating advice…
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Chips Preset Input Footer */}
+            <div className="border-t border-border bg-surface-2/60 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Ask AI Career Advisor anything..."
+                  className="min-h-[44px] max-h-[120px] text-xs resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSendChatMessage();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  loading={chatWorking}
+                  disabled={!chatInput.trim() || chatWorking}
+                  onClick={() => void handleSendChatMessage()}
+                  className="h-11 px-4 bg-indigo-600 hover:bg-indigo-500 text-white shrink-0"
+                >
+                  <Send size={14} />
+                </Button>
+              </div>
+
+              <div className="flex justify-between items-center text-[10px] text-fg-low font-mono">
+                <span>Press Enter to send · Shift+Enter for newline</span>
+                <span>Context-Driven Career Mentor</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
