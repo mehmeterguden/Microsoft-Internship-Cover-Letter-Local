@@ -1635,8 +1635,12 @@ export function Write() {
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
   const handleOpenTailoringModal = async () => {
+    if (!company.trim()) {
+      toast.warning("Enter a company first", "Type a company name so AI can generate targeted tailoring questions.");
+      return;
+    }
     setTailoringModalOpen(true);
-    if (tailoringQuestions.length === 0 && company.trim()) {
+    if (tailoringQuestions.length === 0) {
       setLoadingQuestions(true);
       try {
         const q = await fetchTailoringQuestions(company.trim(), role.trim() || null, jobPosting.trim() || null);
