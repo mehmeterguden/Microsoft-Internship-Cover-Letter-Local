@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
 
 export type NavStatus = {
   hasCv: boolean;
+  cvCount: number;
   hasVoice: boolean;
+  voiceSamples: number;
   githubConnected: boolean;
   linkedinConnected: boolean;
 };
@@ -36,12 +38,14 @@ async function fetchNavStatus(): Promise<NavStatus> {
   const liData = li.status === "fulfilled" ? li.value : null;
   const profData = profile.status === "fulfilled" ? profile.value : null;
 
-  const hasCv = docList.length > 0 || Boolean(profData?.name || profData?.summary);
-  const hasVoice = Boolean((styleData?.samples ?? 0) > 0 || styleData?.style_profile);
+  const cvCount = docList.length;
+  const hasCv = cvCount > 0 || Boolean(profData?.name || profData?.summary);
+  const voiceSamples = styleData?.samples ?? 0;
+  const hasVoice = Boolean(voiceSamples > 0 || styleData?.style_profile);
   const githubConnected = Boolean(ghData?.account_connected);
   const linkedinConnected = Boolean(liData?.connected);
 
-  return { hasCv, hasVoice, githubConnected, linkedinConnected };
+  return { hasCv, cvCount, hasVoice, voiceSamples, githubConnected, linkedinConnected };
 }
 
 /** Provider labels for the footer model chip. */
@@ -126,7 +130,7 @@ function NavRow({
   const renderBadge = () => {
     if (item.count === "letters" && lettersCount > 0) {
       return (
-        <span className="rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-fg-low">
+        <span className="rounded-full bg-surface-2 border border-border/60 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-fg-mid">
           {lettersCount}
         </span>
       );
@@ -135,46 +139,49 @@ function NavRow({
     if (!status || !item.statusKey) return null;
 
     if (item.statusKey === "cv" && status.hasCv) {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-          <Check size={11} className="shrink-0" />
-          <span>Added</span>
+      return status.cvCount > 0 ? (
+        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-emerald-400">
+          {status.cvCount}
+        </span>
+      ) : (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+          <Check size={10} strokeWidth={2.8} />
         </span>
       );
     }
 
     if (item.statusKey === "voice" && status.hasVoice) {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-          <Check size={11} className="shrink-0" />
-          <span>Ready</span>
+      return status.voiceSamples > 0 ? (
+        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-emerald-400">
+          {status.voiceSamples}
+        </span>
+      ) : (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+          <Check size={10} strokeWidth={2.8} />
         </span>
       );
     }
 
     if (item.statusKey === "github" && status.githubConnected) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-          <Check size={11} className="shrink-0" />
-          <span>Linked</span>
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+          <Check size={10} strokeWidth={2.8} />
         </span>
       );
     }
 
     if (item.statusKey === "linkedin" && status.linkedinConnected) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-          <Check size={11} className="shrink-0" />
-          <span>Linked</span>
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+          <Check size={10} strokeWidth={2.8} />
         </span>
       );
     }
 
     if (item.statusKey === "profile" && status.hasCv) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-          <Check size={11} className="shrink-0" />
-          <span>Set</span>
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+          <Check size={10} strokeWidth={2.8} />
         </span>
       );
     }
@@ -203,6 +210,62 @@ function NavRow({
           <span className="flex-1 truncate">{item.label}</span>
           {renderBadge()}
         </span>
+      )}
+    </NavLink>
+  );
+}
+
+function NewCoverLetterButton() {
+  return (
+    <NavLink
+      to="/write"
+      className={({ isActive }) =>
+        cn(
+          "group relative mt-4 flex items-center gap-2.5 overflow-hidden rounded-[12px] px-3.5 py-2.5 text-[13px] font-semibold transition-all duration-200 outline-none cursor-pointer select-none",
+          isActive
+            ? "bg-accent-grad text-white shadow-xl shadow-accent/35 ring-2 ring-accent/60 translate-y-0"
+            : "bg-accent-grad/90 border border-accent/20 text-white/95 shadow-md shadow-accent/15 hover:bg-accent-grad hover:text-white hover:shadow-xl hover:shadow-accent/30 hover:-translate-y-0.5 active:translate-y-0",
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {/* Animated sheen effect on hover */}
+          <span className="cll-sheen-el pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+          {/* Icon with hover animation */}
+          <span className={cn("relative shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6", isActive && "scale-105")}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 16l1-4 8.5-8.5 3 3L8 15l-4 1z" />
+              <path d="M12 5l3 3" />
+            </svg>
+          </span>
+
+          <span className="relative flex-1 text-left tracking-tight">New Cover Letter</span>
+
+          {/* Active vs Normal/Hover Badge */}
+          {isActive ? (
+            <span className="relative flex items-center gap-1.5 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-xs">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              Active
+            </span>
+          ) : (
+            <span className="relative text-white/70 group-hover:text-white group-hover:translate-x-0.5 transition-all">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M7 4l6 6-6 6" />
+              </svg>
+            </span>
+          )}
+        </>
       )}
     </NavLink>
   );
@@ -271,18 +334,7 @@ export function Sidebar() {
       </div>
 
       {/* primary CTA */}
-      <NavLink
-        to="/write"
-        className="relative mt-4 flex items-center gap-2.5 overflow-hidden rounded-[12px] px-3 py-2.5 text-[13px] font-semibold text-on-accent outline-none"
-        style={{ background: "var(--accent-grad)", boxShadow: "0 8px 22px -8px var(--accent-shadow)" }}
-      >
-        <span className="cll-sheen-el" />
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="relative shrink-0">
-          <path d="M4 16l1-4 8.5-8.5 3 3L8 15l-4 1z" />
-          <path d="M12 5l3 3" />
-        </svg>
-        <span className="relative flex-1 text-left">New Cover Letter</span>
-      </NavLink>
+      <NewCoverLetterButton />
 
       <div className="mx-1.5 mt-4 h-px bg-border" />
 
