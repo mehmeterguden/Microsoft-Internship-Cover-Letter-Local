@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Trash2, Mail, Phone, Github, Linkedin, Globe, Twitter, Youtube, Instagram, Gitlab } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { Button } from "@/components/ui/button";
@@ -444,6 +445,7 @@ type DetailRef = { kind: Kind; item: EntityItem };
 type FormRef = { kind: Kind; existing: EntityItem | null };
 
 export function Profile() {
+  const [searchParams] = useSearchParams();
   const state = useAsync(loadBundle, []);
   const reload = state.reload;
 
@@ -455,7 +457,7 @@ export function Profile() {
   const [editSummary, setEditSummary] = useState(false);
   const [genSummary, setGenSummary] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [interviewOpen, setInterviewOpen] = useState(false);
+  const [interviewOpen, setInterviewOpen] = useState(searchParams.get("interview") === "open");
 
   const bundle = state.data;
 
