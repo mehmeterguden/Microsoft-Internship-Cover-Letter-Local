@@ -2602,8 +2602,8 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
 
   return (
     <Page
-      eyebrow="Generate / Write Letter"
-      title="Write letter"
+      eyebrow="Generate / Write Cover Letter"
+      title="Write Cover Letter"
       subtitle="A grounded first draft in your voice — written only from your real profile."
       actions={
         <>

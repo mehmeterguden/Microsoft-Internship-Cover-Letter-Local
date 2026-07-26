@@ -436,7 +436,7 @@ function LettersEmpty() {
         </p>
         <Button asChild variant="primary" size="lg" className="mt-[22px]">
           <Link to="/write">
-            <Plus size={15} strokeWidth={1.8} /> Write your first letter
+            <Plus size={15} strokeWidth={1.8} /> Write your first cover letter
           </Link>
         </Button>
       </div>
@@ -511,7 +511,7 @@ export function CoverLetters() {
       actions={
         <Button asChild variant="primary">
           <Link to="/write">
-            <Plus size={15} strokeWidth={1.8} /> New letter
+            <Plus size={15} strokeWidth={1.8} /> New Cover Letter
           </Link>
         </Button>
       }

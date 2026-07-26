@@ -318,14 +318,14 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         />
         <div className="cll-fade rounded-[14px] border border-border bg-surface px-5 py-[18px]">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Start your first letter</span>
+            <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Start your first cover letter</span>
             <Link to="/write" className="text-[12px] text-accent-text">Open composer →</Link>
           </div>
           <p className="max-w-[560px] text-[12.5px] leading-relaxed text-fg-mid">
             Everything is connected. Enter a company and role and the local model drafts a tailored letter grounded in your CV — with a match score per posting.
           </p>
           <div className="mt-4">
-            <Button asChild size="md"><Link to="/write"><PenLine size={15} /> Write a letter</Link></Button>
+            <Button asChild size="md"><Link to="/write"><PenLine size={15} /> Write a cover letter</Link></Button>
           </div>
         </div>
       </>
@@ -395,7 +395,7 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         desc={`${d.completedCount} ${d.completedCount === 1 ? "letter" : "letters"} sent${d.avgMatch != null ? ` with a ${d.avgMatch} average match` : ""}. Line up the next role whenever you are ready.`}
         actions={
           <>
-            <Button asChild size="md"><Link to="/write"><PenLine size={15} /> New letter</Link></Button>
+            <Button asChild size="md"><Link to="/write"><PenLine size={15} /> New Cover Letter</Link></Button>
             <Button asChild variant="outline" size="md"><Link to="/cover-letters">Browse sent</Link></Button>
           </>
         }
@@ -547,7 +547,7 @@ export function Home() {
   const setupFlags = [hasProfile, hasVoice, hasRepos, hasLetters];
   const setupStatuses = stepStatuses(setupFlags);
   const setupDone = setupFlags.filter(Boolean).length;
-  const railSetup: RailStep[] = ["Add CV", "Voice", "GitHub", "First letter"].map((label, i) => ({
+  const railSetup: RailStep[] = ["Add CV", "Voice", "GitHub", "First cover letter"].map((label, i) => ({
     label,
     status: setupStatuses[i],
     pct: setupStatuses[i] === "active" ? 30 : undefined,
@@ -576,7 +576,7 @@ export function Home() {
     },
     {
       n: 4,
-      title: "Write your first letter",
+      title: "Write your first cover letter",
       desc: "Tailored, grounded, and in your voice.",
       status: setupStatuses[3],
       action: hasLetters ? (
