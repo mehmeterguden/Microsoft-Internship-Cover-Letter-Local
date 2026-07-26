@@ -312,12 +312,12 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{suggestion}") && block.endsWith("{/suggestion}")) {
         const inner = block.slice(12, -13).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-2 rounded-xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/15 via-surface-2 to-emerald-500/10 p-3 shadow-xs space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-500/20 text-amber-300 text-[11px]">💡</span>
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-r-lg border-l-3 border-indigo-500 bg-indigo-500/10 px-2.5 py-1.5 space-y-0.5 shadow-xs">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
+              <span className="text-[11px]">💡</span>
               <span>Öneri / Actionable Suggestion</span>
             </div>
-            <div className="text-[11.5px] text-fg-mid leading-relaxed pt-0.5">
+            <div className="text-[11px] text-fg-mid leading-relaxed">
               {parseFormattedInlineText(inner)}
             </div>
           </div>
@@ -327,12 +327,12 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{recruiter}") && block.endsWith("{/recruiter}")) {
         const inner = block.slice(11, -12).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-2 rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-surface-2 to-purple-900/10 p-3 shadow-xs space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-purple-500/20 text-purple-300 text-[11px]">👔</span>
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-r-lg border-l-3 border-purple-500 bg-purple-500/10 px-2.5 py-1.5 space-y-0.5 shadow-xs">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-300">
+              <span className="text-[11px]">👔</span>
               <span>İşe Alım Uzmanı Notu / Recruiter Insight</span>
             </div>
-            <div className="text-[11.5px] text-fg-mid leading-relaxed pt-0.5">
+            <div className="text-[11px] text-fg-mid leading-relaxed">
               {parseFormattedInlineText(inner)}
             </div>
           </div>
@@ -342,11 +342,11 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{example}") && block.endsWith("{/example}")) {
         const inner = block.slice(9, -10).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-2 rounded-lg border border-border/80 bg-surface-3/90 p-2.5 space-y-1 font-mono text-[11px]">
-            <div className="flex items-center justify-between text-[10px] font-sans font-semibold text-fg-mid">
-              <span className="flex items-center gap-1 text-indigo-400">📝 Cümle Önerisi / Example Snippet</span>
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border border-border/70 bg-surface-3/80 p-2 space-y-0.5 font-mono text-[10.5px]">
+            <div className="text-[10px] font-sans font-semibold text-indigo-400 flex items-center gap-1">
+              📝 Cümle Önerisi / Example Snippet
             </div>
-            <div className="text-indigo-200 leading-relaxed bg-black/20 p-2 rounded border border-white/5 whitespace-pre-wrap">
+            <div className="text-indigo-200 leading-snug whitespace-pre-wrap pt-0.5 font-mono">
               {inner}
             </div>
           </div>
@@ -356,8 +356,8 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{comment}") && block.endsWith("{/comment}")) {
         const inner = block.slice(9, -10).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-1.5 rounded-lg border border-border/50 bg-surface-2/40 p-2 text-[10.5px] text-fg-low italic flex items-start gap-1.5">
-            <span className="not-italic shrink-0 opacity-70">💬</span>
+          <div key={`b-${bIdx}`} className="my-1 border-l-2 border-border/70 pl-2 py-0.5 text-[10.5px] text-fg-low italic flex items-start gap-1">
+            <span className="not-italic opacity-70">💬</span>
             <span>{inner}</span>
           </div>
         );
@@ -2970,7 +2970,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 /* Expanded Inline Chat View Inside Right Sidebar */
                 <div className="flex flex-col space-y-3 pt-1">
                   {/* Chat Messages Body */}
-                  <div className="max-h-[360px] overflow-y-auto pr-1 space-y-3 border-t border-b border-indigo-500/20 py-3">
+                  <div className="max-h-[440px] overflow-y-auto pr-1 space-y-3 border-t border-b border-indigo-500/20 py-3">
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
                         <Bot size={20} className="text-indigo-400" />
@@ -3025,20 +3025,22 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                     )}
 
                     {chatWorking && (
-                      <div className="flex items-center gap-2 text-[11px] text-indigo-300 animate-pulse py-1">
-                        <Loader2 size={13} className="animate-spin text-indigo-400 shrink-0" />
-                        Formulating advice…
+                      <div className="flex items-center gap-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 text-[11px] text-indigo-300 my-1 animate-pulse shadow-xs">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-md bg-indigo-600/30 text-amber-300 shrink-0">
+                          <Sparkles size={11} className="animate-spin text-amber-300" />
+                        </span>
+                        <span className="font-medium text-fg-mid">AI analiz edip yanıtı hazırlıyor...</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Input Footer */}
-                  <div className="flex items-center gap-2 pt-1">
+                  {/* Input Footer (Full-Width Textarea with Floating Send Button) */}
+                  <div className="relative w-full pt-1">
                     <Textarea
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       placeholder="Ask AI Advisor..."
-                      className="min-h-[38px] max-h-[90px] text-xs resize-none"
+                      className="w-full text-xs min-h-[46px] max-h-[100px] pr-10 pl-3 py-2.5 bg-surface-2/90 border border-border rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition resize-none leading-relaxed"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -3046,17 +3048,15 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                         }
                       }}
                     />
-                    <Button
+                    <button
                       type="button"
-                      variant="primary"
-                      size="sm"
-                      loading={chatWorking}
                       disabled={!chatInput.trim() || chatWorking}
                       onClick={() => void handleSendChatMessage()}
-                      className="h-9 px-3 bg-indigo-600 hover:bg-indigo-500 text-white shrink-0"
+                      className="absolute right-2.5 bottom-2.5 h-7 w-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white flex items-center justify-center cursor-pointer shadow-md shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95 shrink-0"
+                      title="Send message"
                     >
-                      <Send size={13} />
-                    </Button>
+                      {chatWorking ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    </button>
                   </div>
                 </div>
               )}
