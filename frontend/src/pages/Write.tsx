@@ -3005,14 +3005,14 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 /* Expanded Inline Chat View Inside Right Sidebar */
                 <div className="flex flex-col space-y-3 pt-2">
                   {/* Chat Messages Body */}
-                  <div className="max-h-[440px] overflow-y-auto pr-1 pb-6 space-y-3 border-t border-b border-indigo-500/20 py-3">
+                  <div className="max-h-[240px] overflow-y-auto pr-1 pb-4 space-y-3 border-t border-b border-indigo-500/20 py-3">
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
                         <Bot size={20} className="text-indigo-400" />
                         <p className="text-[11.5px] text-fg-mid leading-relaxed font-medium">
                           Ask a question or select a topic:
                         </p>
-                        <div className="flex flex-col gap-1.5 w-full pt-1">
+                        <div className="grid grid-cols-2 gap-1.5 w-full pt-1">
                           {[
                             { label: "Evaluate my cover letter overall", icon: Target },
                             { label: "How can I stand out for this role?", icon: Rocket },
@@ -3023,10 +3023,10 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                               key={label}
                               type="button"
                               onClick={() => void handleSendChatMessage(label)}
-                              className="text-left text-[11px] text-fg hover:text-indigo-300 bg-surface-2/80 hover:bg-indigo-500/10 border border-border/70 p-2 rounded-lg transition cursor-pointer font-medium flex items-center gap-2"
+                              className="text-left text-[10.5px] text-fg hover:text-indigo-300 bg-surface-2/80 hover:bg-indigo-500/10 border border-border/70 p-2 rounded-lg transition cursor-pointer font-medium flex items-center gap-1.5 leading-snug"
                             >
                               <Icon size={12} className="text-indigo-400 shrink-0" />
-                              <span>{label}</span>
+                              <span className="line-clamp-2">{label}</span>
                             </button>
                           ))}
                         </div>
