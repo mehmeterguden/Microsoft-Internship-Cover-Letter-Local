@@ -1,4 +1,4 @@
-"""Company Intelligence Engine.
+"""Company Deep Search Engine.
 
 Given a company name (and optionally a role title + a pasted job description),
 this package researches the company from free, public sources and — later phases —

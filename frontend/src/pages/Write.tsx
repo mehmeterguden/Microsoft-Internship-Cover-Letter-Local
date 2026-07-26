@@ -1316,7 +1316,7 @@ function CompactIntelCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-semibold text-fg">Company Intel</span>
+            <span className="text-[12px] font-semibold text-fg">Company Deep Search</span>
             <Pill tone="success" mono className="py-0 px-1.5 text-[9px]">Ready</Pill>
             {report.meta.from_cache && cachedAt && (
               <span className="font-mono text-[9px] text-fg-low">{formatWhen(cachedAt)}</span>
@@ -2087,10 +2087,26 @@ export function Write() {
   }
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatWorking, setChatWorking] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const checkAndAutoLoadResearch = useCallback(async (companyName: string, roleTitle?: string) => {
+    if (!companyName.trim()) return;
+    try {
+      const hit = await getCachedReport(companyName.trim(), roleTitle?.trim() || undefined);
+      if (hit && hit.report) {
+        setResearchReport(hit.report);
+        setAgentData(hit.report as unknown as Record<string, unknown>);
+        if (hit.cached_at) setResearchCachedAt(hit.cached_at);
+        setResearchPhase("done");
+      }
+    } catch {
+      /* No cached research */
+    }
+  }, []);
 
   useEffect(() => {
     if (aiChatOpen && chatMessages.length > 0 && chatContainerRef.current) {
@@ -2226,7 +2242,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
     setTailoringModalOpen(true);
   };
 
-  // Reset research when company changes
+  // Reset research when company changes & auto-load cached report if available
   const setCompany = (v: string) => {
     setCompanyRaw(v);
     setTailoringQuestions([]);
@@ -2244,6 +2260,9 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
       setModalOpen(false);
     }
     setResearchCacheHit(null);
+    if (v.trim()) {
+      void checkAndAutoLoadResearch(v, role);
+    }
   };
 
   useEffect(() => () => researchAbortRef.current?.abort(), []);
@@ -2262,6 +2281,9 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
           const text = job.letter?.text ?? "";
           if (text) { setLetter(text); setDone(true); }
           jobIdRef.current = job.id ?? Number(jobId);
+          if (job.company) {
+            void checkAndAutoLoadResearch(job.company, job.role);
+          }
         })
         .catch(() => toast.danger("Couldn't open that letter"));
       return;
@@ -2269,10 +2291,13 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
     const c = searchParams.get("company");
     const r = searchParams.get("role");
     const jd = searchParams.get("jd");
-    if (c) setCompanyRaw(c);
+    if (c) {
+      setCompanyRaw(c);
+      void checkAndAutoLoadResearch(c, r || undefined);
+    }
     if (r) setRole(r);
     if (jd) setJobPosting(jd);
-  }, [searchParams]);
+  }, [searchParams, checkAndAutoLoadResearch]);
 
   /* Research event handler */
   const onResearchEvent = useCallback((event: ResearchEvent) => {
@@ -2479,6 +2504,19 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
 
   const [floatingPos, setFloatingPos] = useState<{ top: number; left: number } | null>(null);
 
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (floatingPos && !target.closest(".cll-floating-toolbar") && !target.closest("textarea")) {
+        setSelectedText("");
+        setSelectionRange(null);
+        setFloatingPos(null);
+      }
+    };
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => document.removeEventListener("mousedown", handleGlobalClick);
+  }, [floatingPos]);
+
   const handleTextareaSelect = (e?: React.SyntheticEvent<HTMLTextAreaElement>) => {
     if (!textareaRef.current) return;
     const start = textareaRef.current.selectionStart;
@@ -2497,15 +2535,22 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
           if (rect) {
             const relativeLeft = Math.min(
               rect.width - 340,
-              Math.max(16, mouseEvt.clientX - rect.left - 160)
+              Math.max(16, mouseEvt.clientX - rect.left - 120)
             );
-            const relativeTop = Math.max(12, mouseEvt.clientY - rect.top - 64);
+            const relativeTop = Math.max(12, mouseEvt.clientY - rect.top - 48);
             setFloatingPos({ top: relativeTop, left: relativeLeft });
           }
         } else if (!floatingPos) {
           setFloatingPos({ top: 30, left: 40 });
         }
+        return;
       }
+    }
+    // Deselected or too short selection -> close toolbar
+    if (selectedText) {
+      setSelectedText("");
+      setSelectionRange(null);
+      setFloatingPos(null);
     }
   };
 
@@ -2811,7 +2856,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
               {researchPhase === "done" && researchReport && !streaming && (
                 <div className="flex items-center gap-1.5 border-b border-border bg-accent-weak px-4 py-2 text-[10.5px] font-semibold text-accent-text">
                   <Sparkles size={11} />
-                  Grounded in company intel · {researchReport.company_name}
+                  Grounded in deep search · {researchReport.company_name}
                   <button type="button" onClick={() => setModalOpen(true)} className="ml-auto flex items-center gap-1 text-[10px] hover:underline">
                     <Search size={10} /> View report
                   </button>
@@ -2823,30 +2868,11 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 {/* FLOATING SELECTION AI TOOLBAR OVER SELECTED TEXT */}
                 {selectedText && floatingPos && !streaming && (
                   <div
-                    className="absolute z-40 flex flex-col rounded-xl border border-indigo-500/50 bg-surface/95 p-3 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 max-w-[420px]"
+                    className="cll-floating-toolbar absolute z-40 flex items-center gap-1 rounded-xl border border-indigo-500/40 bg-surface/95 p-1.5 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
                     style={{ top: `${floatingPos.top}px`, left: `${floatingPos.left}px` }}
                   >
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2 mb-2">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
-                          <Sparkles size={11} />
-                        </span>
-                        <span className="font-mono text-[11px] text-indigo-400">Inline AI Helper:</span>
-                        <span className="truncate max-w-[180px] text-fg-mid font-medium">"{selectedText}"</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => { setSelectedText(""); setSelectionRange(null); setFloatingPos(null); }}
-                        className="text-fg-low hover:text-fg rounded p-0.5"
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-
-                    {/* Actions */}
                     {aiMode === "menu" ? (
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         <Button variant="primary" size="xs" loading={aiWorking} onClick={() => handleInlineAction("regenerate")}>
                           <RotateCw size={11} /> Rephrase
                         </Button>
@@ -2878,17 +2904,17 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                           Expand
                         </Button>
 
-                        <Button variant="ghost" size="xs" onClick={() => setAiMode("custom")}>
-                          <Wand2 size={11} /> Custom AI
+                        <Button variant="ghost" size="xs" onClick={() => setAiMode("custom")} className="text-fg-mid hover:text-fg">
+                          <Wand2 size={11} /> Custom
                         </Button>
                       </div>
                     ) : aiMode === "custom" ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-0.5">
                         <Input
                           value={aiInput}
                           onChange={(e) => setAiInput(e.target.value)}
                           placeholder="Custom AI instruction..."
-                          className="h-8 text-[12px]"
+                          className="h-7 text-xs w-48"
                           autoFocus
                           onKeyDown={(e) => { if (e.key === "Enter") handleInlineAction("custom"); }}
                         />
@@ -2900,13 +2926,13 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1.5 p-1">
+                        <div className="flex items-center gap-1.5">
                           <Input
                             value={aiInput}
                             onChange={(e) => setAiInput(e.target.value)}
                             placeholder="Ask AI about this text..."
-                            className="h-8 text-[12px]"
+                            className="h-7 text-xs w-52"
                             autoFocus
                             onKeyDown={(e) => { if (e.key === "Enter") handleInlineAction("ask"); }}
                           />
@@ -3098,83 +3124,121 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
               )}
             </section>
 
-            {/* Card 2: Regenerate & Refine Options */}
-            <section className="rounded-[16px] border border-border bg-surface p-4 space-y-3.5">
-              <div className="flex items-center justify-between border-b border-border/70 pb-2">
-                <h3 className="text-xs font-bold text-fg">Regenerate Options</h3>
-                <span className="text-[10px] font-mono text-fg-low">Refine Controls</span>
-              </div>
-
-              <Field label="Tone">
-                <Segmented options={TONES} value={tone} onChange={(v) => { setTone(v); setToneAutoDetected(false); }} />
-              </Field>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-fg">
-                  <span>Target Length</span>
-                  <span className="font-mono text-[10px] text-accent-text">{lenLabel}</span>
+            {/* Card 2: Regenerate & Refine Options (Collapsed by default) */}
+            <section className="rounded-[16px] border border-border bg-surface p-3.5 shadow-md relative overflow-hidden transition-all duration-200">
+              <div
+                onClick={() => setRegenerateOpen((prev) => !prev)}
+                className="flex items-center justify-between cursor-pointer select-none group"
+                title="Click to expand or collapse Regenerate Options"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-surface-2 text-indigo-400 font-bold border border-border/70 group-hover:scale-105 transition-transform">
+                    <RotateCw size={15} />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold text-fg group-hover:text-indigo-300 transition-colors">Regenerate Options</h3>
+                    <span className="text-[10px] text-fg-mid font-medium">Tone, length & custom AI directions</span>
+                  </div>
                 </div>
-                <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
-              </div>
-
-              <Field label={<>Custom AI Direction <span className="text-fg-low">· optional</span></>}>
-                <Input
-                  value={customInstruction}
-                  onChange={(e) => setCustomInstruction(e.target.value)}
-                  placeholder="e.g. Emphasize backend scaling experience..."
-                  className="h-8 text-xs"
-                />
-              </Field>
-
-              <div className="pt-1">
-                <Button
+                <button
                   type="button"
-                  variant="primary"
-                  size="md"
-                  onClick={generate}
-                  loading={streaming}
-                  className="w-full text-xs font-bold shadow-md shadow-accent/20"
+                  onClick={() => setRegenerateOpen((prev) => !prev)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 transition cursor-pointer"
+                  title={regenerateOpen ? "Minimize options" : "Expand options"}
                 >
-                  <RotateCw size={14} className="mr-1.5" />
-                  Regenerate Draft
-                </Button>
+                  {regenerateOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
               </div>
+
+              {regenerateOpen && (
+                <div className="flex flex-col space-y-3.5 pt-3 border-t border-border/60 mt-3">
+                  <Field label="Tone">
+                    <Segmented options={TONES} value={tone} onChange={(v) => { setTone(v); setToneAutoDetected(false); }} />
+                  </Field>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-fg">
+                      <span>Target Length</span>
+                      <span className="font-mono text-[10px] text-accent-text">{lenLabel}</span>
+                    </div>
+                    <Slider value={lengthPct} min={0} max={100} onChange={setLengthPct} aria-label="Letter length" />
+                  </div>
+
+                  <Field label={<>Custom AI Direction <span className="text-fg-low">· optional</span></>}>
+                    <Input
+                      value={customInstruction}
+                      onChange={(e) => setCustomInstruction(e.target.value)}
+                      placeholder="e.g. Emphasize backend scaling experience..."
+                      className="h-8 text-xs"
+                    />
+                  </Field>
+
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="md"
+                      onClick={generate}
+                      loading={streaming}
+                      className="w-full text-xs font-bold shadow-md shadow-accent/20"
+                    >
+                      <RotateCw size={14} className="mr-1.5" />
+                      Regenerate Draft
+                    </Button>
+                  </div>
+                </div>
+              )}
             </section>
 
-            {/* Card 3: Company Intel & Search Influence */}
-            <section className="rounded-[16px] border border-border bg-surface p-4 space-y-3">
+            {/* Card 3: Company Deep Search & Search Influence */}
+            <section className="rounded-[16px] border border-border bg-surface p-4 space-y-3 shadow-md">
               <div className="flex items-center justify-between border-b border-border/60 pb-2">
                 <h4 className="text-xs font-bold text-fg flex items-center gap-1.5">
-                  <Search size={13} className="text-accent" /> Company Intel
+                  <Search size={13} className="text-accent" /> Company Deep Search
                 </h4>
                 {researchPhase === "done" && (
-                  <span className="text-[9.5px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Active</span>
+                  <span className="text-[9.5px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Completed
+                  </span>
                 )}
               </div>
 
               {researchPhase === "done" && researchReport ? (
-                <div className="rounded-lg border border-border bg-surface-2 p-3 text-xs space-y-2">
-                  <div className="font-semibold text-accent-text flex items-center justify-between">
-                    <span>{researchReport.company_name}</span>
-                    <button type="button" onClick={() => setModalOpen(true)} className="text-[10px] text-fg-mid hover:text-fg hover:underline">
-                      View details
+                <div className="rounded-xl border border-border bg-surface-2/80 p-3 text-xs space-y-2.5">
+                  <div className="font-semibold text-fg flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-accent-text">
+                      <Sparkles size={12} className="text-accent" /> {researchReport.company_name}
+                    </span>
+                    <button type="button" onClick={() => setModalOpen(true)} className="text-[10.5px] text-indigo-300 hover:underline font-medium">
+                      View Full Report
                     </button>
                   </div>
-                  <p className="text-[11px] text-fg-mid line-clamp-3">
+                  <p className="text-[11px] text-fg-mid line-clamp-3 leading-relaxed">
                     {typeof researchReport.overview === "string"
                       ? researchReport.overview
                       : (researchReport.overview as { summary?: string })?.summary || researchReport.company_name}
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="xs"
-                    onClick={generate}
-                    loading={streaming}
-                    className="w-full mt-1 text-[11px]"
-                  >
-                    <Sparkles size={11} className="mr-1 text-accent" /> Influence & Regenerate with Intel
-                  </Button>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="xs"
+                      onClick={() => setModalOpen(true)}
+                      className="flex-1 text-[11px] font-medium"
+                    >
+                      <Search size={11} className="mr-1" /> View Details
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => startResearch(true)}
+                      className="text-[11px]"
+                      title="Re-run Deep Search"
+                    >
+                      <RotateCw size={11} /> Re-run
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <ResearchPromptButton
