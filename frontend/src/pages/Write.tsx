@@ -2965,23 +2965,26 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
           {/* Right Assistant & Control Sidebar */}
           <div className="flex flex-col gap-4">
             {/* Card 1: Ask AI Inline Expandable Section */}
-            <section className="rounded-[16px] border border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 via-surface to-surface p-4 space-y-3 shadow-md relative overflow-hidden transition-all duration-200">
-              <div className="flex items-center justify-between">
+            <section className="rounded-[16px] border border-indigo-500/40 bg-gradient-to-b from-indigo-500/10 via-surface to-surface p-3.5 shadow-md relative overflow-hidden transition-all duration-200">
+              <div
+                onClick={() => setAiChatOpen((prev) => !prev)}
+                className="flex items-center justify-between cursor-pointer select-none group"
+              >
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30">
-                    <Sparkles size={15} />
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30 group-hover:scale-105 transition-transform">
+                    <Sparkles size={16} />
                   </span>
                   <div>
-                    <h3 className="text-xs font-bold text-fg">Ask AI</h3>
+                    <h3 className="text-xs font-bold text-fg group-hover:text-indigo-300 transition-colors">Ask AI</h3>
                     <span className="text-[10px] text-indigo-400 font-medium">Ask anything about your application</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {chatMessages.length > 0 && (
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  {aiChatOpen && chatMessages.length > 0 && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setChatMessages([]); }}
-                      className="p-1 text-fg-low hover:text-fg rounded transition"
+                      onClick={() => setChatMessages([])}
+                      className="p-1 text-fg-low hover:text-fg rounded transition cursor-pointer"
                       title="Clear chat"
                     >
                       <Trash2 size={13} />
@@ -2998,22 +3001,9 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 </div>
               </div>
 
-              {!aiChatOpen ? (
-                /* Collapsed View */
-                <div>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="md"
-                    onClick={() => setAiChatOpen(true)}
-                    className="w-full text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/25 gap-2"
-                  >
-                    <MessageSquare size={14} /> Ask AI <ChevronDown size={14} className="ml-auto opacity-70" />
-                  </Button>
-                </div>
-              ) : (
+              {aiChatOpen && (
                 /* Expanded Inline Chat View Inside Right Sidebar */
-                <div className="flex flex-col space-y-3 pt-1">
+                <div className="flex flex-col space-y-3 pt-2">
                   {/* Chat Messages Body */}
                   <div className="max-h-[440px] overflow-y-auto pr-1 pb-6 space-y-3 border-t border-b border-indigo-500/20 py-3">
                     {chatMessages.length === 0 ? (
