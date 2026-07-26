@@ -2093,14 +2093,10 @@ export function Write() {
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (aiChatOpen && chatContainerRef.current) {
-      const container = chatContainerRef.current;
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: "smooth",
-      });
+    if (aiChatOpen && chatMessages.length > 0 && chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatMessages, chatWorking, aiChatOpen]);
+  }, [chatMessages.length, chatWorking]);
 
   const handleSendChatMessage = async (presetMessage?: string) => {
     const query = (presetMessage || chatInput).trim();
