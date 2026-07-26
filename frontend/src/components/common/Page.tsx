@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
-  /** small breadcrumb, Title Case, e.g. "Generate / Write Letter" */
+  /** small breadcrumb, Title Case, e.g. "Generate / Write Cover Letter" */
   eyebrow: string;
   title: ReactNode;
   subtitle?: ReactNode;

@@ -606,7 +606,7 @@ function UploadState({
             </span>
             <div>
               <div className="text-[13.5px] font-semibold text-fg">Start writing a cover letter</div>
-              <div className="text-[11.5px] text-fg-mid">Your profile is ready — write your first letter</div>
+              <div className="text-[11.5px] text-fg-mid">Your profile is ready — write your first cover letter</div>
             </div>
           </div>
           <ChevronRight size={16} className="shrink-0 text-fg-low transition-transform group-hover:translate-x-0.5" />
@@ -782,7 +782,7 @@ function ReadyState({ draft, mode }: { draft: CVExtraction; mode: SaveMode }) {
 
       <div className="mt-5 text-[22px] font-bold tracking-[-0.4px] text-fg">Your profile is ready</div>
       <div className="mt-2 max-w-[460px] text-[13.5px] leading-[1.65] text-fg-mid">
-        {summary} Refine anything from your profile, or start writing your first letter right now.
+        {summary} Refine anything from your profile, or start writing your first cover letter right now.
       </div>
 
       <div className="mt-6 flex flex-wrap justify-center gap-2.5">
@@ -790,7 +790,7 @@ function ReadyState({ draft, mode }: { draft: CVExtraction; mode: SaveMode }) {
           <Link to="/profile">Go to profile</Link>
         </Button>
         <Button asChild variant="primary">
-          <Link to="/write">Write a letter</Link>
+          <Link to="/write">Write a cover letter</Link>
         </Button>
       </div>
     </div>
