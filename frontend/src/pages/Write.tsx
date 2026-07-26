@@ -228,15 +228,15 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
 
   const renderLucideIconByName = (name: string) => {
     const lower = name.toLowerCase();
-    if (lower === "lightbulb" || lower === "idea") return <Lightbulb size={12} className="inline text-amber-400 shrink-0 mx-0.5" />;
-    if (lower === "user" || lower === "usercheck" || lower === "recruiter") return <UserCheck size={12} className="inline text-purple-400 shrink-0 mx-0.5" />;
-    if (lower === "check" || lower === "pro") return <CheckCircle2 size={12} className="inline text-emerald-400 shrink-0 mx-0.5" />;
-    if (lower === "alert" || lower === "warning" || lower === "con") return <AlertTriangle size={12} className="inline text-rose-400 shrink-0 mx-0.5" />;
-    if (lower === "target") return <Target size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
-    if (lower === "rocket") return <Rocket size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
-    if (lower === "sparkles" || lower === "star") return <Sparkles size={12} className="inline text-amber-400 shrink-0 mx-0.5" />;
-    if (lower === "file" || lower === "code") return <FileText size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
-    return <Info size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
+    if (lower === "lightbulb" || lower === "idea") return <Lightbulb size={12} className="inline-block align-middle text-amber-400 shrink-0 mr-1" />;
+    if (lower === "user" || lower === "usercheck" || lower === "recruiter") return <UserCheck size={12} className="inline-block align-middle text-purple-400 shrink-0 mr-1" />;
+    if (lower === "check" || lower === "pro") return <CheckCircle2 size={12} className="inline-block align-middle text-emerald-400 shrink-0 mr-1" />;
+    if (lower === "alert" || lower === "warning" || lower === "con") return <AlertTriangle size={12} className="inline-block align-middle text-rose-400 shrink-0 mr-1" />;
+    if (lower === "target") return <Target size={12} className="inline-block align-middle text-indigo-400 shrink-0 mr-1" />;
+    if (lower === "rocket") return <Rocket size={12} className="inline-block align-middle text-indigo-400 shrink-0 mr-1" />;
+    if (lower === "sparkles" || lower === "star") return <Sparkles size={12} className="inline-block align-middle text-amber-400 shrink-0 mr-1" />;
+    if (lower === "file" || lower === "code") return <FileText size={12} className="inline-block align-middle text-indigo-400 shrink-0 mr-1" />;
+    return <Info size={12} className="inline-block align-middle text-indigo-400 shrink-0 mr-1" />;
   };
 
   const parseFormattedInlineText = (text: string) => {
@@ -265,11 +265,11 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       }
     }
 
-    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\{pro\}.*?\{\/pro\}|\{con\}.*?\{\/con\}|\{icon:[a-z0-9_-]+\}|\*\*.*?\*\*)/g;
+    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\{pro\}.*?\{\/pro\}|\{con\}.*?\{\/con\}|\{icon:[a-z0-9_-]+\}\s*|\*\*.*?\*\*)/g;
     const parts = cleanText.split(regex);
 
     return parts.map((part, index) => {
-      const iconMatch = part.match(/^\{icon:([a-z0-9_-]+)\}$/i);
+      const iconMatch = part.match(/^\{icon:([a-z0-9_-]+)\}\s*$/i);
       if (iconMatch) {
         return <span key={index}>{renderLucideIconByName(iconMatch[1])}</span>;
       }
@@ -366,13 +366,13 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{example}") && block.endsWith("{/example}")) {
         const inner = block.slice(9, -10).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border border-border/60 bg-surface-3/80 p-2 space-y-1 font-mono text-[10.5px]">
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border border-border/60 bg-surface-3/80 p-2 space-y-1 text-[10.5px]">
             <div className="text-[10px] font-sans font-semibold text-fg-mid flex items-center gap-1">
               <FileText size={11} className="text-indigo-400 shrink-0" />
               Example Snippet
             </div>
             <div className="text-indigo-200 leading-snug whitespace-pre-wrap font-mono">
-              {inner}
+              {parseFormattedInlineText(inner)}
             </div>
           </div>
         );
@@ -383,7 +383,7 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
         return (
           <div key={`b-${bIdx}`} className="my-1 border-l-2 border-border pl-2 py-0.5 text-[10.5px] text-fg-low italic flex items-start gap-1">
             <Info size={11} className="not-italic shrink-0 mt-0.5 opacity-70" />
-            <span>{inner}</span>
+            <span>{parseFormattedInlineText(inner)}</span>
           </div>
         );
       }
@@ -2088,6 +2088,13 @@ export function Write() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatWorking, setChatWorking] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (aiChatOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, chatWorking, aiChatOpen]);
 
   const handleSendChatMessage = async (presetMessage?: string) => {
     const query = (presetMessage || chatInput).trim();
@@ -3004,7 +3011,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 /* Expanded Inline Chat View Inside Right Sidebar */
                 <div className="flex flex-col space-y-3 pt-1">
                   {/* Chat Messages Body */}
-                  <div className="max-h-[440px] overflow-y-auto pr-1 space-y-3 border-t border-b border-indigo-500/20 py-3">
+                  <div className="max-h-[440px] overflow-y-auto pr-1 pb-6 space-y-3 border-t border-b border-indigo-500/20 py-3">
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
                         <Bot size={20} className="text-indigo-400" />
@@ -3067,6 +3074,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                         <span className="font-medium text-fg-mid">AI is analyzing and preparing a response...</span>
                       </div>
                     )}
+                    <div ref={chatEndRef} />
                   </div>
 
                   {/* Input Footer (Full-Width Textarea with Floating Send Button) */}
