@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Bot,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -13,19 +14,24 @@ import {
   ExternalLink,
   FileDown,
   FileText,
+  HelpCircle,
   Info,
+  Lightbulb,
   Link as LinkIcon,
   Loader2,
   MessageSquare,
   Pencil,
+  Rocket,
   RotateCw,
   Save,
   Search,
   Send,
   ShieldCheck,
   Sparkles,
+  Target,
   Trash2,
   User,
+  UserCheck,
   Wand2,
   X,
   Zap,
@@ -59,6 +65,7 @@ import { errorMessage } from "@/api/client";
 import { createJob, getJob, updateJob } from "@/api/jobs";
 import type { TailoringQuestion, Tone } from "@/api/types";
 import { useAsync } from "@/lib/useAsync";
+import { useSettingsStore } from "@/store/settings";
 import { toast } from "@/store/toast";
 import { cn } from "@/lib/utils";
 
@@ -219,6 +226,19 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
 
   const activeText = content.slice(0, displayedLength);
 
+  const renderLucideIconByName = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower === "lightbulb" || lower === "idea") return <Lightbulb size={12} className="inline text-amber-400 shrink-0 mx-0.5" />;
+    if (lower === "user" || lower === "usercheck" || lower === "recruiter") return <UserCheck size={12} className="inline text-purple-400 shrink-0 mx-0.5" />;
+    if (lower === "check" || lower === "pro") return <CheckCircle2 size={12} className="inline text-emerald-400 shrink-0 mx-0.5" />;
+    if (lower === "alert" || lower === "warning" || lower === "con") return <AlertTriangle size={12} className="inline text-rose-400 shrink-0 mx-0.5" />;
+    if (lower === "target") return <Target size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
+    if (lower === "rocket") return <Rocket size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
+    if (lower === "sparkles" || lower === "star") return <Sparkles size={12} className="inline text-amber-400 shrink-0 mx-0.5" />;
+    if (lower === "file" || lower === "code") return <FileText size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
+    return <Info size={12} className="inline text-indigo-400 shrink-0 mx-0.5" />;
+  };
+
   const parseFormattedInlineText = (text: string) => {
     let cleanText = text;
 
@@ -245,14 +265,18 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       }
     }
 
-    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\{pro\}.*?\{\/pro\}|\{con\}.*?\{\/con\}|\*\*.*?\*\*)/g;
+    const regex = /(\{\*\*\}.*?\{\*\*\}|\{highlight\}.*?\{\/highlight\}|\{pro\}.*?\{\/pro\}|\{con\}.*?\{\/con\}|\{icon:[a-z0-9_-]+\}|\*\*.*?\*\*)/g;
     const parts = cleanText.split(regex);
 
     return parts.map((part, index) => {
+      const iconMatch = part.match(/^\{icon:([a-z0-9_-]+)\}$/i);
+      if (iconMatch) {
+        return <span key={index}>{renderLucideIconByName(iconMatch[1])}</span>;
+      }
       if (part.startsWith("{**}") && part.endsWith("{**}")) {
         const inner = part.slice(4, -4);
         return (
-          <strong key={index} className="font-semibold text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 mx-0.5 shadow-xs">
+          <strong key={index} className="font-semibold text-fg bg-surface-2/60 px-1 py-0.5 rounded mx-0.5">
             {inner}
           </strong>
         );
@@ -260,7 +284,7 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (part.startsWith("**") && part.endsWith("**")) {
         const inner = part.slice(2, -2);
         return (
-          <strong key={index} className="font-semibold text-indigo-300 bg-indigo-500/10 px-1 py-0.5 rounded mx-0.5">
+          <strong key={index} className="font-semibold text-fg bg-surface-2/60 px-1 py-0.5 rounded mx-0.5">
             {inner}
           </strong>
         );
@@ -268,24 +292,24 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (part.startsWith("{highlight}") && part.endsWith("{/highlight}")) {
         const inner = part.slice(11, -12);
         return (
-          <span key={index} className="inline-flex items-center gap-1 font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md text-[10.5px] border border-amber-500/20 mx-0.5">
-            ✨ {inner}
+          <span key={index} className="font-semibold text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded text-[11px] mx-0.5">
+            {inner}
           </span>
         );
       }
       if (part.startsWith("{pro}") && part.endsWith("{/pro}")) {
         const inner = part.slice(5, -6);
         return (
-          <span key={index} className="inline-flex items-center gap-1 font-semibold text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-md text-[10.5px] border border-emerald-500/30 mx-0.5">
-            ✓ {inner}
+          <span key={index} className="inline-flex items-center gap-1 font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10.5px] mx-0.5">
+            <CheckCircle2 size={10} className="shrink-0" /> {inner}
           </span>
         );
       }
       if (part.startsWith("{con}") && part.endsWith("{/con}")) {
         const inner = part.slice(5, -6);
         return (
-          <span key={index} className="inline-flex items-center gap-1 font-semibold text-rose-300 bg-rose-500/15 px-2 py-0.5 rounded-md text-[10.5px] border border-rose-500/30 mx-0.5">
-            ⚠️ {inner}
+          <span key={index} className="inline-flex items-center gap-1 font-medium text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded text-[10.5px] mx-0.5">
+            <AlertTriangle size={10} className="shrink-0" /> {inner}
           </span>
         );
       }
@@ -312,10 +336,10 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{suggestion}") && block.endsWith("{/suggestion}")) {
         const inner = block.slice(12, -13).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-1.5 rounded-r-lg border-l-3 border-indigo-500 bg-indigo-500/10 px-2.5 py-1.5 space-y-0.5 shadow-xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
-              <span className="text-[11px]">💡</span>
-              <span>Öneri / Actionable Suggestion</span>
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border-l-2 border-indigo-500 bg-surface-2/70 p-2.5 space-y-1">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-300">
+              <Lightbulb size={12} className="text-indigo-400 shrink-0" />
+              <span>Suggestion</span>
             </div>
             <div className="text-[11px] text-fg-mid leading-relaxed">
               {parseFormattedInlineText(inner)}
@@ -327,10 +351,10 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{recruiter}") && block.endsWith("{/recruiter}")) {
         const inner = block.slice(11, -12).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-1.5 rounded-r-lg border-l-3 border-purple-500 bg-purple-500/10 px-2.5 py-1.5 space-y-0.5 shadow-xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-300">
-              <span className="text-[11px]">👔</span>
-              <span>İşe Alım Uzmanı Notu / Recruiter Insight</span>
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border-l-2 border-purple-500 bg-surface-2/70 p-2.5 space-y-1">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-300">
+              <UserCheck size={12} className="text-purple-400 shrink-0" />
+              <span>Recruiter Insight</span>
             </div>
             <div className="text-[11px] text-fg-mid leading-relaxed">
               {parseFormattedInlineText(inner)}
@@ -342,11 +366,12 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{example}") && block.endsWith("{/example}")) {
         const inner = block.slice(9, -10).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border border-border/70 bg-surface-3/80 p-2 space-y-0.5 font-mono text-[10.5px]">
-            <div className="text-[10px] font-sans font-semibold text-indigo-400 flex items-center gap-1">
-              📝 Cümle Önerisi / Example Snippet
+          <div key={`b-${bIdx}`} className="my-1.5 rounded-md border border-border/60 bg-surface-3/80 p-2 space-y-1 font-mono text-[10.5px]">
+            <div className="text-[10px] font-sans font-semibold text-fg-mid flex items-center gap-1">
+              <FileText size={11} className="text-indigo-400 shrink-0" />
+              Example Snippet
             </div>
-            <div className="text-indigo-200 leading-snug whitespace-pre-wrap pt-0.5 font-mono">
+            <div className="text-indigo-200 leading-snug whitespace-pre-wrap font-mono">
               {inner}
             </div>
           </div>
@@ -356,8 +381,8 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
       if (block.startsWith("{comment}") && block.endsWith("{/comment}")) {
         const inner = block.slice(9, -10).trim();
         return (
-          <div key={`b-${bIdx}`} className="my-1 border-l-2 border-border/70 pl-2 py-0.5 text-[10.5px] text-fg-low italic flex items-start gap-1">
-            <span className="not-italic opacity-70">💬</span>
+          <div key={`b-${bIdx}`} className="my-1 border-l-2 border-border pl-2 py-0.5 text-[10.5px] text-fg-low italic flex items-start gap-1">
+            <Info size={11} className="not-italic shrink-0 mt-0.5 opacity-70" />
             <span>{inner}</span>
           </div>
         );
@@ -2089,24 +2114,33 @@ export function Write() {
       ? Object.entries(tailoringAnswers).map(([q, a]) => `Q: ${q}\nA: ${a}`).join("\n")
       : "None";
 
+    const targetLang = useSettingsStore.getState().settings?.ai_output_language || "English";
+
     const contextInstruction = `
 [ROLE & APPLICATION ASSISTANT PERSONA]
 You are the AI Career & Application Assistant of the Cover Letter Local web application.
 
+[RESPONSE LANGUAGE MANDATE]
+IMPORTANT: You MUST write your ENTIRE response in this language: "${targetLang}".
+If the target language is English, write in English. If Turkish, write in Turkish.
+
 [FORMATTING DIRECTIVES & STRICT WHITELIST]
-You can use rich formatting tags to render interactive UI components:
+Keep your formatting subtle, clean, natural, and readable (like ChatGPT or Claude).
+Do NOT output raw emojis (e.g. 💡, 👔, 🚀, ✨). Emojis are strictly forbidden.
+You can use rich formatting tags:
 - Bold text: {**}important term{**}
-- Skill / Metric highlight: {highlight}key skill{/highlight}
+- Key skill highlight: {highlight}key skill{/highlight}
 - Positive candidate advantage: {pro}strong skill/fit{/pro}
 - Risk / Missing keyword warning: {con}missing keyword/gap{/con}
-- Actionable writing suggestion card: {suggestion}specific actionable recommendation{/suggestion}
-- Recruiter POV insight card: {recruiter}executive recruiter tip{/recruiter}
+- Actionable suggestion card: {suggestion}specific actionable recommendation{/suggestion}
+- Recruiter insight card: {recruiter}recruiter tip{/recruiter}
 - Example phrasing snippet: {example}suggested alternative sentence{/example}
-- Secondary internal note / comment: {comment}footnote or internal tip{/comment}
+- Internal note: {comment}footnote or tip{/comment}
+- Custom SVG icon tag: {icon:lightbulb}, {icon:target}, {icon:star}, {icon:check}, {icon:warning}, {icon:info}
 - Bullet lists (- item) or numbered lists (1. item). Do NOT use giant raw # H1 headers.
 
 STRICT WHITELIST RULE:
-You MUST ONLY use the allowed tags specified above ({**}, {highlight}, {pro}, {con}, {suggestion}, {recruiter}, {example}, {comment}).
+You MUST ONLY use the allowed tags specified above ({**}, {highlight}, {pro}, {con}, {suggestion}, {recruiter}, {example}, {comment}, {icon:name}).
 Do NOT invent, output, or attempt to render any other custom HTML tags, raw XML shapes, ASCII art, or unrecognized bracket notations outside of this exact whitelist.
 
 [USER'S IMMEDIATE QUERY / MESSAGE]
@@ -2974,23 +3008,24 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
                         <Bot size={20} className="text-indigo-400" />
-                        <p className="text-[11.5px] text-fg-mid leading-relaxed">
-                          Sorunuzu yazın veya hızlı konulardan birini seçin:
+                        <p className="text-[11.5px] text-fg-mid leading-relaxed font-medium">
+                          Ask a question or select a topic:
                         </p>
                         <div className="flex flex-col gap-1.5 w-full pt-1">
                           {[
-                            "🎯 Mektubumu genel olarak değerlendir",
-                            "🚀 Bu rol için nasıl öne çıkabilirim?",
-                            "❓ İşe alım uzmanı neleri sorabilir?",
-                            "💡 Giriş paragrafı için 3 öneri ver",
-                          ].map((preset) => (
+                            { label: "Evaluate my cover letter overall", icon: Target },
+                            { label: "How can I stand out for this role?", icon: Rocket },
+                            { label: "What questions might the recruiter ask?", icon: HelpCircle },
+                            { label: "Give 3 recommendations for opening paragraph", icon: Lightbulb },
+                          ].map(({ label, icon: Icon }) => (
                             <button
-                              key={preset}
+                              key={label}
                               type="button"
-                              onClick={() => void handleSendChatMessage(preset)}
-                              className="text-left text-[11px] text-fg hover:text-indigo-300 bg-surface-2/80 hover:bg-indigo-500/10 border border-border/70 p-2 rounded-lg transition cursor-pointer font-medium"
+                              onClick={() => void handleSendChatMessage(label)}
+                              className="text-left text-[11px] text-fg hover:text-indigo-300 bg-surface-2/80 hover:bg-indigo-500/10 border border-border/70 p-2 rounded-lg transition cursor-pointer font-medium flex items-center gap-2"
                             >
-                              {preset}
+                              <Icon size={12} className="text-indigo-400 shrink-0" />
+                              <span>{label}</span>
                             </button>
                           ))}
                         </div>
@@ -3026,10 +3061,10 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
 
                     {chatWorking && (
                       <div className="flex items-center gap-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 text-[11px] text-indigo-300 my-1 animate-pulse shadow-xs">
-                        <span className="flex h-4 w-4 items-center justify-center rounded-md bg-indigo-600/30 text-amber-300 shrink-0">
-                          <Sparkles size={11} className="animate-spin text-amber-300" />
+                        <span className="flex h-4 w-4 items-center justify-center rounded-md bg-indigo-600/30 text-indigo-300 shrink-0">
+                          <Sparkles size={11} className="animate-spin text-indigo-300" />
                         </span>
-                        <span className="font-medium text-fg-mid">AI analiz edip yanıtı hazırlıyor...</span>
+                        <span className="font-medium text-fg-mid">AI is analyzing and preparing a response...</span>
                       </div>
                     )}
                   </div>
