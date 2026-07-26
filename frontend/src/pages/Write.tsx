@@ -189,19 +189,20 @@ function fitColor(tone: "success" | "warning" | "accent") {
 /* ───────────────────────────────────────────────────────────────────
    Rich AI Chat Message Content Renderer with Streaming Tag Safety & Custom UI Cards
 ────────────────────────────────────────────────────────────────────*/
-function RichAiMessageContent({ content, role }: { content: string; role: "user" | "assistant" }) {
+function RichAiMessageContent({ content, role, isNew = false }: { content: string; role: "user" | "assistant"; isNew?: boolean }) {
   if (!content) return null;
 
   if (role === "user") {
     return <span className="whitespace-pre-wrap">{content}</span>;
   }
 
-  // Typewriter effect state for assistant messages
-  const [displayedLength, setDisplayedLength] = useState(content.length > 60 ? 1 : content.length);
-  const [isTyping, setIsTyping] = useState(content.length > 60);
+  // Typewriter effect state for assistant messages - ONLY animate for brand new live API responses!
+  const animate = isNew && content.length > 40;
+  const [displayedLength, setDisplayedLength] = useState(animate ? 1 : content.length);
+  const [isTyping, setIsTyping] = useState(animate);
 
   useEffect(() => {
-    if (content.length <= 60) {
+    if (!animate) {
       setDisplayedLength(content.length);
       setIsTyping(false);
       return;
@@ -222,7 +223,7 @@ function RichAiMessageContent({ content, role }: { content: string; role: "user"
     }, 15);
 
     return () => clearInterval(interval);
-  }, [content]);
+  }, [content, animate]);
 
   const activeText = content.slice(0, displayedLength);
 
@@ -2082,6 +2083,7 @@ export function Write() {
     role: "user" | "assistant";
     content: string;
     timestamp: string;
+    isNew?: boolean;
   }
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
@@ -2105,6 +2107,7 @@ export function Write() {
       role: "user",
       content: query,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      isNew: false,
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
@@ -2178,6 +2181,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
         role: "assistant",
         content: res.result,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isNew: true,
       };
 
       setChatMessages((prev) => [...prev, aiMsg]);
@@ -3058,7 +3062,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                                   : "bg-surface-2 border border-border text-fg rounded-tl-xs"
                               }`}
                             >
-                              <RichAiMessageContent content={msg.content} role={msg.role} />
+                              <RichAiMessageContent content={msg.content} role={msg.role} isNew={msg.isNew} />
                             </div>
                             <span className="text-[9.5px] text-fg-low font-mono px-1">{msg.timestamp}</span>
                           </div>
