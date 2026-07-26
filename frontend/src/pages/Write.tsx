@@ -2090,11 +2090,15 @@ export function Write() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatWorking, setChatWorking] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (aiChatOpen) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (aiChatOpen && chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
     }
   }, [chatMessages, chatWorking, aiChatOpen]);
 
@@ -3005,7 +3009,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 /* Expanded Inline Chat View Inside Right Sidebar */
                 <div className="flex flex-col space-y-3 pt-2">
                   {/* Chat Messages Body */}
-                  <div className="max-h-[240px] overflow-y-auto pr-1 pb-4 space-y-3 border-t border-b border-indigo-500/20 py-3">
+                  <div ref={chatContainerRef} className="max-h-[240px] overflow-y-auto pr-1 pb-4 space-y-3 border-t border-b border-indigo-500/20 py-3">
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center text-center p-2 space-y-2">
                         <Bot size={20} className="text-indigo-400" />
@@ -3068,7 +3072,6 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                         <span className="font-medium text-fg-mid">AI is analyzing and preparing a response...</span>
                       </div>
                     )}
-                    <div ref={chatEndRef} />
                   </div>
 
                   {/* Input Footer (Full-Width Textarea with Floating Send Button) */}
