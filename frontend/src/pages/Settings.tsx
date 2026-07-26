@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 // TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
 import { useDevFeedbackStore } from "@/store/devFeedback";
 import {
@@ -210,7 +211,16 @@ export function Settings() {
 
 /* ── The editable form (mounted once settings have loaded) ─────────── */
 function SettingsForm({ initial }: { initial: SettingsModel }) {
-  const [tab, setTab] = useState<Tab>("model");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("tab") as Tab | null;
+  const tab: Tab = rawTab && ["model", "integrations", "data", "dev"].includes(rawTab) ? rawTab : "model";
+  const setTab = (nextTab: Tab) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", nextTab);
+      return p;
+    }, { replace: true });
+  };
   const [draft, setDraft] = useState<SettingsModel>(initial);
   const [saved, setSaved] = useState<SettingsModel>(initial);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");

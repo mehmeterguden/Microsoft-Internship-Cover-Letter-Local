@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, RotateCw, Sparkles, Trash2, Upload } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
@@ -753,6 +754,7 @@ function AddLetterDialog({
 type Loaded = { letters: PastCoverLetter[]; style: StyleState };
 
 function VoiceLoaded({ initial }: { initial: Loaded }) {
+  const [searchParams] = useSearchParams();
   const [letters, setLetters] = useState<PastCoverLetter[]>(initial.letters);
   const [profile, setProfile] = useState<VoiceProfile | null>(initial.style.style_profile);
   const [analyzing, setAnalyzing] = useState(false);
@@ -760,7 +762,7 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
   const [progressLabel, setProgressLabel] = useState("");
   const [streamText, setStreamText] = useState("");
   const [preview, setPreview] = useState<VoiceProfile | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(searchParams.get("modal") === "add-sample");
   const [reader, setReader] = useState<PastCoverLetter | null>(null);
   const [toDelete, setToDelete] = useState<PastCoverLetter | null>(null);
   const [deleting, setDeleting] = useState(false);

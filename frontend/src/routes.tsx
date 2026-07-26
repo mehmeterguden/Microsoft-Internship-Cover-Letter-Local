@@ -20,8 +20,11 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "write", element: <Write /> },
+      { path: "write/:jobId", element: <Write /> },
       { path: "research", element: <Research /> },
+      { path: "research/:companySlug", element: <Research /> },
       { path: "cover-letters", element: <CoverLetters /> },
+      { path: "cover-letters/:jobId", element: <CoverLetters /> },
       { path: "profile", element: <Profile /> },
       { path: "onboarding", element: <Onboarding /> },
       { path: "voice", element: <Voice /> },

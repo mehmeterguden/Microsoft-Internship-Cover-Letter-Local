@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -1990,6 +1990,7 @@ function TailoringQuestionsModal({
    Main Write component
 ────────────────────────────────────────────────────────────────────*/
 export function Write() {
+  const routeParams = useParams<{ jobId?: string }>();
   /* Letter inputs */
   const [company, setCompanyRaw] = useState("");
   const [role, setRole] = useState("");
@@ -2271,33 +2272,37 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
   useEffect(() => {
     if (bootRef.current) return;
     bootRef.current = true;
-    const jobId = searchParams.get("job");
-    if (jobId) {
-      getJob(Number(jobId))
+    const targetJobId = routeParams.jobId || searchParams.get("job");
+    if (targetJobId) {
+      getJob(Number(targetJobId))
         .then((job) => {
           setCompanyRaw(job.company || "");
           setRole(job.role || "");
           setJobPosting(job.job_description || "");
           const text = job.letter?.text ?? "";
           if (text) { setLetter(text); setDone(true); }
-          jobIdRef.current = job.id ?? Number(jobId);
+          jobIdRef.current = job.id ?? Number(targetJobId);
           if (job.company) {
             void checkAndAutoLoadResearch(job.company, job.role);
           }
         })
         .catch(() => toast.danger("Couldn't open that letter"));
-      return;
+    } else {
+      const c = searchParams.get("company");
+      const r = searchParams.get("role");
+      const jd = searchParams.get("jd");
+      if (c) {
+        setCompanyRaw(c);
+        void checkAndAutoLoadResearch(c, r || undefined);
+      }
+      if (r) setRole(r);
+      if (jd) setJobPosting(jd);
     }
-    const c = searchParams.get("company");
-    const r = searchParams.get("role");
-    const jd = searchParams.get("jd");
-    if (c) {
-      setCompanyRaw(c);
-      void checkAndAutoLoadResearch(c, r || undefined);
-    }
-    if (r) setRole(r);
-    if (jd) setJobPosting(jd);
-  }, [searchParams, checkAndAutoLoadResearch]);
+
+    if (searchParams.get("chat") === "open") setAiChatOpen(true);
+    if (searchParams.get("modal") === "tailoring") setTailoringModalOpen(true);
+    if (searchParams.get("modal") === "deepsearch") setModalOpen(true);
+  }, [routeParams, searchParams, checkAndAutoLoadResearch]);
 
   /* Research event handler */
   const onResearchEvent = useCallback((event: ResearchEvent) => {

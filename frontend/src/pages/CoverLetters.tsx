@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Check, ChevronDown, Plus, Search, Trash2, Undo2, X } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
@@ -447,13 +447,28 @@ function LettersEmpty() {
 /* ── Page ────────────────────────────────────────────────────────── */
 export function CoverLetters() {
   const jobs = useAsync(listJobs, []);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const routeParams = useParams<{ jobId?: string }>();
+  const navigate = useNavigate();
 
-  // Toolbar filters are lifted here so they survive the AsyncBoundary
-  // remount that a reload() (after a toggle / delete) triggers.
-  const [query, setQuery] = useState("");
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState("");
-  const [segment, setSegment] = useState<Segment>("all");
+  useEffect(() => {
+    if (routeParams.jobId) {
+      navigate(`/write/${routeParams.jobId}`, { replace: true });
+    }
+  }, [routeParams.jobId, navigate]);
+
+  const query = searchParams.get("q") ?? "";
+  const setQuery = (v: string) => setSearchParams((p) => { const n = new URLSearchParams(p); if (v) n.set("q", v); else n.delete("q"); return n; }, { replace: true });
+
+  const company = searchParams.get("company") ?? "";
+  const setCompany = (v: string) => setSearchParams((p) => { const n = new URLSearchParams(p); if (v) n.set("company", v); else n.delete("company"); return n; }, { replace: true });
+
+  const role = searchParams.get("role") ?? "";
+  const setRole = (v: string) => setSearchParams((p) => { const n = new URLSearchParams(p); if (v) n.set("role", v); else n.delete("role"); return n; }, { replace: true });
+
+  const rawSegment = searchParams.get("filter") as Segment | null;
+  const segment: Segment = rawSegment && ["all", "draft", "completed"].includes(rawSegment) ? rawSegment : "all";
+  const setSegment = (v: Segment) => setSearchParams((p) => { const n = new URLSearchParams(p); n.set("filter", v); return n; }, { replace: true });
 
   const [pendingDelete, setPendingDelete] = useState<JobWithId | null>(null);
   const [deleting, setDeleting] = useState(false);

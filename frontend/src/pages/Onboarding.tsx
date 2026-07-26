@@ -8,7 +8,7 @@ import {
   type ClipboardEvent,
   type DragEvent,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -130,7 +130,10 @@ function CVViewModal({ doc, onClose }: { doc: DocLike; onClose: () => void }) {
 
 /* ── Page Component ─────────────────────────────────────────────── */
 export function Onboarding() {
-  const [state, setState] = useState<OnbState>("upload");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawState = searchParams.get("step") as OnbState | null;
+  const state: OnbState = rawState && ["upload", "review", "ready"].includes(rawState) ? rawState : "upload";
+  const setState = (next: OnbState) => setSearchParams((p) => { const n = new URLSearchParams(p); n.set("step", next); return n; }, { replace: true });
   const [ocrEnabled, setOcrEnabled] = useState<boolean | null>(null);
   const [existing, setExisting] = useState<{ filename: string | null; at: string | null } | null>(null);
   const [savedDocs, setSavedDocs] = useState<Document[]>([]);

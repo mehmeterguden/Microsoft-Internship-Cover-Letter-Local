@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -1223,6 +1223,8 @@ function CompanyChip({ company }: { company: string }) {
 
 /* ── Page ────────────────────────────────────────────────────────── */
 export function Research() {
+  const params = useParams<{ companySlug?: string }>();
+  const [searchParams] = useSearchParams();
   const [phase, setPhase] = useState<RunPhase>("idle");
 
   // Idle-form inputs (lifted so cache-check + autofill can drive them).
@@ -1247,9 +1249,33 @@ export function Research() {
 
   const abortRef = useRef<AbortController | null>(null);
   const agentStartRef = useRef<Record<string, number>>({});
+  const bootRef = useRef(false);
 
   // Abort any in-flight stream on unmount.
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Boot from URL param / slug
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    const targetComp = params.companySlug || searchParams.get("company");
+    const targetRole = searchParams.get("role");
+    if (targetRole) setRole(targetRole);
+    if (targetComp) {
+      setCompanyRaw(targetComp);
+      void getCachedReport(targetComp, targetRole || undefined).then((hit) => {
+        if (hit && hit.report) {
+          const r = hit.report as unknown as WireReport;
+          setReport(r);
+          setCachedAt(hit.cached_at);
+          setAgents(synthAgents(r));
+          setTotal(CONSOLE_AGENTS.length);
+          setSources(r.meta.sources.map((s) => ({ label: s.label, url: s.url ?? null })));
+          setPhase("done");
+        }
+      });
+    }
+  }, [params, searchParams]);
 
   // Editing the target invalidates a pending cache choice (key = company + role).
   const setCompany = (v: string) => {
