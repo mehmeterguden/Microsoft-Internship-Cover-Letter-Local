@@ -12,6 +12,10 @@ export interface DevFeedbackItem {
   selector: string;
   rect: { x: number; y: number; width: number; height: number };
   textSnippet: string;
+  buttonLabel?: string;
+  selectedText?: string;
+  locationContext?: string;
+  elementHierarchy?: string;
   category: DevFeedbackCategory;
   notes: string;
   screenshotUrl?: string; // Data URL PNG
@@ -106,11 +110,23 @@ export const useDevFeedbackStore = create<DevFeedbackState>((set, get) => ({
       lines.push(`### Item ${index + 1}: ${categoryLabel}`);
       lines.push(`- **Date**: ${new Date(item.createdAt).toLocaleString()}`);
       lines.push(`- **Page Route**: \`${item.route}\``);
-      lines.push(`- **Target Element**: \`<${item.tagName.toLowerCase()}>\` (\`${item.selector}\`)`);
-      lines.push(`- **Bounding Box**: \`x:${Math.round(item.rect.x)}, y:${Math.round(item.rect.y)}, ${Math.round(item.rect.width)}x${Math.round(item.rect.height)}px\``);
-      if (item.textSnippet) {
-        lines.push(`- **Element Content**: "${item.textSnippet.slice(0, 100)}"`);
+      if (item.locationContext) {
+        lines.push(`- **Screen Location**: \`${item.locationContext}\``);
       }
+      lines.push(`- **Target Element**: \`<${item.tagName.toLowerCase()}>\` (\`${item.selector}\`)`);
+      if (item.buttonLabel) {
+        lines.push(`- **Clicked Button / Action Label**: "${item.buttonLabel}"`);
+      }
+      if (item.textSnippet) {
+        lines.push(`- **Element Content**: "${item.textSnippet.slice(0, 150)}"`);
+      }
+      if (item.selectedText) {
+        lines.push(`- **Active User Selection**: "${item.selectedText.slice(0, 150)}"`);
+      }
+      if (item.elementHierarchy) {
+        lines.push(`- **Component Path**: \`${item.elementHierarchy}\``);
+      }
+      lines.push(`- **Bounding Box**: \`x:${Math.round(item.rect.x)}, y:${Math.round(item.rect.y)}, ${Math.round(item.rect.width)}x${Math.round(item.rect.height)}px\``);
       lines.push(`- **Requested Edit / Instructions**: ${item.notes}`);
       lines.push("");
       lines.push("---");

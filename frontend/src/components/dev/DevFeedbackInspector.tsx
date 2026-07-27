@@ -18,7 +18,59 @@ interface TargetInfo {
   selector: string;
   rect: { x: number; y: number; width: number; height: number };
   textSnippet: string;
+  buttonLabel?: string;
+  selectedText?: string;
+  locationContext?: string;
+  elementHierarchy?: string;
 }
+
+const detectButtonLabel = (el: HTMLElement): string => {
+  const interactive = el.closest("button, a, input, select, textarea, [role='button']") as HTMLElement | null;
+  if (!interactive) return "";
+  const label =
+    interactive.getAttribute("aria-label") ||
+    interactive.title ||
+    (interactive as HTMLInputElement).value ||
+    interactive.innerText?.replace(/\s+/g, " ").trim() ||
+    "";
+  return label.slice(0, 100);
+};
+
+const detectLocationContext = (el: HTMLElement): string => {
+  if (el.closest("aside, nav, [class*='sidebar']")) return "Left Navigation Sidebar";
+  if (el.closest("header, [class*='header'], [class*='navbar']")) return "Top Navigation Header";
+  if (el.closest("[class*='dialog'], [role='dialog'], .fixed.inset-0")) return "Modal Dialog Window";
+  if (el.closest("[class*='sidebar-right']") || el.closest("section")) {
+    const parentText = el.closest("section")?.querySelector("h1, h2, h3, h4")?.textContent?.trim();
+    if (parentText) return `Right Panel (${parentText})`;
+  }
+  if (el.closest("textarea, [class*='editor']")) return "Main Cover Letter Editor";
+  
+  const rect = el.getBoundingClientRect();
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+  const hPos = rect.left < winW / 3 ? "Left" : rect.left > (winW * 2) / 3 ? "Right" : "Center";
+  const vPos = rect.top < winH / 3 ? "Top" : rect.top > (winH * 2) / 3 ? "Bottom" : "Middle";
+  return `Workspace (${vPos}-${hPos})`;
+};
+
+const buildHierarchyPath = (el: HTMLElement): string => {
+  const parts: string[] = [];
+  let current: HTMLElement | null = el;
+  while (current && current !== document.body && parts.length < 4) {
+    let tag = current.tagName.toLowerCase();
+    const role = current.getAttribute("role");
+    const title = current.getAttribute("aria-label") || current.title || (current.tagName === "BUTTON" ? current.innerText?.trim() : "");
+    if (title && title.length < 30) {
+      tag += `["${title.replace(/"/g, "'")}"]`;
+    } else if (role) {
+      tag += `[role=${role}]`;
+    }
+    parts.unshift(tag);
+    current = current.parentElement;
+  }
+  return parts.join(" > ");
+};
 
 const buildSelector = (el: HTMLElement): string => {
   if (el.id) return `#${el.id}`;
@@ -99,6 +151,11 @@ export function DevFeedbackInspector() {
       e.stopPropagation();
 
       const rect = target.getBoundingClientRect();
+      const selectionText = window.getSelection()?.toString().trim() || "";
+      const buttonText = detectButtonLabel(target);
+      const locationCtx = detectLocationContext(target);
+      const hierarchyPath = buildHierarchyPath(target);
+
       const targetData: TargetInfo = {
         element: target,
         tagName: target.tagName.toLowerCase(),
@@ -109,7 +166,11 @@ export function DevFeedbackInspector() {
           width: rect.width,
           height: rect.height,
         },
-        textSnippet: target.innerText?.trim() || "",
+        textSnippet: target.innerText?.replace(/\s+/g, " ").trim() || "",
+        buttonLabel: buttonText || undefined,
+        selectedText: selectionText || undefined,
+        locationContext: locationCtx,
+        elementHierarchy: hierarchyPath,
       };
 
       setSelectedTarget(targetData);
@@ -155,6 +216,10 @@ export function DevFeedbackInspector() {
       selector: selectedTarget.selector,
       rect: selectedTarget.rect,
       textSnippet: selectedTarget.textSnippet,
+      buttonLabel: selectedTarget.buttonLabel,
+      selectedText: selectedTarget.selectedText,
+      locationContext: selectedTarget.locationContext,
+      elementHierarchy: selectedTarget.elementHierarchy,
       category,
       notes: notes.trim(),
       screenshotUrl,
@@ -243,6 +308,34 @@ export function DevFeedbackInspector() {
                   <span>Selector: <strong className="text-fg font-semibold">{selectedTarget.selector}</strong></span>
                   <span>{Math.round(selectedTarget.rect.width)}x{Math.round(selectedTarget.rect.height)}px</span>
                 </div>
+
+                {selectedTarget.locationContext && (
+                  <div className="text-[11px] text-indigo-300 font-semibold flex items-center gap-1.5 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
+                    <span>📌 Location:</span>
+                    <span className="font-mono text-fg">{selectedTarget.locationContext}</span>
+                  </div>
+                )}
+
+                {selectedTarget.buttonLabel && (
+                  <div className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                    <span>🔘 Button / Action Label:</span>
+                    <span className="font-mono text-fg font-bold">"{selectedTarget.buttonLabel}"</span>
+                  </div>
+                )}
+
+                {selectedTarget.selectedText && (
+                  <div className="text-[11px] text-emerald-300 font-semibold flex items-start gap-1.5 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                    <span>✂️ Selection:</span>
+                    <span className="font-mono text-fg line-clamp-2">"{selectedTarget.selectedText}"</span>
+                  </div>
+                )}
+
+                {selectedTarget.elementHierarchy && (
+                  <div className="text-[10px] text-fg-mid font-mono truncate">
+                    <span>Path: {selectedTarget.elementHierarchy}</span>
+                  </div>
+                )}
+
                 {screenshotUrl ? (
                   <div className="mt-2 overflow-hidden rounded-lg border border-border bg-black/40 flex justify-center max-h-[140px] p-2">
                     <img src={screenshotUrl} alt="Captured element" className="object-contain max-h-[120px] rounded" />
