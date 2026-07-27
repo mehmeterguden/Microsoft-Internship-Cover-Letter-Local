@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, RotateCw, Sparkles, Trash2, Upload } from "lucide-react";
+import { FileText, Loader2, Plus, RotateCw, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -21,6 +21,7 @@ import {
   type StyleState,
 } from "@/api/style";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
+import { parseDocument } from "@/api/cv";
 import { SetupIntro } from "@/components/setup/SetupScaffold";
 import { JsonConsole } from "@/components/onboarding/JsonConsole";
 import { parsePartial } from "@/lib/partialJson";
@@ -523,7 +524,7 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
             </svg>
           </span>
           <span className="block text-[15px] font-bold text-fg">Add a past letter</span>
-          <span className="mt-1 block text-[12.5px] text-fg-mid">Choose a .txt file or paste the text — it stays on your machine</span>
+          <span className="mt-1 block text-[12.5px] text-fg-mid">Add a PDF, Word, image, or text file — or paste it — everything stays on your machine</span>
         </button>
 
         <div className="flex justify-center">
@@ -664,6 +665,19 @@ function LetterModal({ letter, onClose }: { letter: PastCoverLetter; onClose: ()
 }
 
 /* ── Add-a-letter dialog (paste text) ────────────────────────────── */
+/* Extensions we can read in the browser; everything else is parsed on the server. */
+const TEXT_EXTS = [".txt", ".md", ".markdown", ".text", ".rst", ".log", ".csv", ".json"];
+const FILE_ACCEPT =
+  ".pdf,.doc,.docx,.txt,.md,.markdown,.text,.rst,.log,.csv,.json," +
+  ".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.gif,.heic," +
+  "application/pdf,image/*,text/*," +
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword";
+
+function isTextFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return file.type.startsWith("text/") || TEXT_EXTS.some((ext) => name.endsWith(ext));
+}
+
 function AddLetterDialog({
   open,
   onOpenChange,
@@ -675,30 +689,61 @@ function AddLetterDialog({
 }) {
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [attachment, setAttachment] = useState<{ name: string; kind: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const trimmed = text.trim();
+  const busy = submitting || extracting;
 
-  async function readFile(file: File) {
+  // Any file → text. Plain text is read in the browser; PDF / Word / image go to the
+  // on-device parser (pdfplumber / python-docx / Tesseract OCR) and come back as text.
+  async function pickFile(file: File) {
+    if (isTextFile(file)) {
+      try {
+        setText(await file.text());
+        setAttachment({ name: file.name, kind: "text" });
+      } catch (e) {
+        toast.danger("Couldn't read that file", errorMessage(e));
+      }
+      return;
+    }
+    setExtracting(true);
     try {
-      const content = await file.text();
-      setText(content);
+      const res = await parseDocument(file);
+      const extracted = (res.text ?? "").trim();
+      if (!extracted) {
+        toast.warning("No text found", "That file had no readable text. For a scanned image make sure OCR is set up, or paste the text instead.");
+        return;
+      }
+      setText(extracted);
+      setAttachment({ name: res.filename ?? file.name, kind: res.source_type ?? "file" });
     } catch (e) {
-      toast.danger("Couldn't read the file", errorMessage(e));
+      toast.danger("Couldn't read that file", errorMessage(e));
+    } finally {
+      setExtracting(false);
     }
   }
 
+  function reset() {
+    setText("");
+    setAttachment(null);
+    setExtracting(false);
+    setDragOver(false);
+  }
+
   function handleOpenChange(next: boolean) {
-    if (submitting) return;
-    if (!next) setText("");
+    if (busy) return;
+    if (!next) reset();
     onOpenChange(next);
   }
 
   async function submit() {
-    if (!trimmed || submitting) return;
+    if (!trimmed || busy) return;
     setSubmitting(true);
     try {
       await onSubmit(trimmed);
-      setText("");
+      reset();
     } catch (e) {
       toast.danger("Couldn't add the letter", errorMessage(e));
     } finally {
@@ -708,42 +753,98 @@ function AddLetterDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[min(92vw,520px)]">
+      <DialogContent className="w-[min(92vw,540px)]">
         <DialogTitle>Add a past letter</DialogTitle>
         <DialogDescription>
-          Paste the text of a cover letter you wrote, or choose a .txt file. It stays on your machine and teaches the AI how you write.
+          Drop in a PDF, Word doc, image, or text file — it&rsquo;s turned into text on your machine — or just paste the letter below.
         </DialogDescription>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept={FILE_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void pickFile(file);
+            e.target.value = "";
+          }}
+        />
+
+        {/* file: dropzone → or the attached-file chip once one is in */}
         <div className="mt-4">
+          {attachment ? (
+            <div className="flex items-center gap-2.5 rounded-[12px] border border-border bg-surface-2 px-3.5 py-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-accent-weak">
+                <FileText size={15} className="text-accent-text" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] font-semibold text-fg">{attachment.name}</div>
+                <div className="text-[11px] text-fg-low">{wordCount(text)} words · extracted on-device</div>
+              </div>
+              <button
+                type="button"
+                onClick={reset}
+                disabled={busy}
+                aria-label="Remove file"
+                className="flex h-7 w-7 items-center justify-center rounded-[8px] text-fg-low transition-colors hover:bg-surface-3 hover:text-fg disabled:opacity-50"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => !busy && fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); if (!busy) setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f && !busy) void pickFile(f);
+              }}
+              disabled={busy}
+              className={cn(
+                "flex w-full flex-col items-center gap-1.5 rounded-[12px] border border-dashed px-4 py-6 text-center outline-none transition-colors",
+                dragOver ? "border-accent bg-accent-weak" : "border-border-strong bg-input hover:border-accent focus-visible:border-accent",
+                busy && "cursor-default opacity-80",
+              )}
+            >
+              {extracting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin text-accent-text" aria-hidden="true" />
+                  <span className="text-[12.5px] font-semibold text-fg">Extracting text…</span>
+                  <span className="text-[11px] text-fg-low">Turning your file into text on-device</span>
+                </>
+              ) : (
+                <>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-surface-2">
+                    <Upload size={17} className="text-accent-text" aria-hidden="true" />
+                  </span>
+                  <span className="text-[12.5px] font-semibold text-fg">Drop a file or click to choose</span>
+                  <span className="text-[11px] text-fg-low">PDF, Word, image, or text — converted automatically</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* text: paste, or edit whatever was extracted */}
+        <div className="mt-3">
           <Field label="Letter text" hint={trimmed ? `${wordCount(text)} words` : "Paste at least a paragraph or two"}>
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={"Dear Hiring Team,\n\nWhen I read that this role…"}
-              className="min-h-[220px]"
-              autoFocus
+              className="min-h-[200px]"
             />
           </Field>
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".txt,.md,.text,text/plain,text/markdown"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void readFile(file);
-            e.target.value = "";
-          }}
-        />
-        <div className="mt-3 flex items-center gap-2">
-          <Button variant="outline" size="sm" type="button" onClick={() => fileRef.current?.click()} disabled={submitting}>
-            <Upload size={14} /> Choose a .txt file
-          </Button>
-          <span className="text-[11.5px] text-fg-low">or paste the text above</span>
-        </div>
+
         <div className="mt-5 flex justify-end gap-2.5">
-          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>Cancel</Button>
-          <Button variant="primary" onClick={submit} loading={submitting} disabled={!trimmed}>Add &amp; learn</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={busy}>Cancel</Button>
+          <Button variant="primary" onClick={submit} loading={submitting} disabled={!trimmed || busy}>Add &amp; learn</Button>
         </div>
       </DialogContent>
     </Dialog>
