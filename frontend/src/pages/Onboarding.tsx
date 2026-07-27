@@ -18,7 +18,6 @@ import {
   FileText,
   FileUp,
   RefreshCw,
-  ShieldCheck,
   Sparkles,
   User,
 } from "lucide-react";
@@ -328,7 +327,7 @@ export function Onboarding() {
               subtitle={
                 existing
                   ? "Your active CV is shown below. You can view extracted data or upload a new file to refresh your profile."
-                  : "Drop your CV and the model will turn it into a fully editable profile — read on-device, nothing uploaded."
+                  : "Drop your CV and the model will turn it into a fully editable profile."
               }
               privacyNote="Read on-device · nothing uploaded"
             >
@@ -703,15 +702,11 @@ function UploadState({
           Choose file
         </Button>
 
-        {/* Format & privacy row */}
-        <div className="mt-5 flex flex-col items-center gap-2">
+        {/* Format row */}
+        <div className="mt-5 flex justify-center">
           <div className="font-mono text-[10.5px] text-fg-low">
             {ocrOff ? "PDF · Word · text" : "PDF · Word · text · images"}
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[10.5px] font-semibold text-fg-mid">
-            <ShieldCheck size={11} className="text-success" aria-hidden="true" />
-            Read on-device · nothing uploaded
-          </span>
         </div>
       </div>
 
