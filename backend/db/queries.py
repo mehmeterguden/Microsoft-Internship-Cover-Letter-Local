@@ -222,13 +222,13 @@ def reset_all() -> dict[str, int]:
 # Settings columns stored as JSON text that we (de)serialize transparently.
 # (`mcp_servers` is intentionally NOT here — its one reader parses the raw string
 # itself, so decoding it early would break that call.)
-_SETTINGS_JSON_COLUMNS = ("gemini_api_keys",)
+_SETTINGS_JSON_COLUMNS = ("gemini_api_keys", "azure_accounts")
 
 
 def get_settings() -> dict[str, Any]:
     """Return the settings row (without its id). Always exists after init_db.
 
-    JSON columns (e.g. the Gemini key pool) are parsed back to Python lists."""
+    JSON columns (e.g. the Gemini key pool, Azure accounts) are parsed back to Python lists."""
     conn = get_connection()
     try:
         row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
@@ -322,6 +322,88 @@ def set_key_switch_mode(mode: str) -> dict[str, Any]:
     """Set how the app reacts when a key hits its limit: 'auto' or 'manual'."""
     save_settings({"key_switch_mode": "manual" if mode == "manual" else "auto"})
     return gemini_key_config()
+
+
+# ── Azure AI Foundry / Azure OpenAI Accounts Pool ─────────────────────
+
+def azure_account_config() -> dict[str, Any]:
+    """Return the current pool: {"accounts": [...], "active_id": str}."""
+    s = get_settings()
+    return {
+        "accounts": s.get("azure_accounts") or [],
+        "active_id": s.get("azure_active_account_id") or "",
+    }
+
+
+def add_azure_account(
+    endpoint: str,
+    api_key: str,
+    model: str,
+    label: str = "",
+    api_version: str = "2024-10-21",
+) -> dict[str, Any]:
+    """Add an Azure AI Foundry / Azure OpenAI account to the pool and persist."""
+    s = get_settings()
+    accounts = list(s.get("azure_accounts") or [])
+    endpoint = endpoint.strip()
+    api_key = api_key.strip()
+    model = model.strip()
+
+    if endpoint and api_key and model:
+        new_id = uuid.uuid4().hex[:12]
+        new_acc = {
+            "id": new_id,
+            "label": label.strip() or f"Account {len(accounts) + 1}",
+            "endpoint": endpoint,
+            "api_key": api_key,
+            "model": model,
+            "api_version": api_version.strip() or "2024-10-21",
+        }
+        accounts.append(new_acc)
+        patch: dict[str, Any] = {
+            "azure_accounts": accounts,
+            "azure_openai_endpoint": endpoint,
+            "azure_openai_api_key": api_key,
+            "llm_model": model,
+            "azure_openai_api_version": new_acc["api_version"],
+        }
+        if not (s.get("azure_active_account_id") or ""):
+            patch["azure_active_account_id"] = new_id
+        save_settings(patch)
+    return azure_account_config()
+
+
+def remove_azure_account(account_id: str) -> dict[str, Any]:
+    """Remove an Azure account from the pool and persist."""
+    s = get_settings()
+    accounts = [a for a in (s.get("azure_accounts") or []) if a["id"] != account_id]
+    patch: dict[str, Any] = {"azure_accounts": accounts}
+    if (s.get("azure_active_account_id") or "") == account_id:
+        new_active = accounts[0] if accounts else None
+        patch["azure_active_account_id"] = new_active["id"] if new_active else ""
+        if new_active:
+            patch["azure_openai_endpoint"] = new_active["endpoint"]
+            patch["azure_openai_api_key"] = new_active["api_key"]
+            patch["llm_model"] = new_active["model"]
+            patch["azure_openai_api_version"] = new_active.get("api_version", "2024-10-21")
+    save_settings(patch)
+    return azure_account_config()
+
+
+def set_azure_active_account(account_id: str) -> dict[str, Any]:
+    """Set the active Azure account in the pool."""
+    s = get_settings()
+    accounts = s.get("azure_accounts") or []
+    target = next((a for a in accounts if a["id"] == account_id), None)
+    if target:
+        save_settings({
+            "azure_active_account_id": account_id,
+            "azure_openai_endpoint": target["endpoint"],
+            "azure_openai_api_key": target["api_key"],
+            "llm_model": target["model"],
+            "azure_openai_api_version": target.get("api_version", "2024-10-21"),
+        })
+    return azure_account_config()
 
 
 # ── Profile (singleton — exactly one row, no id) ─────────────────

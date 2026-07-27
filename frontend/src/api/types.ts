@@ -247,6 +247,22 @@ export interface GeminiKeyConfig {
   mode: KeySwitchMode;
 }
 
+/** One entry in the Azure AI Foundry / Azure OpenAI accounts pool. */
+export interface AzureAccount {
+  id: string;
+  label?: string;
+  endpoint: string;
+  api_key: string;
+  model: string;
+  api_version?: string;
+}
+
+/** The whole Azure accounts setup, returned by the /settings/azure-accounts endpoints. */
+export interface AzureAccountConfig {
+  accounts: AzureAccount[];
+  active_id: string;
+}
+
 /** Where company-name autocomplete gets its data. */
 export type CompanySearchProvider = "wikidata" | "brandfetch";
 
@@ -269,6 +285,8 @@ export interface Settings {
   azure_openai_endpoint?: string;
   azure_openai_api_key?: string;
   azure_openai_api_version?: string;
+  azure_accounts?: AzureAccount[];
+  azure_active_account_id?: string;
   gemini_api_key?: string;
   gemini_api_keys?: GeminiKey[];
   gemini_active_key_id?: string;

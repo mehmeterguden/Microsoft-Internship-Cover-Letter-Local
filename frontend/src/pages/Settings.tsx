@@ -32,16 +32,22 @@ import { toast } from "@/store/toast";
 import { useSettingsStore } from "@/store/settings";
 import { errorMessage } from "@/api/client";
 import {
+  addAzureAccount,
   addGeminiKey,
+  getAzureAccounts,
   getGeminiKeys,
   getSettings,
+  removeAzureAccount,
   removeGeminiKey,
+  setAzureActiveAccount,
   setGeminiActiveKey,
   setKeySwitchMode,
 } from "@/api/settings";
 import { listModels, type HealthResult, type ModelsResult } from "@/api/llm";
 import { resetAllData } from "@/api/data";
 import type {
+  AzureAccount,
+  AzureAccountConfig,
   CompanySearchProvider,
   GeminiKey,
   GeminiKeyConfig,
@@ -199,6 +205,180 @@ function maskKey(key: string): string {
   return `${key.slice(0, 4)}${"•".repeat(Math.min(18, key.length - 8))}${key.slice(-4)}`;
 }
 
+/* ── Azure AI Foundry account row ──────────────────────────────── */
+function AzureAccountRow({
+  entry,
+  active,
+  revealKey,
+  onSetActive,
+  onRemove,
+}: {
+  entry: AzureAccount;
+  active: boolean;
+  revealKey: boolean;
+  onSetActive: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-[10px] border bg-surface px-3.5 py-3 transition-all",
+        active ? "border-accent shadow-xs" : "border-border hover:border-border-strong",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={onSetActive}
+            aria-label={active ? "Active account" : "Make this account active"}
+            className={cn(
+              "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+              active ? "border-accent" : "border-border-strong hover:border-accent",
+            )}
+          >
+            {active ? <span className="h-[7px] w-[7px] rounded-full bg-accent" /> : null}
+          </button>
+          <span className="truncate text-[13px] font-semibold text-fg">{entry.label || "Azure Resource"}</span>
+          <span className="rounded-md border border-accent/30 bg-accent-weak px-2 py-0.5 font-mono text-[10.5px] font-medium text-accent-text">
+            {entry.model}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn("font-mono text-[10px]", active ? "text-success font-semibold" : "text-fg-low")}>
+            {active ? "Active" : "Standby"}
+          </span>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1 text-fg-low transition-colors hover:text-danger"
+            title="Remove account"
+          >
+            <X size={15} strokeWidth={1.6} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-1 text-[11.5px] sm:grid-cols-2">
+        <div className="truncate font-mono text-fg-low">
+          <span className="text-fg-mid font-medium">Endpoint:</span> {entry.endpoint || "—"}
+        </div>
+        <div className="truncate font-mono text-fg-low">
+          <span className="text-fg-mid font-medium">Key:</span> {revealKey ? entry.api_key : maskKey(entry.api_key)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Add Azure AI Foundry Account Form ─────────────────────────── */
+function AddAzureAccountForm({
+  onAdd,
+}: {
+  onAdd: (endpoint: string, apiKey: string, model: string, label: string, apiVersion: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [endpoint, setEndpoint] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("");
+  const [apiVersion, setApiVersion] = useState("2024-10-21");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!endpoint.trim() || !apiKey.trim() || !model.trim() || busy) return;
+    setBusy(true);
+    const ok = await onAdd(endpoint.trim(), apiKey.trim(), model.trim(), label.trim(), apiVersion.trim());
+    setBusy(false);
+    if (ok) {
+      setLabel("");
+      setEndpoint("");
+      setApiKey("");
+      setModel("");
+      setOpen(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center justify-center gap-2 rounded-[10px] border border-dashed border-border-strong py-2.5 text-[12px] font-medium text-fg-mid transition-colors hover:border-accent hover:text-accent-text"
+      >
+        <Plus size={14} /> Add Azure AI Foundry Account
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[12px] border border-border-strong bg-surface-2 p-3.5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-[12.5px] font-semibold text-fg">Register New Azure Account</span>
+        <button type="button" onClick={() => setOpen(false)} className="text-fg-low hover:text-fg">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <Input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Account Label (e.g. Work Foundry)"
+          className="h-9 text-[12px]"
+        />
+        <Input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder="Deployment Model Name (e.g. gpt-5-mini)"
+          className="h-9 font-mono text-[12px]"
+        />
+      </div>
+
+      <Input
+        value={endpoint}
+        onChange={(e) => setEndpoint(e.target.value)}
+        placeholder="Resource Endpoint (https://my-foundry.openai.azure.com)"
+        spellCheck={false}
+        className="h-9 font-mono text-[12px]"
+      />
+
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+        <Input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="Azure Resource Key"
+          spellCheck={false}
+          className="h-9 font-mono text-[12px] sm:col-span-2"
+        />
+        <Input
+          value={apiVersion}
+          onChange={(e) => setApiVersion(e.target.value)}
+          placeholder="API Version (2024-10-21)"
+          spellCheck={false}
+          className="h-9 font-mono text-[12px]"
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => void submit()}
+          loading={busy}
+          disabled={!endpoint.trim() || !apiKey.trim() || !model.trim()}
+        >
+          <Plus size={14} /> Save Account
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Page (load boundary) ────────────────────────────────────────── */
 export function Settings() {
   const state = useAsync(getSettings, []);
@@ -275,6 +455,80 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
   }, [loadPool]);
 
   const [removeTarget, setRemoveTarget] = useState<GeminiKey | null>(null);
+
+  /* Azure AI Foundry accounts pool — each mutation persists immediately. */
+  const [azurePool, setAzurePool] = useState<AzureAccountConfig | null>(null);
+  const [azureLoading, setAzureLoading] = useState(true);
+  const [azureError, setAzureError] = useState<string | null>(null);
+
+  const loadAzurePool = useCallback(async () => {
+    setAzureLoading(true);
+    setAzureError(null);
+    try {
+      setAzurePool(await getAzureAccounts());
+    } catch (e) {
+      setAzureError(errorMessage(e));
+    } finally {
+      setAzureLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAzurePool();
+  }, [loadAzurePool]);
+
+  const addAzureAcc = async (endpoint: string, key: string, model: string, label: string, apiVersion: string) => {
+    try {
+      const updated = await addAzureAccount(endpoint, key, model, label, apiVersion);
+      setAzurePool(updated);
+      const active = updated.accounts.find((a) => a.id === updated.active_id) ?? updated.accounts[0];
+      if (active) {
+        setField("azure_openai_endpoint", active.endpoint);
+        setField("azure_openai_api_key", active.api_key);
+        setField("llm_model", active.model);
+        setField("azure_openai_api_version", active.api_version ?? "2024-10-21");
+      }
+      toast.success("Account added", `Registered Azure AI Foundry account ${label || model}.`);
+      return true;
+    } catch (e) {
+      toast.danger("Couldn't add account", errorMessage(e));
+      return false;
+    }
+  };
+
+  const removeAzureAcc = async (id: string) => {
+    try {
+      const updated = await removeAzureAccount(id);
+      setAzurePool(updated);
+      const active = updated.accounts.find((a) => a.id === updated.active_id);
+      if (active) {
+        setField("azure_openai_endpoint", active.endpoint);
+        setField("azure_openai_api_key", active.api_key);
+        setField("llm_model", active.model);
+        setField("azure_openai_api_version", active.api_version ?? "2024-10-21");
+      }
+      toast.success("Account removed", "Removed Azure account from pool.");
+    } catch (e) {
+      toast.danger("Couldn't remove account", errorMessage(e));
+    }
+  };
+
+  const activateAzureAcc = async (id: string) => {
+    try {
+      const updated = await setAzureActiveAccount(id);
+      setAzurePool(updated);
+      const active = updated.accounts.find((a) => a.id === updated.active_id);
+      if (active) {
+        setField("azure_openai_endpoint", active.endpoint);
+        setField("azure_openai_api_key", active.api_key);
+        setField("llm_model", active.model);
+        setField("azure_openai_api_version", active.api_version ?? "2024-10-21");
+      }
+      toast.success("Account activated", `Switched active Azure account to ${active?.label || active?.model}.`);
+    } catch (e) {
+      toast.danger("Couldn't switch account", errorMessage(e));
+    }
+  };
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -638,6 +892,48 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                       </div>
                     )}
                   </section>
+                ) : provider.id === "azure_openai" ? (
+                  <section>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-[14px] font-semibold text-fg">Azure AI Foundry / OpenAI Accounts</span>
+                      <RevealButton revealed={reveal} onClick={() => setReveal((r) => !r)} />
+                    </div>
+                    <p className="mb-3 text-[12px] text-fg-mid">
+                      Register multiple Azure endpoints and deployment models (e.g. Work resource, o3-mini, gpt-5-mini).
+                    </p>
+                    {azureLoading ? (
+                      <div className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3.5 py-3 text-[12px] text-fg-mid">
+                        <Spinner size={14} /> Loading accounts…
+                      </div>
+                    ) : azureError ? (
+                      <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[color:var(--danger)]/30 bg-danger-weak px-3.5 py-3 text-[12px] text-danger">
+                        <span>{azureError}</span>
+                        <Button variant="outline" size="xs" onClick={() => void loadAzurePool()}>
+                          <RotateCw size={12} /> Retry
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2.5">
+                        {azurePool && azurePool.accounts.length > 0 ? (
+                          azurePool.accounts.map((acc) => (
+                            <AzureAccountRow
+                              key={acc.id}
+                              entry={acc}
+                              active={acc.id === azurePool.active_id}
+                              revealKey={reveal}
+                              onSetActive={() => void activateAzureAcc(acc.id)}
+                              onRemove={() => void removeAzureAcc(acc.id)}
+                            />
+                          ))
+                        ) : (
+                          <p className="rounded-[10px] border border-dashed border-border-strong px-3.5 py-3 text-[12px] text-fg-low">
+                            No Azure accounts registered yet. Add your resource endpoint & deployment model below.
+                          </p>
+                        )}
+                        <AddAzureAccountForm onAdd={addAzureAcc} />
+                      </div>
+                    )}
+                  </section>
                 ) : (
                   <section>
                     <div className="mb-1 flex items-center justify-between gap-2">
@@ -649,24 +945,14 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                     </p>
                     <Input
                       type={reveal ? "text" : "password"}
-                      value={
-                        (provider.id === "openai"
-                          ? draft.openai_api_key
-                          : provider.id === "azure_openai"
-                            ? draft.azure_openai_api_key
-                            : draft.anthropic_api_key) ?? ""
-                      }
+                      value={(provider.id === "openai" ? draft.openai_api_key : draft.anthropic_api_key) ?? ""}
                       onChange={(e) =>
                         setField(
-                          provider.id === "openai"
-                            ? "openai_api_key"
-                            : provider.id === "azure_openai"
-                              ? "azure_openai_api_key"
-                              : "anthropic_api_key",
+                          provider.id === "openai" ? "openai_api_key" : "anthropic_api_key",
                           e.target.value,
                         )
                       }
-                      placeholder={provider.id === "openai" ? "sk-…" : provider.id === "azure_openai" ? "Your Azure resource key" : "sk-ant-…"}
+                      placeholder={provider.id === "openai" ? "sk-…" : "sk-ant-…"}
                       autoComplete="off"
                       spellCheck={false}
                       className="font-mono text-[12px]"
