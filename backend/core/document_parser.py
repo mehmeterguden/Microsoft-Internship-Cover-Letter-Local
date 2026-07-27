@@ -91,7 +91,7 @@ def _page(number: int, text: str) -> dict[str, Any]:
 
 
 def _shape(source_type: str, pages: list[str]) -> dict[str, Any]:
-    """One page → flat text; many pages → each page separately. Never both."""
+    """One page → flat text; many pages → a pages list plus a joined ``text`` for convenience."""
     if len(pages) <= 1:
         text = pages[0] if pages else ""
         return {
