@@ -290,7 +290,6 @@ export function Onboarding() {
     <Page
       eyebrow="Setup / Add CV"
       title="Add CV"
-      subtitle="Import your CV to prefill your profile, skills, and work history automatically."
       actions={
         <Link
           to="/"

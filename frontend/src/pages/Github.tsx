@@ -547,9 +547,6 @@ function ConnectRow({
 }) {
   return (
     <div className="cll-fade mx-auto mb-6 w-full max-w-[640px]">
-      <p className="mb-3 text-center text-[13px] text-fg-mid">
-        Enter a GitHub account and we&apos;ll fetch its public repos, then turn them into skills and projects.
-      </p>
       <form
         className="flex gap-2.5"
         onSubmit={(e) => {
@@ -809,7 +806,6 @@ export function Github() {
     <Page
       eyebrow="Setup / GitHub Import"
       title="GitHub Import"
-      subtitle="Pull your public repositories and convert your projects & tech stack into profile data."
       actions={
         <AccountChip
           connected={status.data?.account_connected ?? false}
@@ -852,8 +848,8 @@ export function Github() {
                 ) : (
                   <SetupEmpty
                     icon={<GithubMark size={26} />}
-                    title="Connect a GitHub account"
-                    description="Enter a username above and we'll pull the public repositories so you can choose which ones to analyze into skills and projects."
+                    title="No repositories yet"
+                    description="Fetched repositories will show up here to pick from."
                     action={
                       st.account_connected ? (
                         <Button variant="outline" size="sm" onClick={onUseAccount} loading={busy}>
