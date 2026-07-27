@@ -144,6 +144,7 @@ const BUILTIN_LANGUAGES = [
   { value: "Italian", label: "Italiano (Italian)" },
   { value: "Dutch", label: "Nederlands (Dutch)" },
   { value: "Portuguese", label: "Português (Portuguese)" },
+  { value: "Russian", label: "Русский (Russian)" },
   { value: "Japanese", label: "日本語 (Japanese)" },
   { value: "Chinese", label: "中文 (Chinese)" },
 ];
