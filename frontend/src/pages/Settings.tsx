@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  ChevronUp,
   Copy,
   Database,
   Eye,
@@ -42,6 +43,7 @@ import {
   setAzureActiveAccount,
   setGeminiActiveKey,
   setKeySwitchMode,
+  updateAzureAccount,
 } from "@/api/settings";
 import { listModels, type HealthResult, type ModelsResult } from "@/api/llm";
 import { resetAllData } from "@/api/data";
@@ -205,33 +207,68 @@ function maskKey(key: string): string {
   return `${key.slice(0, 4)}${"•".repeat(Math.min(18, key.length - 8))}${key.slice(-4)}`;
 }
 
-/* ── Azure AI Foundry account row ──────────────────────────────── */
-function AzureAccountRow({
+/* ── Azure AI Foundry account card (accordion details & inline edit) ──── */
+function AzureAccountCard({
   entry,
   active,
   revealKey,
   onSetActive,
   onRemove,
+  onUpdate,
 }: {
   entry: AzureAccount;
   active: boolean;
   revealKey: boolean;
   onSetActive: () => void;
   onRemove: () => void;
+  onUpdate: (
+    id: string,
+    updates: { endpoint?: string; api_key?: string; model?: string; label?: string; api_version?: string },
+  ) => Promise<boolean>;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [label, setLabel] = useState(entry.label || "");
+  const [endpoint, setEndpoint] = useState(entry.endpoint || "");
+  const [model, setModel] = useState(entry.model || "");
+  const [apiKey, setApiKey] = useState(entry.api_key || "");
+  const [apiVersion, setApiVersion] = useState(entry.api_version || "2024-10-21");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLabel(entry.label || "");
+    setEndpoint(entry.endpoint || "");
+    setModel(entry.model || "");
+    setApiKey(entry.api_key || "");
+    setApiVersion(entry.api_version || "2024-10-21");
+  }, [entry]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const ok = await onUpdate(entry.id, {
+      label: label.trim(),
+      endpoint: endpoint.trim(),
+      model: model.trim(),
+      api_key: apiKey.trim(),
+      api_version: apiVersion.trim(),
+    });
+    setSaving(false);
+    if (ok) setExpanded(false);
+  };
+
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-[10px] border bg-surface px-3.5 py-3 transition-all",
+        "flex flex-col rounded-[12px] border bg-surface transition-all duration-200",
         active ? "border-accent shadow-xs" : "border-border hover:border-border-strong",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Header — Always visible */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={onSetActive}
-            aria-label={active ? "Active account" : "Make this account active"}
+            title={active ? "Active account" : "Make this account active"}
             className={cn(
               "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
               active ? "border-accent" : "border-border-strong hover:border-accent",
@@ -239,34 +276,134 @@ function AzureAccountRow({
           >
             {active ? <span className="h-[7px] w-[7px] rounded-full bg-accent" /> : null}
           </button>
-          <span className="truncate text-[13px] font-semibold text-fg">{entry.label || "Azure Resource"}</span>
-          <span className="rounded-md border border-accent/30 bg-accent-weak px-2 py-0.5 font-mono text-[10.5px] font-medium text-accent-text">
-            {entry.model}
-          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("truncate text-[13.5px] font-semibold", active ? "text-fg" : "text-fg-mid")}>
+                {entry.label || entry.model || "Azure Account"}
+              </span>
+              <span className="rounded-md border border-accent/30 bg-accent-weak px-2 py-0.5 font-mono text-[11px] font-medium text-accent-text">
+                {entry.model}
+              </span>
+              {active ? (
+                <span className="rounded-md bg-success-weak px-2 py-0.5 font-mono text-[10px] font-semibold text-success">
+                  Active
+                </span>
+              ) : (
+                <span className="font-mono text-[10px] text-fg-low">Standby</span>
+              )}
+            </div>
+            <div className="mt-0.5 truncate font-mono text-[11px] text-fg-low">
+              {entry.endpoint ? entry.endpoint : "No endpoint configured"}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={cn("font-mono text-[10px]", active ? "text-success font-semibold" : "text-fg-low")}>
-            {active ? "Active" : "Standby"}
-          </span>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {!active && (
+            <Button variant="outline" size="xs" onClick={onSetActive} className="text-[11px]">
+              Make Active
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2.5 py-1 text-[11.5px] font-medium text-fg-mid transition-colors hover:border-border-strong hover:text-fg"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp size={14} /> Collapse
+              </>
+            ) : (
+              <>
+                <ChevronDown size={14} /> Edit & Details
+              </>
+            )}
+          </button>
           <button
             type="button"
             onClick={onRemove}
             className="p-1 text-fg-low transition-colors hover:text-danger"
             title="Remove account"
           >
-            <X size={15} strokeWidth={1.6} />
+            <Trash2 size={15} strokeWidth={1.6} />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-1 text-[11.5px] sm:grid-cols-2">
-        <div className="truncate font-mono text-fg-low">
-          <span className="text-fg-mid font-medium">Endpoint:</span> {entry.endpoint || "—"}
+      {/* Expanded Accordion details & edit form */}
+      {expanded && (
+        <div className="border-t border-border bg-surface-2/40 p-4 space-y-3.5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Account Label" hint="Descriptive name for this resource & deployment">
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="e.g. Work Foundry, Research o3-mini"
+                className="h-9 text-[12.5px]"
+              />
+            </Field>
+            <Field label="Deployment Model Name" hint="Your deployment name in Azure AI Foundry">
+              <Input
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="e.g. gpt-4o, gpt-5-mini, o3-mini"
+                className="h-9 font-mono text-[12.5px]"
+              />
+            </Field>
+          </div>
+
+          <Field
+            label="Foundry / Azure OpenAI Endpoint"
+            hint="Your resource endpoint URL (e.g. https://<resource>.services.ai.azure.com)"
+          >
+            <Input
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder="https://my-resource.services.ai.azure.com"
+              spellCheck={false}
+              className="h-9 font-mono text-[12.5px]"
+            />
+          </Field>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Resource API Key" className="sm:col-span-2">
+              <Input
+                type={revealKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Your Azure resource API key"
+                spellCheck={false}
+                className="h-9 font-mono text-[12.5px]"
+              />
+            </Field>
+            <Field label="API Version">
+              <Input
+                value={apiVersion}
+                onChange={(e) => setApiVersion(e.target.value)}
+                placeholder="2024-10-21"
+                spellCheck={false}
+                className="h-9 font-mono text-[12.5px]"
+              />
+            </Field>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void handleSave()}
+              loading={saving}
+              disabled={!endpoint.trim() || !apiKey.trim() || !model.trim()}
+            >
+              <Check size={14} /> Save Details
+            </Button>
+          </div>
         </div>
-        <div className="truncate font-mono text-fg-low">
-          <span className="text-fg-mid font-medium">Key:</span> {revealKey ? entry.api_key : maskKey(entry.api_key)}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -527,6 +664,28 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
       toast.success("Account activated", `Switched active Azure account to ${active?.label || active?.model}.`);
     } catch (e) {
       toast.danger("Couldn't switch account", errorMessage(e));
+    }
+  };
+
+  const updateAzureAcc = async (
+    id: string,
+    updates: { endpoint?: string; api_key?: string; model?: string; label?: string; api_version?: string },
+  ) => {
+    try {
+      const updated = await updateAzureAccount(id, updates);
+      setAzurePool(updated);
+      const active = updated.accounts.find((a) => a.id === updated.active_id);
+      if (active) {
+        setField("azure_openai_endpoint", active.endpoint);
+        setField("azure_openai_api_key", active.api_key);
+        setField("llm_model", active.model);
+        setField("azure_openai_api_version", active.api_version ?? "2024-10-21");
+      }
+      toast.success("Account updated", `Saved details for ${updates.label || updates.model || "Azure Account"}.`);
+      return true;
+    } catch (e) {
+      toast.danger("Couldn't update account", errorMessage(e));
+      return false;
     }
   };
   const [resetOpen, setResetOpen] = useState(false);
@@ -916,13 +1075,14 @@ function SettingsForm({ initial }: { initial: SettingsModel }) {
                       <div className="flex flex-col gap-2.5">
                         {azurePool && azurePool.accounts.length > 0 ? (
                           azurePool.accounts.map((acc) => (
-                            <AzureAccountRow
+                            <AzureAccountCard
                               key={acc.id}
                               entry={acc}
                               active={acc.id === azurePool.active_id}
                               revealKey={reveal}
                               onSetActive={() => void activateAzureAcc(acc.id)}
                               onRemove={() => void removeAzureAcc(acc.id)}
+                              onUpdate={updateAzureAcc}
                             />
                           ))
                         ) : (

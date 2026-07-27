@@ -108,6 +108,14 @@ class AzureAccountCreate(BaseModel):
     api_version: str = Field("2024-10-21", description="REST API version")
 
 
+class AzureAccountUpdate(BaseModel):
+    endpoint: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+    label: str | None = None
+    api_version: str | None = None
+
+
 class ActiveAzureAccountUpdate(BaseModel):
     account_id: str
 
@@ -122,6 +130,19 @@ def get_azure_accounts() -> AzureAccountConfig:
 def add_azure_account(body: AzureAccountCreate) -> AzureAccountConfig:
     """Add an Azure account configuration to the pool."""
     return AzureAccountConfig(**queries.add_azure_account(
+        endpoint=body.endpoint,
+        api_key=body.api_key,
+        model=body.model,
+        label=body.label,
+        api_version=body.api_version,
+    ))
+
+
+@router.put("/azure-accounts/{account_id}", response_model=AzureAccountConfig)
+def update_azure_account(account_id: str, body: AzureAccountUpdate) -> AzureAccountConfig:
+    """Update an existing Azure account's fields in place."""
+    return AzureAccountConfig(**queries.update_azure_account(
+        account_id=account_id,
         endpoint=body.endpoint,
         api_key=body.api_key,
         model=body.model,

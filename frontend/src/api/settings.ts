@@ -69,6 +69,14 @@ export async function removeAzureAccount(id: string): Promise<AzureAccountConfig
   return data;
 }
 
+export async function updateAzureAccount(
+  id: string,
+  updates: { endpoint?: string; api_key?: string; model?: string; label?: string; api_version?: string },
+): Promise<AzureAccountConfig> {
+  const { data } = await client.put<AzureAccountConfig>(`/settings/azure-accounts/${id}`, updates);
+  return data;
+}
+
 export async function setAzureActiveAccount(id: string): Promise<AzureAccountConfig> {
   const { data } = await client.put<AzureAccountConfig>("/settings/azure-accounts/active", { account_id: id });
   return data;
