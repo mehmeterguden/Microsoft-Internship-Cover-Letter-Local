@@ -23,6 +23,7 @@ import {
   saveLinkedinConfig,
 } from "@/api/linkedin";
 import { planReconcile, type ApplyResult, type ReconcilePlan } from "@/api/reconcile";
+import { FILE_ACCEPT, isParseableDocument } from "@/lib/fileTypes";
 
 type Tab = "import" | "paste" | "connect";
 
@@ -116,8 +117,8 @@ export function LinkedIn() {
 
   async function onImportFile(file: File) {
     const name = file.name.toLowerCase();
-    if (!name.endsWith(".pdf") && !name.endsWith(".zip")) {
-      toast.warning("Wrong file", "Upload your LinkedIn profile PDF (Resources → Save to PDF).");
+    if (!name.endsWith(".zip") && !isParseableDocument(file)) {
+      toast.warning("Unsupported file", "Upload a PDF, Word, image, or your LinkedIn .zip export.");
       return;
     }
     setImporting(true);
@@ -219,13 +220,13 @@ export function LinkedIn() {
     <Page
       eyebrow="Setup / LinkedIn Import"
       title="LinkedIn Import"
-      subtitle="Import your profile PDF or paste text to prefill experience and education."
+      subtitle="Import your profile (PDF, Word, image, or .zip export) or paste text to prefill experience and education."
       bodyClassName="px-7 py-6"
     >
       <SetupScaffold
         icon={<LinkedInMark size={19} />}
         title="Import from LinkedIn"
-        subtitle="Bring your LinkedIn profile in — export it as a PDF and drop it here. Nothing overwrites your profile until you review the changes."
+        subtitle="Bring your LinkedIn profile in — drop a PDF, Word doc, image, or the .zip data export. Nothing overwrites your profile until you review the changes."
         privacyNote="Read on-device · reviewed before anything changes"
       >
         <Segmented value={tab} onChange={setTab} options={tabs} />
@@ -291,11 +292,11 @@ export function LinkedIn() {
                   </button>{" "}
                   or drag it here
                 </p>
-                <p className="font-mono text-[10px] tracking-[0.4px] text-fg-low">LINKEDIN PROFILE · .PDF</p>
+                <p className="font-mono text-[10px] tracking-[0.4px] text-fg-low">PDF · WORD · IMAGE · .ZIP</p>
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".pdf,application/pdf,.zip,application/zip"
+                  accept={`${FILE_ACCEPT},.zip,application/zip`}
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];

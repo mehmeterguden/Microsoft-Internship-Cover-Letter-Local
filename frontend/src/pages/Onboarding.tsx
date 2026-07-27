@@ -28,6 +28,7 @@ import { Stepper } from "@/components/ui/data";
 import { Pill } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { streamImportCv, listDocuments, type CvImportEvent, type Document } from "@/api/cv";
+import { DOC_ACCEPT, IMAGE_ACCEPT, TEXT_ACCEPT } from "@/lib/fileTypes";
 import { parsePartial } from "@/lib/partialJson";
 import { getSettings } from "@/api/settings";
 import { getProfile } from "@/api/profile";
@@ -47,8 +48,6 @@ type SaveMode = "replace" | "merge";
 const RAIL_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Done" }];
 const STEP_INDEX: Record<OnbState, number> = { upload: 0, review: 1, ready: 2 };
 
-const DOC_ACCEPT = ".pdf,.doc,.docx,.txt";
-const IMAGE_ACCEPT = ".png,.jpg,.jpeg,.webp,.tiff,.bmp";
 const IMAGE_RE = /\.(png|jpe?g|webp|tiff?|bmp|heic|gif)$/i;
 
 interface ImportMeta {
@@ -415,7 +414,7 @@ function UploadState({
   const [viewingDoc, setViewingDoc] = useState<DocLike | null>(null);
 
   const ocrOff = ocrEnabled === false;
-  const accept = ocrOff ? DOC_ACCEPT : `${DOC_ACCEPT},${IMAGE_ACCEPT}`;
+  const accept = ocrOff ? `${DOC_ACCEPT},${TEXT_ACCEPT}` : `${DOC_ACCEPT},${TEXT_ACCEPT},${IMAGE_ACCEPT}`;
 
   /* Resolve the saved document record that corresponds to this CV import */
   const activeDoc = useMemo<DocLike | null>(() => {
@@ -708,7 +707,7 @@ function UploadState({
         {/* Format & privacy row */}
         <div className="mt-5 flex flex-col items-center gap-2">
           <div className="font-mono text-[10.5px] text-fg-low">
-            {ocrOff ? "PDF · DOCX · TXT" : "PDF · DOCX · TXT · images"}
+            {ocrOff ? "PDF · Word · text" : "PDF · Word · text · images"}
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[10.5px] font-semibold text-fg-mid">
             <ShieldCheck size={11} className="text-success" aria-hidden="true" />
