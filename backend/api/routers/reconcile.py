@@ -47,6 +47,21 @@ def plan(req: PlanRequest, use_ai: bool = True) -> dict:
     )
 
 
+@router.post("/replace-plan")
+def replace_plan(req: PlanRequest, use_ai: bool = True) -> dict:
+    """Build a replace review plan for incoming data against the current profile."""
+    existing_profile = queries.get_profile() or {}
+    existing_by_section = {section: queries.list_all(section) for section in _SECTIONS}
+    incoming = CVExtraction(**req.model_dump(exclude={"profile_url"}))
+    return reconcile.build_replace_plan(
+        incoming,
+        existing_profile,
+        existing_by_section,
+        profile_url=req.profile_url,
+        use_ai=use_ai,
+    )
+
+
 class ProfileField(BaseModel):
     field: str
     value: Any = None
@@ -58,19 +73,32 @@ class ItemUpsert(BaseModel):
     data: dict[str, Any]
 
 
+class ItemDelete(BaseModel):
+    section: str
+    id: int
+
+
 class ApplyRequest(BaseModel):
     source: str = "manual"
     source_detail: str | None = None
     profile_fields: list[ProfileField] = []
     items: list[ItemUpsert] = []
+    deletions: list[ItemDelete] = []
 
 
 @router.post("/apply")
 def apply(req: ApplyRequest) -> dict:
-    """Apply accepted decisions: fill/replace identity fields, add/replace rows."""
+    """Apply accepted decisions: fill/replace identity fields, add/replace rows, delete dropped rows."""
     source = _SOURCES.get(req.source, Source.manual)
     today = date.today().isoformat()
     stamp = {"source": source.value, "source_detail": req.source_detail, "source_at": today}
+
+    # ── Deletions (rows dropped during Replace review) ──
+    deleted = 0
+    for del_item in req.deletions:
+        if del_item.section in _SECTIONS:
+            if queries.delete(del_item.section, del_item.id):
+                deleted += 1
 
     # ── Identity fields (fills + accepted conflicts) ──
     profile_written = 0
@@ -107,4 +135,4 @@ def apply(req: ApplyRequest) -> dict:
         except sqlite3.IntegrityError:
             pass  # skip rows that violate a constraint (e.g. a stale FK)
 
-    return {"ok": True, "profile_fields": profile_written, "added": added, "updated": updated}
+    return {"ok": True, "profile_fields": profile_written, "added": added, "updated": updated, "deleted": deleted}
