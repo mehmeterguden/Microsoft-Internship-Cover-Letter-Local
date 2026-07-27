@@ -14,6 +14,7 @@ import { errorMessage } from "@/api/client";
 import {
   createPastLetter,
   deletePastLetter,
+  extractFileText,
   getStyle,
   learnVoice,
   listPastLetters,
@@ -21,7 +22,6 @@ import {
   type StyleState,
 } from "@/api/style";
 import type { PastCoverLetter, VoiceProfile } from "@/api/types";
-import { parseDocument } from "@/api/cv";
 import { SetupIntro } from "@/components/setup/SetupScaffold";
 import { JsonConsole } from "@/components/onboarding/JsonConsole";
 import { parsePartial } from "@/lib/partialJson";
@@ -710,13 +710,10 @@ function AddLetterDialog({
     }
     setExtracting(true);
     try {
-      const res = await parseDocument(file);
-      const extracted = (res.text ?? "").trim();
-      if (!extracted) {
-        toast.warning("No text found", "That file had no readable text. For a scanned image make sure OCR is set up, or paste the text instead.");
-        return;
-      }
-      setText(extracted);
+      // Dedicated endpoint: parses PDF/Word/image/text on-device and returns clean text
+      // (it joins multi-page PDFs and 400s if nothing readable came out).
+      const res = await extractFileText(file);
+      setText(res.text);
       setAttachment({ name: res.filename ?? file.name, kind: res.source_type ?? "file" });
     } catch (e) {
       toast.danger("Couldn't read that file", errorMessage(e));
