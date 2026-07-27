@@ -86,3 +86,28 @@ export async function updatePastLetter(id: number, letter: PastCoverLetter): Pro
 export async function deletePastLetter(id: number): Promise<void> {
   await client.delete(`/past-cover-letters/${id}`);
 }
+
+export interface ExtractedTextResult {
+  filename: string;
+  text: string;
+  word_count: number;
+  source_type: string;
+}
+
+export async function uploadPastLetter(file: File): Promise<PastCoverLetter> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await client.post<PastCoverLetter>("/past-cover-letters/upload", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
+export async function extractFileText(file: File): Promise<ExtractedTextResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await client.post<ExtractedTextResult>("/past-cover-letters/extract", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
