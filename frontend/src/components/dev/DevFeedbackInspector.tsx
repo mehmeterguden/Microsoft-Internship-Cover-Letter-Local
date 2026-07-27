@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import html2canvas from "html2canvas";
-import { Check, Info, Loader2, MousePointer, X } from "lucide-react";
+import { Check, Info, Loader2, Minimize2, MousePointer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/field";
 import { toast } from "@/store/toast";
@@ -115,6 +115,7 @@ export function DevFeedbackInspector() {
 
   const [category, setCategory] = useState<DevFeedbackCategory>("ui_layout");
   const [notes, setNotes] = useState("");
+  const [minimized, setMinimized] = useState(false);
 
   // Track mouse movement to highlight elements under cursor
   useEffect(() => {
@@ -274,142 +275,156 @@ export function DevFeedbackInspector() {
         </div>
       )}
 
-      {/* Feedback Input Modal */}
+      {/* Non-Blocking Bottom-Right Floating Panel */}
       {modalOpen && selectedTarget && (
-        <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="relative flex max-h-[90vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[18px] border border-border bg-surface shadow-2xl">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border/80 px-6 py-3.5">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-indigo-500/20 text-indigo-400">
-                  <MousePointer size={16} />
-                </span>
-                <div>
-                  <h2 className="text-[15px] font-bold text-fg">Developer Feedback Inspector</h2>
-                  <p className="text-[11px] text-fg-mid font-mono">
-                    Page: {location.pathname} · &lt;{selectedTarget.tagName}&gt;
-                  </p>
-                </div>
+        <div className="fixed bottom-6 right-6 z-50 pointer-events-auto flex flex-col w-[420px] max-w-[calc(100vw-3rem)] max-h-[85vh] overflow-hidden rounded-[20px] border border-border/80 bg-surface/95 backdrop-blur-md shadow-2xl animate-in slide-in-from-bottom-5 slide-in-from-right-5 duration-200">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-surface-2/40">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-400">
+                <MousePointer size={14} />
+              </span>
+              <div>
+                <h2 className="text-[13.5px] font-bold text-fg leading-tight">Developer Feedback</h2>
+                <p className="text-[10.5px] text-fg-mid font-mono">
+                  {location.pathname} · &lt;{selectedTarget.tagName}&gt;
+                </p>
               </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setMinimized((m) => !m)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-fg-low hover:bg-surface-2 hover:text-fg transition cursor-pointer"
+                title={minimized ? "Expand panel" : "Minimize panel"}
+              >
+                <Minimize2 size={14} />
+              </button>
               <button
                 type="button"
                 onClick={handleClose}
-                className="flex h-8 w-8 items-center justify-center rounded-[8px] text-fg-low hover:bg-surface-2 hover:text-fg"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-fg-low hover:bg-surface-2 hover:text-fg transition cursor-pointer"
+                title="Close panel"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Target info card */}
-              <div className="rounded-xl border border-border bg-surface-2/50 p-3 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-fg-mid font-mono text-[11px]">
-                  <span>Selector: <strong className="text-fg font-semibold">{selectedTarget.selector}</strong></span>
-                  <span>{Math.round(selectedTarget.rect.width)}x{Math.round(selectedTarget.rect.height)}px</span>
-                </div>
-
-                {selectedTarget.locationContext && (
-                  <div className="text-[11px] text-indigo-300 font-semibold flex items-center gap-1.5 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
-                    <span>📌 Location:</span>
-                    <span className="font-mono text-fg">{selectedTarget.locationContext}</span>
-                  </div>
-                )}
-
-                {selectedTarget.buttonLabel && (
-                  <div className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
-                    <span>🔘 Button / Action Label:</span>
-                    <span className="font-mono text-fg font-bold">"{selectedTarget.buttonLabel}"</span>
-                  </div>
-                )}
-
-                {selectedTarget.selectedText && (
-                  <div className="text-[11px] text-emerald-300 font-semibold flex items-start gap-1.5 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                    <span>✂️ Selection:</span>
-                    <span className="font-mono text-fg line-clamp-2">"{selectedTarget.selectedText}"</span>
-                  </div>
-                )}
-
-                {selectedTarget.elementHierarchy && (
-                  <div className="text-[10px] text-fg-mid font-mono truncate">
-                    <span>Path: {selectedTarget.elementHierarchy}</span>
-                  </div>
-                )}
-
-                {screenshotUrl ? (
-                  <div className="mt-2 overflow-hidden rounded-lg border border-border bg-black/40 flex justify-center max-h-[140px] p-2">
-                    <img src={screenshotUrl} alt="Captured element" className="object-contain max-h-[120px] rounded" />
-                  </div>
-                ) : capturing ? (
-                  <div className="py-4 flex items-center justify-center gap-2 text-fg-mid text-[11.5px]">
-                    <Loader2 size={14} className="animate-spin text-indigo-400" />
-                    <span>Capturing element screenshot…</span>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Feedback Category */}
-              <div className="space-y-2">
-                <label className="text-[12px] font-medium text-fg">Feedback Category</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { id: "ui_layout", label: "UI / Layout" },
-                    { id: "bug_fix", label: "Bug Fix" },
-                    { id: "copy_text", label: "Copy / Text" },
-                    { id: "feature_request", label: "Feature Request" },
-                    { id: "other", label: "Other" },
-                  ].map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setCategory(c.id as DevFeedbackCategory)}
-                      className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
-                        category === c.id
-                          ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-sm"
-                          : "bg-surface-2/40 border-border/60 text-fg-mid hover:bg-surface-2"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes / Edit Instructions */}
-              <div className="space-y-1.5">
-                <label className="text-[12px] font-medium text-fg">Requested Edit / Instructions</label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Describe exact changes (e.g. 'Make this button wider', 'Change font size to 14px', 'Fix alignment issue')..."
-                  className="min-h-[90px] text-xs"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5 text-[11px] text-fg-low bg-surface-2 p-2.5 rounded-lg border border-border/60">
-                <Info size={13} className="shrink-0 text-indigo-400" />
-                <span>Saved items can be copied as AI prompts in <strong>Settings → Developer Feedback</strong>.</span>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t border-border/80 bg-surface-2/30 px-6 py-3.5">
-              <Button type="button" variant="outline" size="sm" onClick={handleClose} className="text-xs">
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="solid"
-                size="sm"
-                onClick={handleSubmit}
-                className="text-xs px-4 bg-indigo-600 hover:bg-indigo-500 text-white"
-              >
-                <Check size={14} className="mr-1.5" />
-                Submit Feedback
-              </Button>
-            </div>
           </div>
+
+          {!minimized && (
+            <>
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Target info card */}
+                <div className="rounded-xl border border-border bg-surface-2/50 p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-fg-mid font-mono text-[11px]">
+                    <span>Selector: <strong className="text-fg font-semibold">{selectedTarget.selector}</strong></span>
+                    <span>{Math.round(selectedTarget.rect.width)}x{Math.round(selectedTarget.rect.height)}px</span>
+                  </div>
+
+                  {selectedTarget.locationContext && (
+                    <div className="text-[11px] text-indigo-300 font-semibold flex items-center gap-1.5 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
+                      <span>📌 Location:</span>
+                      <span className="font-mono text-fg">{selectedTarget.locationContext}</span>
+                    </div>
+                  )}
+
+                  {selectedTarget.buttonLabel && (
+                    <div className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                      <span>🔘 Action Label:</span>
+                      <span className="font-mono text-fg font-bold">"{selectedTarget.buttonLabel}"</span>
+                    </div>
+                  )}
+
+                  {selectedTarget.selectedText && (
+                    <div className="text-[11px] text-emerald-300 font-semibold flex items-start gap-1.5 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                      <span>✂️ Selection:</span>
+                      <span className="font-mono text-fg line-clamp-2">"{selectedTarget.selectedText}"</span>
+                    </div>
+                  )}
+
+                  {selectedTarget.elementHierarchy && (
+                    <div className="text-[10px] text-fg-mid font-mono truncate">
+                      <span>Path: {selectedTarget.elementHierarchy}</span>
+                    </div>
+                  )}
+
+                  {screenshotUrl ? (
+                    <div className="mt-2 overflow-hidden rounded-lg border border-border bg-black/40 flex justify-center max-h-[110px] p-1.5">
+                      <img src={screenshotUrl} alt="Captured element" className="object-contain max-h-[95px] rounded" />
+                    </div>
+                  ) : capturing ? (
+                    <div className="py-3 flex items-center justify-center gap-2 text-fg-mid text-[11px]">
+                      <Loader2 size={13} className="animate-spin text-indigo-400" />
+                      <span>Capturing element screenshot…</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Feedback Category */}
+                <div className="space-y-1.5">
+                  <label className="text-[11.5px] font-medium text-fg">Feedback Category</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: "ui_layout", label: "UI / Layout" },
+                      { id: "bug_fix", label: "Bug Fix" },
+                      { id: "copy_text", label: "Copy / Text" },
+                      { id: "feature_request", label: "Feature" },
+                      { id: "other", label: "Other" },
+                    ].map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCategory(c.id as DevFeedbackCategory)}
+                        className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer ${
+                          category === c.id
+                            ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-sm"
+                            : "bg-surface-2/40 border-border/60 text-fg-mid hover:bg-surface-2"
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes / Edit Instructions */}
+                <div className="space-y-1.5">
+                  <label className="text-[11.5px] font-medium text-fg">Requested Edit Instructions</label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Describe exact changes (e.g. 'Make button wider', 'Change font size', 'Fix alignment')..."
+                    className="min-h-[80px] text-xs"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[10.5px] text-fg-low bg-surface-2/60 p-2 rounded-lg border border-border/60">
+                  <Info size={12} className="shrink-0 text-indigo-400" />
+                  <span>Rest of screen remains 100% active while inspecting.</span>
+                </div>
+              </div>
+
+              {/* Panel Footer */}
+              <div className="flex items-center justify-between border-t border-border/80 bg-surface-2/30 px-4 py-2.5">
+                <Button type="button" variant="outline" size="sm" onClick={handleClose} className="text-xs h-8">
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="solid"
+                  size="sm"
+                  onClick={handleSubmit}
+                  className="text-xs h-8 px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                >
+                  <Check size={13} className="mr-1.5" />
+                  Submit Feedback
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
