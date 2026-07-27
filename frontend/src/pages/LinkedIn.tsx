@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/controls";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/feedback";
-import { SetupEmpty, SetupScaffold } from "@/components/setup/SetupScaffold";
+import { SetupScaffold } from "@/components/setup/SetupScaffold";
 import { useAsync } from "@/lib/useAsync";
 import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
@@ -233,13 +233,26 @@ export function LinkedIn() {
         {/* ── Profile PDF ── */}
         {tab === "import" ? (
           <div className="cll-fade flex flex-col gap-4">
-            <div className="flex items-start gap-2.5 rounded-[13px] border border-border bg-surface-2 px-4 py-3">
-              <LinkedInMark size={15} className="mt-0.5 shrink-0 text-accent-text" />
-              <p className="text-[12.5px] leading-relaxed text-fg-mid">
-                Open your LinkedIn profile, click <span className="font-semibold text-fg">Resources → Save to PDF</span>, and
-                upload the PDF here. Its text is read and structured by your configured model — with a local model (the
-                default) nothing leaves your device.
-              </p>
+            {/* Clean 3-step Save to PDF guide */}
+            <div className="flex flex-col gap-2 rounded-[13px] border border-border bg-surface-2 p-4">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+                <LinkedInMark size={16} className="text-accent-text" />
+                How to export your LinkedIn profile to PDF:
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 pt-1 text-[12px] text-fg-mid">
+                <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface px-3 py-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[10.5px] font-bold text-accent-text">1</span>
+                  <span>Go to your LinkedIn profile page</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface px-3 py-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[10.5px] font-bold text-accent-text">2</span>
+                  <span>Click <strong className="text-fg">More (…)</strong> in top section</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface px-3 py-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[10.5px] font-bold text-accent-text">3</span>
+                  <span>Select <strong className="text-fg">Save to PDF</strong> & upload here</span>
+                </div>
+              </div>
             </div>
 
             {busy ? (
@@ -452,16 +465,6 @@ export function LinkedIn() {
               }}
             />
           </div>
-        ) : !busy && tab !== "connect" ? (
-          <SetupEmpty
-            icon={<LinkedInMark size={24} />}
-            title="Nothing imported yet"
-            description={
-              tab === "import"
-                ? "Upload your LinkedIn profile PDF above — we'll compare it with your profile before anything changes."
-                : "Paste your profile text above — we'll compare it with your profile before anything changes."
-            }
-          />
         ) : null}
       </SetupScaffold>
 

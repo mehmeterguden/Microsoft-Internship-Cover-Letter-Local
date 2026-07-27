@@ -679,6 +679,7 @@ function ProfileSkeleton() {
    ══════════════════════════════════════════════════════════════════ */
 function SectionCard({
   title,
+  count,
   meta,
   headerExtra,
   onAdd,
@@ -689,6 +690,7 @@ function SectionCard({
   footer,
 }: {
   title: string;
+  count?: number;
   meta?: ReactNode;
   headerExtra?: ReactNode;
   onAdd?: () => void;
@@ -708,7 +710,12 @@ function SectionCard({
       style={scroll ? { maxHeight: maxBody } : undefined}
     >
       <div className="mb-4 flex shrink-0 items-center justify-between">
-        <span className="text-[14px] font-semibold text-fg">{title}</span>
+        <span className="text-[14px] font-semibold text-fg">
+          {title}
+          {typeof count === "number" ? (
+            <span className="ml-1.5 font-mono text-[11.5px] font-normal text-fg-low">({count})</span>
+          ) : null}
+        </span>
         <div className="flex items-center gap-2.5">
           {meta ? <span className="font-mono text-[10px] text-fg-low">{meta}</span> : null}
           {headerExtra}
@@ -843,7 +850,7 @@ function SkillsCard({ skills, onOpen, onAdd }: { skills: Skill[]; onOpen: (s: Sk
   return (
     <SectionCard
       title="Skills"
-      meta={`${skills.length} tracked`}
+      count={skills.length}
       addLabel="Add skill"
       onAdd={onAdd}
       maxBody={380}
@@ -905,7 +912,7 @@ function ExperienceCard({
   return (
     <SectionCard
       title="Experience"
-      meta={experiences.length ? `${experiences.length} roles` : undefined}
+      count={experiences.length}
       addLabel="Add role"
       onAdd={onAdd}
       maxBody={380}
@@ -1047,7 +1054,7 @@ function EducationCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Education" addLabel="Add education" onAdd={onAdd} maxBody={380}>
+    <SectionCard title="Education" count={education.length} addLabel="Add education" onAdd={onAdd} maxBody={380}>
       {education.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No education yet — <span className="font-semibold text-accent-text">add a degree</span>.
@@ -1101,7 +1108,7 @@ function LanguagesCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Languages" addLabel="Add language" onAdd={onAdd} maxBody={380}>
+    <SectionCard title="Languages" count={languages.length} addLabel="Add language" onAdd={onAdd} maxBody={380}>
       {languages.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No languages yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1142,6 +1149,7 @@ function ProjectsCard({
   return (
     <SectionCard
       title="Projects"
+      count={projects.length}
       addLabel="Add project"
       onAdd={onAdd}
       maxBody={600}
@@ -1231,7 +1239,7 @@ function CertificatesCard({
   onAdd: () => void;
 }) {
   return (
-    <SectionCard title="Certificates" addLabel="Add certificate" onAdd={onAdd} maxBody={380}>
+    <SectionCard title="Certificates" count={certificates.length} addLabel="Add certificate" onAdd={onAdd} maxBody={380}>
       {certificates.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No certificates yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -1276,7 +1284,7 @@ function TrainingsCard({
   return (
     <SectionCard
       title="Trainings"
-      meta={trainings.length ? `${trainings.length} completed` : undefined}
+      count={trainings.length}
       addLabel="Add training"
       onAdd={onAdd}
       maxBody={380}
@@ -1330,7 +1338,7 @@ function LinkGlyph({ url, label }: { url: string; label: string }) {
 
 function LinksCard({ links, onOpen, onAdd }: { links: Link[]; onOpen: (l: Link) => void; onAdd: () => void }) {
   return (
-    <SectionCard title="Links" addLabel="Add link" onAdd={onAdd} maxBody={380}>
+    <SectionCard title="Links" count={links.length} addLabel="Add link" onAdd={onAdd} maxBody={380}>
       {links.length === 0 ? (
         <EmptyPrompt minimal onClick={onAdd}>
           No links yet — <span className="font-semibold text-accent-text">add one</span>.
@@ -2509,7 +2517,7 @@ function Svg({ size = 20, strokeWidth = 1.5, className, children }: IconProps & 
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={className}
+      className={cn("shrink-0 inline-block align-middle", className)}
       aria-hidden
     >
       {children}

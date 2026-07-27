@@ -9,6 +9,7 @@ import { useSettingsStore } from "@/store/settings";
 import { listJobs } from "@/api/jobs";
 import { listDocuments } from "@/api/cv";
 import { githubStatus } from "@/api/github";
+import { listSavedRepos } from "@/api/githubRepos";
 import { linkedinStatus } from "@/api/linkedin";
 import { getProfile } from "@/api/profile";
 import { getStyle } from "@/api/style";
@@ -22,16 +23,18 @@ export type NavStatus = {
   hasVoice: boolean;
   voiceSamples: number;
   githubConnected: boolean;
+  savedGithubReposCount: number;
   linkedinConnected: boolean;
 };
 
 async function fetchNavStatus(): Promise<NavStatus> {
-  const [docs, style, gh, li, profile] = await Promise.allSettled([
+  const [docs, style, gh, li, profile, savedRepos] = await Promise.allSettled([
     listDocuments(),
     getStyle(),
     githubStatus(),
     linkedinStatus(),
     getProfile(),
+    listSavedRepos(),
   ]);
 
   const docList = docs.status === "fulfilled" ? docs.value : [];
@@ -39,15 +42,17 @@ async function fetchNavStatus(): Promise<NavStatus> {
   const ghData = gh.status === "fulfilled" ? gh.value : null;
   const liData = li.status === "fulfilled" ? li.value : null;
   const profData = profile.status === "fulfilled" ? profile.value : null;
+  const reposList = savedRepos.status === "fulfilled" ? savedRepos.value : [];
 
   const cvCount = docList.length;
   const hasCv = cvCount > 0 || Boolean(profData?.name || profData?.summary);
   const voiceSamples = styleData?.samples ?? 0;
   const hasVoice = Boolean(voiceSamples > 0 || styleData?.style_profile);
   const githubConnected = Boolean(ghData?.account_connected);
+  const savedGithubReposCount = reposList.length;
   const linkedinConnected = Boolean(liData?.connected);
 
-  return { hasCv, cvCount, hasVoice, voiceSamples, githubConnected, linkedinConnected };
+  return { hasCv, cvCount, hasVoice, voiceSamples, githubConnected, savedGithubReposCount, linkedinConnected };
 }
 
 /** Provider labels for the footer model chip. */
@@ -140,12 +145,32 @@ function NavRow({
 
     if (!status || !item.statusKey) return null;
 
+    // Profile page does NOT show status ticks
+    if (item.statusKey === "profile") {
+      return null;
+    }
+
+    // GitHub Import shows saved repos count if repos exist
+    if (item.statusKey === "github") {
+      if (status.savedGithubReposCount > 0) {
+        return (
+          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-emerald-400">
+            {status.savedGithubReposCount}
+          </span>
+        );
+      }
+      if (status.githubConnected) {
+        return (
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+            <Check size={10} strokeWidth={2.8} />
+          </span>
+        );
+      }
+      return null;
+    }
+
     if (item.statusKey === "cv" && status.hasCv) {
-      return status.cvCount > 0 ? (
-        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-emerald-400">
-          {status.cvCount}
-        </span>
-      ) : (
+      return (
         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
           <Check size={10} strokeWidth={2.8} />
         </span>
@@ -153,18 +178,6 @@ function NavRow({
     }
 
     if (item.statusKey === "voice" && status.hasVoice) {
-      return status.voiceSamples > 0 ? (
-        <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-emerald-400">
-          {status.voiceSamples}
-        </span>
-      ) : (
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
-          <Check size={10} strokeWidth={2.8} />
-        </span>
-      );
-    }
-
-    if (item.statusKey === "github" && status.githubConnected) {
       return (
         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
           <Check size={10} strokeWidth={2.8} />
@@ -173,14 +186,6 @@ function NavRow({
     }
 
     if (item.statusKey === "linkedin" && status.linkedinConnected) {
-      return (
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
-          <Check size={10} strokeWidth={2.8} />
-        </span>
-      );
-    }
-
-    if (item.statusKey === "profile" && status.hasCv) {
       return (
         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
           <Check size={10} strokeWidth={2.8} />

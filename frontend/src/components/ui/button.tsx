@@ -68,7 +68,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isPrimary && sheen ? <span className="cll-sheen-el" aria-hidden /> : null}
         {loading ? <Loader2 size={15} className="relative animate-spin" /> : null}
-        <span className="relative inline-flex items-center gap-2">{children}</span>
+        <span className="relative inline-flex items-center justify-center gap-2">{children}</span>
       </button>
     );
   },

@@ -360,10 +360,10 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         />
         <StatStrip
           stats={[
-            { label: "Active drafts", value: String(d.draftCount), sub: "in progress" },
-            { label: "Completed", value: String(d.completedCount), sub: "done" },
-            { label: "Avg match", value: d.avgMatch != null ? String(d.avgMatch) : "—", sub: "across letters", tone: "accent" },
-            { label: "Skills tracked", value: String(d.skillsCount), sub: "tracked" },
+            { label: "Completed letters", value: String(d.completedCount), sub: "all prepared", tone: "success" },
+            { label: "Active drafts", value: String(d.draftCount), sub: d.draftCount ? "in progress" : "none in draft", tone: d.draftCount > 0 ? "warning" : undefined },
+            { label: "Skills tracked", value: String(d.skillsCount), sub: "from profile" },
+            { label: "GitHub repos", value: String(d.reposCount), sub: "imported" },
           ]}
         />
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
@@ -392,7 +392,7 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         badge="All caught up"
         badgeTone="success"
         title="You are all caught up."
-        desc={`${d.completedCount} ${d.completedCount === 1 ? "letter" : "letters"} sent${d.avgMatch != null ? ` with a ${d.avgMatch} average match` : ""}. Line up the next role whenever you are ready.`}
+        desc={`${d.completedCount} ${d.completedCount === 1 ? "letter" : "letters"} sent. Line up the next role whenever you are ready.`}
         actions={
           <>
             <Button asChild size="md"><Link to="/write"><PenLine size={15} /> New Cover Letter</Link></Button>
@@ -402,16 +402,16 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
         steps={[
           { label: "Research", status: "done" },
           { label: "Draft", status: "done" },
-          { label: d.avgMatch != null ? `Match ${d.avgMatch}` : "Match", status: "done" },
+          { label: "Review", status: "done" },
           { label: "All sent", status: "done" },
         ]}
       />
       <StatStrip
         stats={[
-          { label: "Completed", value: String(d.completedCount), sub: "all sent", tone: "success" },
-          { label: "Avg match", value: d.avgMatch != null ? String(d.avgMatch) : "—", sub: "strong fit", tone: "accent" },
-          { label: "Top match", value: d.maxMatch != null ? String(d.maxMatch) : "—", sub: "best fit" },
+          { label: "Completed letters", value: String(d.completedCount), sub: "all prepared", tone: "success" },
           { label: "Drafts open", value: String(d.draftCount), sub: d.draftCount ? "in progress" : "inbox zero" },
+          { label: "Skills tracked", value: String(d.skillsCount), sub: "from profile" },
+          { label: "GitHub repos", value: String(d.reposCount), sub: "imported" },
         ]}
       />
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.5fr_1fr]">
