@@ -88,50 +88,81 @@ export const useDevFeedbackStore = create<DevFeedbackState>((set, get) => ({
       return "No developer feedback items recorded yet.";
     }
 
+    const getCategoryLabel = (cat: DevFeedbackCategory) => {
+      switch (cat) {
+        case "ui_layout":
+          return "UI / Layout";
+        case "bug_fix":
+          return "Bug Fix";
+        case "copy_text":
+          return "Copy / Text";
+        case "feature_request":
+          return "Feature Request";
+        default:
+          return "General Feedback";
+      }
+    };
+
     const lines: string[] = [
-      "# Developer Feedback & UI Edits Request",
+      "# 🛠️ AI Development Task: UI Modifications & Bug Fixes",
       "",
-      `Please apply the following ${items.length} requested UI/code modifications:`,
+      `> **Role Context**: You are an elite senior full-stack AI engineer. Please inspect the codebase and execute the following **${items.length} requested UI refactoring tasks** precisely as described below. Enforce all established design tokens, clean code conventions, and project worktree guidelines.`,
       "",
+      "---",
+      "",
+      "## 📋 Task Summary Index",
+      "",
+      "| # | Category | Route | Screen Location | Target Element | Action / Button |",
+      "|---|---|---|---|---|---|",
     ];
 
-    items.forEach((item, index) => {
-      const categoryLabel =
-        item.category === "ui_layout"
-          ? "UI / Layout Adjustment"
-          : item.category === "bug_fix"
-          ? "Bug Fix"
-          : item.category === "copy_text"
-          ? "Copy / Text Change"
-          : item.category === "feature_request"
-          ? "Feature Request"
-          : "General Feedback";
+    items.forEach((item, i) => {
+      const loc = item.locationContext || "Workspace";
+      const btn = item.buttonLabel ? `"${item.buttonLabel}"` : "-";
+      lines.push(
+        `| ${i + 1} | **${getCategoryLabel(item.category)}** | \`${item.route}\` | \`${loc}\` | \`<${item.tagName.toLowerCase()}>\` | ${btn} |`
+      );
+    });
 
-      lines.push(`### Item ${index + 1}: ${categoryLabel}`);
-      lines.push(`- **Date**: ${new Date(item.createdAt).toLocaleString()}`);
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+    lines.push("## 🔍 Detailed Modification Instructions");
+    lines.push("");
+
+    items.forEach((item, index) => {
+      lines.push(`### Item ${index + 1}: ${getCategoryLabel(item.category)}`);
+      lines.push("");
+      lines.push("#### 📌 Context & Location");
       lines.push(`- **Page Route**: \`${item.route}\``);
-      if (item.locationContext) {
-        lines.push(`- **Screen Location**: \`${item.locationContext}\``);
-      }
-      lines.push(`- **Target Element**: \`<${item.tagName.toLowerCase()}>\` (\`${item.selector}\`)`);
+      lines.push(`- **Screen Location**: \`${item.locationContext || "Main Workspace"}\``);
+      lines.push(`- **Component Path**: \`${item.elementHierarchy || `<${item.tagName.toLowerCase()}>`}\``);
+      lines.push("");
+      lines.push("#### 🎯 Target Element Specifications");
+      lines.push(`- **Element Tag**: \`<${item.tagName.toLowerCase()}>\``);
+      lines.push(`- **CSS Selector**: \`${item.selector}\``);
+      lines.push(`- **Bounding Box**: \`x:${Math.round(item.rect.x)}px, y:${Math.round(item.rect.y)}px, ${Math.round(item.rect.width)}x${Math.round(item.rect.height)}px\``);
       if (item.buttonLabel) {
-        lines.push(`- **Clicked Button / Action Label**: "${item.buttonLabel}"`);
+        lines.push(`- **Clicked Button / Action Label**: \`"${item.buttonLabel}"\``);
       }
       if (item.textSnippet) {
-        lines.push(`- **Element Content**: "${item.textSnippet.slice(0, 150)}"`);
+        lines.push(`- **Element Content Text**: \`"${item.textSnippet.slice(0, 150)}"\``);
       }
       if (item.selectedText) {
-        lines.push(`- **Active User Selection**: "${item.selectedText.slice(0, 150)}"`);
+        lines.push(`- **Active Highlighted Selection**: \`"${item.selectedText.slice(0, 150)}"\``);
       }
-      if (item.elementHierarchy) {
-        lines.push(`- **Component Path**: \`${item.elementHierarchy}\``);
-      }
-      lines.push(`- **Bounding Box**: \`x:${Math.round(item.rect.x)}, y:${Math.round(item.rect.y)}, ${Math.round(item.rect.width)}x${Math.round(item.rect.height)}px\``);
-      lines.push(`- **Requested Edit / Instructions**: ${item.notes}`);
+      lines.push("");
+      lines.push("#### 💡 Requested Refactoring & User Instructions");
+      lines.push(`> ${item.notes.replace(/\n/g, "\n> ")}`);
       lines.push("");
       lines.push("---");
       lines.push("");
     });
+
+    lines.push("## ⚙️ Execution Directives");
+    lines.push("1. Create an isolated worktree for these changes cut from `origin/main`.");
+    lines.push("2. Verify all modifications locally using `npm run build` with zero TypeScript/lint errors.");
+    lines.push("3. Commit, open PR, squash merge, and update documentation.");
 
     return lines.join("\n");
   },
