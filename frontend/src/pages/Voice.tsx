@@ -524,7 +524,7 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
             </svg>
           </span>
           <span className="block text-[15px] font-bold text-fg">Add a past letter</span>
-          <span className="mt-1 block text-[12.5px] text-fg-mid">Add a PDF, Word, image, or text file — or paste it — everything stays on your machine</span>
+          <span className="mt-1 block text-[12.5px] text-fg-mid">Add a PDF, Word, image, or text file — or paste it</span>
         </button>
       </div>
     </div>
