@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, Check, ChevronRight, ExternalLink, Loader2, RotateCw, Sparkles, Trash2, CheckSquare, Square } from "lucide-react";
 import { Page } from "@/components/common/Page";
 
@@ -8,6 +7,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Field, Input } from "@/components/ui/field";
 import { ProgressBar, Spinner, StatDot } from "@/components/ui/feedback";
 import { SetupEmpty, SetupScaffold } from "@/components/setup/SetupScaffold";
 import { useAsync } from "@/lib/useAsync";
@@ -15,6 +15,7 @@ import { errorMessage } from "@/api/client";
 import { toast } from "@/store/toast";
 import { analyzeRepos, fetchRepos, githubStatus, saveRepos, type GithubProfile } from "@/api/github";
 import { deleteSavedRepo, listSavedRepos } from "@/api/githubRepos";
+import { getSettings, saveSettings } from "@/api/settings";
 import type { GithubRepo, ScoredSkill } from "@/api/types";
 import { cn } from "@/lib/utils";
 
@@ -86,56 +87,55 @@ function StarIcon({ size = 11, className }: { size?: number; className?: string 
   );
 }
 
-function AccountChip({ connected, profile }: { connected: boolean; profile: GithubProfile | null }) {
-  if (profile?.login) {
-    const chip = (
-      <>
-        <span
-          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
-          style={{ background: "var(--accent-grad)" }}
-        >
-          {initials(profile)}
-        </span>
-        <span className="leading-tight">
-          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-fg">
-            @{profile.login}
-            {profile.html_url ? <ExternalLink size={12} className="text-fg-low" /> : null}
-          </span>
-          <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-success">
-            <StatDot tone="success" glow size={5} />
-            {typeof profile.public_repos === "number" ? `${profile.public_repos} repos` : "Loaded"}
-          </span>
-        </span>
-      </>
-    );
-    if (profile.html_url) {
-      return (
-        <a
-          href={profile.html_url}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5 no-underline transition-colors hover:border-accent"
-        >
-          {chip}
-        </a>
-      );
-    }
-    return <div className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5">{chip}</div>;
-  }
-
+function AccountChip({
+  connected,
+  profile,
+  onManage,
+}: {
+  connected: boolean;
+  profile: GithubProfile | null;
+  onManage: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5">
-      <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-border bg-surface-2 text-fg-low">
-        <GithubMark size={15} />
-      </span>
-      <span className="leading-tight">
-        <span className="block text-[13px] font-semibold text-fg-mid">{connected ? "Account linked" : "No account"}</span>
-        <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px]" style={{ color: connected ? "var(--success)" : "var(--text-low)" }}>
-          <span className="h-[5px] w-[5px] rounded-full" style={{ background: connected ? "var(--success)" : "var(--text-low)" }} />
-          {connected ? "Token set" : "Not connected"}
-        </span>
-      </span>
-    </div>
+    <button
+      type="button"
+      onClick={onManage}
+      className="flex items-center gap-2.5 rounded-[11px] border border-border-strong bg-surface py-2 pl-2.5 pr-3.5 text-left outline-none transition-colors hover:border-accent"
+      title="Manage GitHub Connection & Access Token"
+    >
+      {profile?.login ? (
+        <>
+          <span
+            className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
+            style={{ background: "var(--accent-grad)" }}
+          >
+            {initials(profile)}
+          </span>
+          <span className="leading-tight">
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-fg">
+              @{profile.login}
+            </span>
+            <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px] text-success">
+              <StatDot tone="success" glow size={5} />
+              {typeof profile.public_repos === "number" ? `${profile.public_repos} repos` : "Connected"}
+            </span>
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border border-border bg-surface-2 text-fg-low">
+            <GithubMark size={15} />
+          </span>
+          <span className="leading-tight">
+            <span className="block text-[13px] font-semibold text-fg">{connected ? "Account linked" : "Connect GitHub"}</span>
+            <span className="mt-0.5 flex items-center gap-1.5 font-mono text-[9px]" style={{ color: connected ? "var(--success)" : "var(--accent-text)" }}>
+              <span className="h-[5px] w-[5px] rounded-full" style={{ background: connected ? "var(--success)" : "var(--accent)" }} />
+              {connected ? "Token active" : "Add token / account"}
+            </span>
+          </span>
+        </>
+      )}
+    </button>
   );
 }
 
@@ -430,11 +430,110 @@ function RepoDetail({
   );
 }
 
+function GithubConnectModal({
+  open,
+  onClose,
+  connected,
+  onReloadStatus,
+  onFetchAccount,
+}: {
+  open: boolean;
+  onClose: () => void;
+  connected: boolean;
+  onReloadStatus: () => void;
+  onFetchAccount: () => void;
+}) {
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      void getSettings().then((s) => setToken(s.github_token || ""));
+    }
+  }, [open]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const s = await getSettings();
+      await saveSettings({ ...s, github_token: token.trim() });
+      toast.success("GitHub account saved", token.trim() ? "Personal Access Token updated." : "Token cleared.");
+      onReloadStatus();
+      onClose();
+      if (token.trim()) {
+        onFetchAccount();
+      }
+    } catch (e) {
+      toast.danger("Couldn't save GitHub token", errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
+      <DialogContent className="w-[min(92vw,480px)] p-6">
+        <DialogTitle className="flex items-center gap-2 text-[16px] font-bold text-fg">
+          <GithubMark size={18} className="text-accent-text" />
+          Connect GitHub Account
+        </DialogTitle>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-fg-mid">
+          Add a GitHub Personal Access Token (PAT) to fetch private & public repositories and avoid GitHub API rate limits.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-3">
+          <Field label="Personal Access Token" hint="classic or fine-grained token with repo read access">
+            <Input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="github_pat_…"
+              autoComplete="off"
+              spellCheck={false}
+              className="font-mono text-[12px]"
+            />
+          </Field>
+
+          <div className="flex items-center justify-between text-[11.5px] text-fg-low">
+            <a
+              href="https://github.com/settings/tokens/new?scopes=repo,read:user&description=CoverLetterLocal"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-accent-text hover:underline"
+            >
+              Generate token on GitHub <ExternalLink size={11} />
+            </a>
+            {connected && token ? (
+              <button
+                type="button"
+                onClick={() => setToken("")}
+                className="text-danger hover:underline"
+              >
+                Clear Token
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-end gap-2.5">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" loading={saving} onClick={() => void handleSave()}>
+            <Check size={14} /> Save & Fetch Repos
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ConnectRow({
   username,
   onUsername,
   onFetch,
   onUseAccount,
+  onOpenConnect,
   connected,
   busy,
 }: {
@@ -442,6 +541,7 @@ function ConnectRow({
   onUsername: (v: string) => void;
   onFetch: () => void;
   onUseAccount: () => void;
+  onOpenConnect: () => void;
   connected: boolean;
   busy: boolean;
 }) {
@@ -473,20 +573,15 @@ function ConnectRow({
           Fetch repos
         </Button>
       </form>
-      <div className="mt-2.5 flex items-center justify-center gap-2 text-center font-mono text-[10px] text-fg-low">
+      <div className="mt-2.5 flex items-center justify-center gap-3 text-center text-[11.5px] text-fg-low">
         {connected ? (
-          <button type="button" onClick={onUseAccount} disabled={busy} className="text-accent-text underline-offset-2 hover:underline disabled:opacity-50">
+          <button type="button" onClick={onUseAccount} disabled={busy} className="font-semibold text-accent-text underline-offset-2 hover:underline disabled:opacity-50">
             Use my connected account
           </button>
-        ) : (
-          <span>
-            Add a token in{" "}
-            <Link to="/settings" className="text-accent-text underline-offset-2 hover:underline">
-              Settings
-            </Link>{" "}
-            to include private repositories.
-          </span>
-        )}
+        ) : null}
+        <button type="button" onClick={onOpenConnect} className="inline-flex items-center gap-1 font-semibold text-fg-mid hover:text-fg underline-offset-2 hover:underline">
+          <GithubMark size={13} /> {connected ? "Manage GitHub Token" : "Connect GitHub Account / Token"}
+        </button>
       </div>
     </div>
   );
@@ -510,6 +605,7 @@ export function Github() {
   const status = useAsync(githubStatus);
   const saved = useAsync(listSavedRepos);
 
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("connect");
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState<GithubProfile | null>(null);
@@ -714,7 +810,13 @@ export function Github() {
       eyebrow="Setup / GitHub Import"
       title="GitHub Import"
       subtitle="Pull your public repositories and convert your projects & tech stack into profile data."
-      actions={<AccountChip connected={status.data?.account_connected ?? false} profile={profile} />}
+      actions={
+        <AccountChip
+          connected={status.data?.account_connected ?? false}
+          profile={profile}
+          onManage={() => setConnectModalOpen(true)}
+        />
+      }
       bodyClassName="px-7 py-6"
     >
       <SetupScaffold
@@ -738,6 +840,7 @@ export function Github() {
               onUsername={setUsername}
               onFetch={onFetch}
               onUseAccount={onUseAccount}
+              onOpenConnect={() => setConnectModalOpen(true)}
               connected={st.account_connected}
               busy={busy}
             />
@@ -909,6 +1012,14 @@ export function Github() {
           onConfirm={confirmRemove}
         />
       ) : null}
+
+      <GithubConnectModal
+        open={connectModalOpen}
+        onClose={() => setConnectModalOpen(false)}
+        connected={status.data?.account_connected ?? false}
+        onReloadStatus={() => status.reload()}
+        onFetchAccount={onUseAccount}
+      />
     </Page>
   );
 }
