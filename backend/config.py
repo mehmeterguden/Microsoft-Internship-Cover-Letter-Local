@@ -17,7 +17,8 @@ import os
 from pathlib import Path
 
 # ── Local storage (cannot live in the DB — they say where the DB is) ──
-DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
+BACKEND_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BACKEND_DIR / "data")))
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(DATA_DIR / "cover_letter_local.db"))
 CHROMA_PATH = os.getenv("CHROMA_PATH", str(DATA_DIR / "chroma"))
 
