@@ -26,8 +26,9 @@ from core import document_parser as dp
         (None, "application/pdf", "pdf"),
         (None, "image/jpeg", "image"),
         (None, dp.WORD_MIME, "word"),
-        ("notes.txt", "text/plain", None),     # unsupported
-        (None, None, None),                    # nothing to go on
+        ("notes.txt", "text/plain", "text"),       # plain text is supported
+        ("archive.zip", "application/zip", None),  # genuinely unsupported
+        (None, None, None),                        # nothing to go on
     ],
 )
 def test_detect_type(filename, content_type, expected):
@@ -49,10 +50,10 @@ def test_shape_no_pages_is_one_empty_page():
     assert out["num_pages"] == 1 and out["text"] == "" and out["char_count"] == 0
 
 
-def test_shape_multi_page_lists_pages_without_joined_text():
+def test_shape_multi_page_lists_pages_with_joined_text():
     out = dp._shape("pdf", ["page one", "page two"])
     assert out["num_pages"] == 2
-    assert "text" not in out                       # never both a joined text and pages
+    assert out["text"] == "page one\n\npage two"    # a pages list, plus a joined text for convenience
     assert [p["page"] for p in out["pages"]] == [1, 2]
     assert out["pages"][0]["text"] == "page one"
     assert out["pages"][1]["word_count"] == 2
@@ -76,6 +77,12 @@ def test_extract_reads_word_paragraphs():
     assert "First line" in out["text"] and "Second line" in out["text"]
 
 
+def test_extract_reads_a_text_file():
+    out = dp.extract("letter.txt", "text/plain", b"Dear team,\n\nI build reliable systems.")
+    assert out["source_type"] == "text"
+    assert out["text"].startswith("Dear team,")
+
+
 def test_extract_rejects_an_unsupported_type():
     with pytest.raises(ValueError):
-        dp.extract("data.csv", "text/csv", b"a,b,c")
+        dp.extract("archive.zip", "application/zip", b"PK\x03\x04")
