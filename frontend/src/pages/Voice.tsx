@@ -25,6 +25,7 @@ import type { PastCoverLetter, VoiceProfile } from "@/api/types";
 import { SetupIntro } from "@/components/setup/SetupScaffold";
 import { JsonConsole } from "@/components/onboarding/JsonConsole";
 import { parsePartial } from "@/lib/partialJson";
+import { FILE_ACCEPT, isTextFile } from "@/lib/fileTypes";
 import { cn, relativeTime } from "@/lib/utils";
 
 const EYEBROW = "Setup / Writing Voice";
@@ -665,19 +666,6 @@ function LetterModal({ letter, onClose }: { letter: PastCoverLetter; onClose: ()
 }
 
 /* ── Add-a-letter dialog (paste text) ────────────────────────────── */
-/* Extensions we can read in the browser; everything else is parsed on the server. */
-const TEXT_EXTS = [".txt", ".md", ".markdown", ".text", ".rst", ".log", ".csv", ".json"];
-const FILE_ACCEPT =
-  ".pdf,.doc,.docx,.txt,.md,.markdown,.text,.rst,.log,.csv,.json," +
-  ".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.gif,.heic," +
-  "application/pdf,image/*,text/*," +
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword";
-
-function isTextFile(file: File): boolean {
-  const name = file.name.toLowerCase();
-  return file.type.startsWith("text/") || TEXT_EXTS.some((ext) => name.endsWith(ext));
-}
-
 function AddLetterDialog({
   open,
   onOpenChange,
