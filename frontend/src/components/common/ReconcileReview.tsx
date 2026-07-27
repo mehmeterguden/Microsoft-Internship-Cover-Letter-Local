@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  AlertCircle,
   ArrowRight,
   Check,
   ChevronDown,

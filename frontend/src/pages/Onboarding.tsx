@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/data";
 import { Pill } from "@/components/ui/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { streamImportCv, saveExtraction, listDocuments, type CvImportEvent, type Document } from "@/api/cv";
+import { streamImportCv, listDocuments, type CvImportEvent, type Document } from "@/api/cv";
 import { parsePartial } from "@/lib/partialJson";
 import { getSettings } from "@/api/settings";
 import { getProfile } from "@/api/profile";
