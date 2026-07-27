@@ -30,7 +30,6 @@ import { cn, relativeTime } from "@/lib/utils";
 
 const EYEBROW = "Setup / Writing Voice";
 const TITLE = "Writing Voice";
-const SUBTITLE = "Train the AI on your natural writing style by analyzing past cover letters.";
 
 /* ── Small text helpers over raw letter content ──────────────────── */
 function wordCount(text: string): number {
@@ -527,12 +526,6 @@ function EmptyBody({ onAdd }: { onAdd: () => void }) {
           <span className="block text-[15px] font-bold text-fg">Add a past letter</span>
           <span className="mt-1 block text-[12.5px] text-fg-mid">Add a PDF, Word, image, or text file — or paste it — everything stays on your machine</span>
         </button>
-
-        <div className="flex justify-center">
-          <Button variant="primary" size="md" type="button" onClick={onAdd}>
-            <Plus size={15} /> Add a letter
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -943,14 +936,17 @@ function VoiceLoaded({ initial }: { initial: Loaded }) {
           <RotateCw size={14} /> Re-analyze
         </Button>
       ) : null}
-      <Button variant="primary" size="md" onClick={() => setAddOpen(true)} disabled={analyzing}>
-        <Plus size={14} /> Add a letter
-      </Button>
+      {/* On the empty state the big dropzone is the CTA — don't also show a header button. */}
+      {view !== "empty" ? (
+        <Button variant="primary" size="md" onClick={() => setAddOpen(true)} disabled={analyzing}>
+          <Plus size={14} /> Add a letter
+        </Button>
+      ) : null}
     </>
   );
 
   return (
-    <Page eyebrow={EYEBROW} title={TITLE} subtitle={SUBTITLE} actions={actions} bodyClassName="px-7 py-6">
+    <Page eyebrow={EYEBROW} title={TITLE} actions={actions} bodyClassName="px-7 py-6">
       <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6">
         {view === "learning" ? (
           <LearningBody letters={letters} progress={progress} label={progressLabel} streamText={streamText} preview={preview} />

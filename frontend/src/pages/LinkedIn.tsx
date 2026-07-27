@@ -220,7 +220,6 @@ export function LinkedIn() {
     <Page
       eyebrow="Setup / LinkedIn Import"
       title="LinkedIn Import"
-      subtitle="Import your profile (PDF, Word, image, or .zip export) or paste text to prefill experience and education."
       bodyClassName="px-7 py-6"
     >
       <SetupScaffold
