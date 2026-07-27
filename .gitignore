@@ -8,6 +8,9 @@
 # ─── Internal working docs — NOT published to GitHub ─────────────
 #  (project brief for the AI, internal docs, Claude Code skills/config)
 /CLAUDE.md
+/AGENTS.md
+/.agents/
+/.gemini/
 /docs/
 /.claude/
 

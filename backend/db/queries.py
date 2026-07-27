@@ -406,6 +406,45 @@ def set_azure_active_account(account_id: str) -> dict[str, Any]:
     return azure_account_config()
 
 
+def update_azure_account(
+    account_id: str,
+    endpoint: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    label: str | None = None,
+    api_version: str | None = None,
+) -> dict[str, Any]:
+    """Update an existing Azure account's fields in place."""
+    s = get_settings()
+    accounts = list(s.get("azure_accounts") or [])
+    updated = False
+    for acc in accounts:
+        if acc["id"] == account_id:
+            if label is not None:
+                acc["label"] = label.strip()
+            if endpoint is not None:
+                acc["endpoint"] = endpoint.strip()
+            if api_key is not None:
+                acc["api_key"] = api_key.strip()
+            if model is not None:
+                acc["model"] = model.strip()
+            if api_version is not None:
+                acc["api_version"] = api_version.strip() or "2024-10-21"
+            updated = True
+            break
+    if updated:
+        patch: dict[str, Any] = {"azure_accounts": accounts}
+        if s.get("azure_active_account_id") == account_id:
+            active_acc = next((a for a in accounts if a["id"] == account_id), None)
+            if active_acc:
+                patch["azure_openai_endpoint"] = active_acc["endpoint"]
+                patch["azure_openai_api_key"] = active_acc["api_key"]
+                patch["llm_model"] = active_acc["model"]
+                patch["azure_openai_api_version"] = active_acc.get("api_version", "2024-10-21")
+        save_settings(patch)
+    return azure_account_config()
+
+
 # ── Profile (singleton — exactly one row, no id) ─────────────────
 
 def get_profile() -> dict[str, Any] | None:
