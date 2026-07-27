@@ -215,6 +215,24 @@ class GeminiKeyConfig(BaseModel):
     mode: KeySwitchMode = "auto"
 
 
+class AzureAccount(BaseModel):
+    """One Azure AI Foundry / Azure OpenAI resource configuration."""
+
+    id: str                              # unique client id
+    label: str = ""                      # optional label e.g. "Work GPT-5", "Research o3-mini"
+    endpoint: str = ""                   # e.g. https://my-resource.openai.azure.com
+    api_key: str = ""                    # resource key
+    model: str = ""                      # deployment name (e.g. gpt-5-mini, o3-mini, gpt-4o)
+    api_version: str = "2024-10-21"      # REST API version
+
+
+class AzureAccountConfig(BaseModel):
+    """Azure accounts pool configuration — returned by /settings/azure-accounts endpoints."""
+
+    accounts: list[AzureAccount] = []
+    active_id: str = ""
+
+
 class Settings(BaseModel):
     """Runtime config the user can change from the frontend (DB-backed, not env)."""
 
@@ -226,6 +244,8 @@ class Settings(BaseModel):
     azure_openai_api_key: str = ""       # key for the Azure OpenAI resource
     azure_openai_endpoint: str = ""      # e.g. https://my-resource.openai.azure.com
     azure_openai_api_version: str = "2024-10-21"  # Azure OpenAI REST API version
+    azure_accounts: list[AzureAccount] = []  # multi-account pool for Azure AI Foundry / Azure OpenAI
+    azure_active_account_id: str = ""    # id of active account in the pool
     gemini_api_key: str = ""             # legacy single Gemini key (kept for migration)
     gemini_api_keys: list[GeminiKey] = []  # rotating Gemini key pool
     gemini_active_key_id: str = ""       # id of the active/selected key in the pool

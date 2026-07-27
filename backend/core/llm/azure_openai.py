@@ -84,12 +84,22 @@ class AzureOpenAIProvider(LLMProvider):
     provider_id = "azure_openai"
 
     def __init__(self, settings: dict) -> None:
-        self._model = settings["llm_model"]  # the Azure *deployment* name
+        active_id = settings.get("azure_active_account_id") or ""
+        accounts = settings.get("azure_accounts") or []
+        active_acc = next((a for a in accounts if isinstance(a, dict) and a.get("id") == active_id), None) if active_id else None
+        if not active_acc and accounts and isinstance(accounts[0], dict):
+            active_acc = accounts[0]
+
+        endpoint = active_acc.get("endpoint") if active_acc else (settings.get("azure_openai_endpoint") or "")
+        api_key = active_acc.get("api_key") if active_acc else (settings.get("azure_openai_api_key") or "")
+        model_name = (active_acc.get("model") if active_acc and active_acc.get("model") else settings.get("llm_model")) or ""
+
+        self._model = model_name  # the Azure *deployment* name
         self._reasoning = _is_reasoning(self._model)
         # Bearer auth works on the Azure v1 surface, so the plain OpenAI client fits.
         self._client = OpenAI(
-            base_url=v1_base_url(settings.get("azure_openai_endpoint") or ""),
-            api_key=settings.get("azure_openai_api_key") or "not-set",
+            base_url=v1_base_url(endpoint),
+            api_key=api_key or "not-set",
         )
 
     @property

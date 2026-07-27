@@ -22,7 +22,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from db import queries
-from models import GeminiKeyConfig, KeySwitchMode, Settings
+from models import AzureAccountConfig, GeminiKeyConfig, KeySwitchMode, Settings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -33,10 +33,15 @@ def get_settings() -> Settings:
     return Settings(**queries.get_settings())
 
 
-# The Gemini key pool is owned by the /settings/gemini-keys endpoints below (each
-# persists on its own). The general Save must not touch these columns — otherwise
-# a stale page could revert a key added moments ago or an auto-rotation's cursor.
-_POOL_OWNED = {"gemini_api_keys", "gemini_active_key_id", "key_switch_mode"}
+# The Gemini key pool & Azure accounts pool are owned by their dedicated endpoints below.
+# The general Save must not touch these columns.
+_POOL_OWNED = {
+    "gemini_api_keys",
+    "gemini_active_key_id",
+    "key_switch_mode",
+    "azure_accounts",
+    "azure_active_account_id",
+}
 
 
 @router.put("", response_model=Settings)
@@ -91,3 +96,47 @@ def set_active_gemini_key(body: ActiveKeyUpdate) -> GeminiKeyConfig:
 def set_switch_mode(body: SwitchModeUpdate) -> GeminiKeyConfig:
     """Set what happens when the active key hits its limit: 'auto' or 'manual'."""
     return GeminiKeyConfig(**queries.set_key_switch_mode(body.mode))
+
+
+# ── Azure AI Foundry / Azure OpenAI Accounts Pool ─────────────────────
+
+class AzureAccountCreate(BaseModel):
+    endpoint: str = Field(..., min_length=1, description="Azure OpenAI / Foundry resource endpoint")
+    api_key: str = Field(..., min_length=1, description="Resource API key")
+    model: str = Field(..., min_length=1, description="Deployment model name (e.g. gpt-5-mini, o3-mini)")
+    label: str = Field("", description="Optional label for the account")
+    api_version: str = Field("2024-10-21", description="REST API version")
+
+
+class ActiveAzureAccountUpdate(BaseModel):
+    account_id: str
+
+
+@router.get("/azure-accounts", response_model=AzureAccountConfig)
+def get_azure_accounts() -> AzureAccountConfig:
+    """Return the Azure AI Foundry accounts pool and active account ID."""
+    return AzureAccountConfig(**queries.azure_account_config())
+
+
+@router.post("/azure-accounts", response_model=AzureAccountConfig)
+def add_azure_account(body: AzureAccountCreate) -> AzureAccountConfig:
+    """Add an Azure account configuration to the pool."""
+    return AzureAccountConfig(**queries.add_azure_account(
+        endpoint=body.endpoint,
+        api_key=body.api_key,
+        model=body.model,
+        label=body.label,
+        api_version=body.api_version,
+    ))
+
+
+@router.delete("/azure-accounts/{account_id}", response_model=AzureAccountConfig)
+def remove_azure_account(account_id: str) -> AzureAccountConfig:
+    """Remove an Azure account from the pool."""
+    return AzureAccountConfig(**queries.remove_azure_account(account_id))
+
+
+@router.put("/azure-accounts/active", response_model=AzureAccountConfig)
+def set_active_azure_account(body: ActiveAzureAccountUpdate) -> AzureAccountConfig:
+    """Set the active Azure account in the pool."""
+    return AzureAccountConfig(**queries.set_azure_active_account(body.account_id))
