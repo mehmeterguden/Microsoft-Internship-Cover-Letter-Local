@@ -482,6 +482,16 @@ export function Home() {
     }
   }, [loading, loadError]);
 
+  if (loading) {
+    return (
+      <Page eyebrow="Workspace / Home" title="Home" actions={<ProjectBadge />} bodyClassName="px-7 py-5">
+        <div className="flex flex-col gap-3.5">
+          <HomeSkeleton />
+        </div>
+      </Page>
+    );
+  }
+
   // ── Derive everything from whatever loaded (null-safe → welcome on failure) ──
   const p = profile.data;
   const st = style.data;
@@ -616,7 +626,7 @@ export function Home() {
   return (
     <Page eyebrow="Workspace / Home" title="Home" actions={<ProjectBadge />} bodyClassName="px-7 py-5">
       <div className="flex flex-col gap-3.5">
-        {loading ? <HomeSkeleton /> : <StateBody state={state} d={d} />}
+        <StateBody state={state} d={d} />
       </div>
     </Page>
   );
