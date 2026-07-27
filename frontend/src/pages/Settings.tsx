@@ -1507,11 +1507,34 @@ function DevFeedbackTab() {
                 </button>
               </div>
 
-              {/* Element info */}
-              <div className="text-[11.5px] text-fg-mid font-mono bg-black/30 p-2 rounded-lg border border-border/50 flex flex-wrap gap-x-4 gap-y-1">
-                <span>Selector: <strong className="text-fg font-semibold">{item.selector}</strong></span>
-                <span>Tag: <strong className="text-fg font-semibold">&lt;{item.tagName}&gt;</strong></span>
-                <span>Rect: <strong className="text-fg font-semibold">{Math.round(item.rect.width)}x{Math.round(item.rect.height)}px</strong></span>
+              {/* Element & Context info */}
+              <div className="text-[11.5px] text-fg-mid font-mono bg-black/30 p-2.5 rounded-lg border border-border/50 space-y-1.5">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {item.locationContext && (
+                    <span>Location: <strong className="text-indigo-400 font-semibold">{item.locationContext}</strong></span>
+                  )}
+                  <span>Selector: <strong className="text-fg font-semibold">{item.selector}</strong></span>
+                  <span>Tag: <strong className="text-fg font-semibold">&lt;{item.tagName}&gt;</strong></span>
+                  <span>Size: <strong className="text-fg font-semibold">{Math.round(item.rect.width)}x{Math.round(item.rect.height)}px</strong></span>
+                </div>
+
+                {item.buttonLabel && (
+                  <div className="text-[11px] text-amber-300 font-sans font-medium">
+                    🔘 Clicked Button Label: <strong className="text-fg bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">"{item.buttonLabel}"</strong>
+                  </div>
+                )}
+
+                {item.selectedText && (
+                  <div className="text-[11px] text-emerald-300 font-sans font-medium line-clamp-2">
+                    ✂️ Active Screen Selection: <strong className="text-fg bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">"{item.selectedText}"</strong>
+                  </div>
+                )}
+
+                {item.elementHierarchy && (
+                  <div className="text-[10px] text-fg-mid truncate">
+                    Path: {item.elementHierarchy}
+                  </div>
+                )}
               </div>
 
               {/* Requested edits */}
