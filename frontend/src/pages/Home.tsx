@@ -4,7 +4,7 @@ import { Check, PenLine, FileText, AudioLines, Github, Target, ShieldCheck, Audi
 import { Page } from "@/components/common/Page";
 import { ProjectBadge } from "@/components/common/ProjectBadge";
 import { Button } from "@/components/ui/button";
-import { Pill, StatDot, Skeleton, Spinner } from "@/components/ui/feedback";
+import { Pill, StatDot, Skeleton } from "@/components/ui/feedback";
 import { useAsync } from "@/lib/useAsync";
 import { toast } from "@/store/toast";
 import { getProfile, listSkills } from "@/api/profile";
@@ -444,10 +444,6 @@ function StateBody({ state, d }: { state: HomeState; d: Derived }) {
 function HomeSkeleton() {
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex items-center gap-2 text-fg-low">
-        <Spinner size={14} />
-        <span className="text-[10.5px] font-semibold tracking-[0.01em]">Loading workspace</span>
-      </div>
       <Skeleton className="h-[168px] w-full rounded-[15px]" />
       <Skeleton className="h-[74px] w-full rounded-[14px]" />
       <Skeleton className="h-[210px] w-full rounded-[14px]" />
