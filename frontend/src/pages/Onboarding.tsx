@@ -32,7 +32,7 @@ import { parsePartial } from "@/lib/partialJson";
 import { getSettings } from "@/api/settings";
 import { getProfile } from "@/api/profile";
 import { errorMessage } from "@/api/client";
-import { planReconcile, type ReconcilePlan } from "@/api/reconcile";
+import { planReconcile, planReplace, type ReconcilePlan } from "@/api/reconcile";
 import { ReconcileReview } from "@/components/common/ReconcileReview";
 import { ReviewScreen } from "@/components/onboarding/ReviewScreen";
 import { SetupScaffold } from "@/components/setup/SetupScaffold";
@@ -275,18 +275,15 @@ export function Onboarding() {
     try {
       if (saveMode === "merge") {
         setPlan(await planReconcile(draft));
-        return;
+      } else {
+        setPlan(await planReplace(draft));
       }
-      const res = await saveExtraction(draft, true, meta?.filename);
-      const total = Object.values(res.saved).reduce((a, b) => a + b, 0);
-      toast.success("Saved to profile", `Replaced your profile with ${total} item${total === 1 ? "" : "s"}.`);
-      setState("ready");
     } catch (err) {
-      toast.danger("Couldn't save", errorMessage(err));
+      toast.danger("Couldn't prepare review plan", errorMessage(err));
     } finally {
       setSaving(false);
     }
-  }, [draft, saveMode, meta]);
+  }, [draft, saveMode]);
 
   const reviewing = state === "review" && !plan;
 

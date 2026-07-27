@@ -44,6 +44,18 @@ _CONTENT_FIELDS: dict[str, tuple[str, ...]] = {
 _IDENTITY_FIELDS = ("name", "surname", "email", "phone", "github", "summary")
 
 
+_SKILL_ALIASES: dict[str, str] = {
+    "react": "react", "react.js": "react", "reactjs": "react",
+    "ts": "typescript", "typescript": "typescript",
+    "js": "javascript", "javascript": "javascript",
+    "node": "node.js", "nodejs": "node.js", "node.js": "node.js",
+    "vue": "vue", "vue.js": "vue", "vuejs": "vue",
+    "next": "next.js", "nextjs": "next.js", "next.js": "next.js",
+    "express": "express.js", "expressjs": "express.js", "express.js": "express.js",
+    "py": "python", "python": "python",
+}
+
+
 def _norm(value: Any) -> str:
     """Normalize a scalar/list for equality comparison (case/space/order-insensitive)."""
     if value is None:
@@ -52,7 +64,8 @@ def _norm(value: Any) -> str:
         return "1" if value else ""
     if isinstance(value, list):
         return "|".join(sorted(_norm(v) for v in value))
-    return str(value).strip().lower()
+    raw = str(value).strip().lower()
+    return _SKILL_ALIASES.get(raw, raw)
 
 
 def _match_key(section: str, row: dict) -> str:
@@ -89,11 +102,17 @@ def _identity_entries(incoming_profile: dict, existing_profile: dict, profile_ur
     if profile_url and profile_url.strip():
         incoming["linkedin"] = profile_url.strip()
         fields.append("linkedin")
+
+    field_sources = existing_profile.get("field_sources") or {}
+
     for field in fields:
         iv = incoming.get(field)
         if iv in (None, "", []):
             continue
         ev = existing_profile.get(field)
+        src_meta = field_sources.get(field) or {}
+        existing_source = src_meta.get("source") or ("manual" if ev else None)
+
         if not ev:
             kind = "fill"
         elif _norm(ev) == _norm(iv):
@@ -109,6 +128,7 @@ def _identity_entries(incoming_profile: dict, existing_profile: dict, profile_ur
             "incoming": iv,
             "existing": ev,
             "existing_id": None,
+            "existing_source": existing_source,
             "note": None,
             "recommend": None,
             "diff": None,
@@ -141,6 +161,7 @@ def _section_entries(section: str, incoming_items: list[dict], existing_rows: li
             "incoming": item,
             "existing": match,
             "existing_id": existing_id,
+            "existing_source": match.get("source", "manual") if match else None,
             "note": None,
             "recommend": None,
             "diff": diff,
@@ -164,24 +185,37 @@ def _enrich(entries: list[dict], existing_by_section: dict[str, list[dict]]) -> 
 
     payload = {
         "conflicts": [
-            {"id": e["id"], "label": e["label"], "existing": e["existing"], "incoming": e["incoming"]}
+            {
+                "id": e["id"],
+                "label": e["label"],
+                "existing": e["existing"],
+                "incoming": e["incoming"],
+                "existing_source": e.get("existing_source"),
+            }
             for e in conflicts
         ],
         "new_items": [{"id": e["id"], "section": e["section"], "incoming": e["incoming"]} for e in news],
         "existing_by_section": {
-            section: [{"id": r.get("id"), **{k: r.get(k) for k in ("name", "company", "title", "institution", "degree")}}
-                      for r in rows]
-            for section, rows in existing_by_section.items() if rows
+            section: [
+                {
+                    "id": r.get("id"),
+                    "source": r.get("source", "manual"),
+                    **{k: r.get(k) for k in ("name", "company", "title", "institution", "degree")},
+                }
+                for r in rows
+            ]
+            for section, rows in existing_by_section.items()
+            if rows
         },
     }
     system = (
-        "You reconcile a person's existing profile with newly imported data. "
-        "For each CONFLICT decide if the difference is trivial (formatting, casing, "
-        "abbreviation, same meaning) or significant. For NEW_ITEMS, find if any is "
-        "really the same entity as an existing row (a renamed role at the same "
-        "company, an abbreviation like 'AI' vs 'Artificial Intelligence'). "
-        "Reply with ONLY JSON: {\"conflicts\":[{\"id\":str,\"trivial\":bool,"
-        "\"recommend\":\"imported\"|\"existing\",\"note\":str}],"
+        "You reconcile a person's existing profile (from manual entries, LinkedIn, or GitHub) with newly imported CV/LinkedIn data. "
+        "For each CONFLICT decide if the difference is trivial (formatting, casing, abbreviation, identical meaning) or significant. "
+        "Respect manually entered fields ('source': 'manual') unless the imported item provides clear missing details. "
+        "For NEW_ITEMS, find if any is really the same entity as an existing row (e.g. a renamed role at the same company, "
+        "an abbreviation like 'AI' vs 'Artificial Intelligence', or skill variant like 'React' vs 'React.js'). "
+        "Reply in English with ONLY JSON: {\"conflicts\":[{\"id\":str,\"trivial\":bool,"
+        "\"recommend\":\"imported\"|\"existing\"|\"merge\",\"note\":str}],"
         "\"matches\":[{\"new_id\":str,\"existing_id\":int,\"note\":str}]}. "
         "Keep notes under 12 words."
     )
@@ -204,7 +238,8 @@ def _enrich(entries: list[dict], existing_by_section: dict[str, list[dict]]) -> 
             entry["kind"] = "same"
         else:
             entry["note"] = (verdict.get("note") or "").strip() or None
-            entry["recommend"] = verdict.get("recommend") if verdict.get("recommend") in ("imported", "existing") else None
+            rec = verdict.get("recommend")
+            entry["recommend"] = rec if rec in ("imported", "existing", "merge") else "existing"
 
     # Fuzzy matches: promote a "new" entry to a conflict against an existing row.
     existing_index = {r.get("id"): (section, r) for section, rows in existing_by_section.items() for r in rows}
@@ -219,6 +254,7 @@ def _enrich(entries: list[dict], existing_by_section: dict[str, list[dict]]) -> 
         entry["kind"] = "conflict"
         entry["existing"] = row
         entry["existing_id"] = row.get("id")
+        entry["existing_source"] = row.get("source", "manual")
         entry["diff"] = _differing_fields(section, row, entry["incoming"]) or [
             {"field": "entry", "existing": _label(section, row), "incoming": _label(section, entry["incoming"])}
         ]
@@ -237,7 +273,7 @@ def build_plan(
     profile_url: str | None = None,
     use_ai: bool = True,
 ) -> dict:
-    """Compare `incoming` against the current profile/DB rows → a reconcile plan."""
+    """Compare `incoming` against the current profile/DB rows → a reconcile merge plan."""
     sections = ("skills", "experiences", "education", "projects", "certificates", "trainings", "languages", "links")
     incoming_map = {s: [it.model_dump(mode="json", exclude={"id"}) for it in getattr(incoming, s)] for s in sections}
 
@@ -254,8 +290,97 @@ def build_plan(
         counts[e["kind"]] = counts.get(e["kind"], 0) + 1
 
     return {
+        "mode": "merge",
         "ai": ai_used,
         "profile": [e for e in entries],
         "sections": {s: section_entries[s] for s in sections if section_entries[s]},
+        "counts": counts,
+    }
+
+
+def build_replace_plan(
+    incoming: CVExtraction,
+    existing_profile: dict,
+    existing_by_section: dict[str, list[dict]],
+    *,
+    profile_url: str | None = None,
+    use_ai: bool = True,
+) -> dict:
+    """Build a transparent plan for REPLACE mode (lists items to drop, update, or insert)."""
+    sections = ("skills", "experiences", "education", "projects", "certificates", "trainings", "languages", "links")
+    incoming_map = {s: [it.model_dump(mode="json", exclude={"id"}) for it in getattr(incoming, s)] for s in sections}
+
+    profile_entries = _identity_entries(incoming.profile.model_dump(mode="json"), existing_profile, profile_url)
+
+    section_entries: dict[str, list[dict]] = {}
+    counts = {"replace": 0, "new": 0, "remove": 0, "fill": 0, "same": 0}
+
+    for section in sections:
+        sec_entries: list[dict] = []
+        existing_rows = existing_by_section.get(section, [])
+        incoming_items = incoming_map[section]
+
+        existing_matched_ids: set[int] = set()
+
+        for index, item in enumerate(incoming_items):
+            key = _match_key(section, item)
+            match = next((r for r in existing_rows if _match_key(section, r) == key and r.get("id") not in existing_matched_ids), None)
+            if match is not None and match.get("id") is not None:
+                existing_matched_ids.add(match["id"])
+                kind = "replace"
+                existing_id = match.get("id")
+                diff = _differing_fields(section, match, item)
+            else:
+                kind = "new"
+                existing_id = None
+                diff = None
+                match = None
+
+            counts[kind] += 1
+            sec_entries.append({
+                "id": f"{section}:inc:{index}",
+                "section": section,
+                "field": None,
+                "label": _label(section, item),
+                "kind": kind,
+                "incoming": item,
+                "existing": match,
+                "existing_id": existing_id,
+                "existing_source": match.get("source", "manual") if match else None,
+                "note": f"Replaces existing item from {match.get('source', 'manual')}" if kind == "replace" else "New item to insert",
+                "recommend": "imported",
+                "diff": diff,
+            })
+
+        # Existing items that have NO match in incoming -> marked as "remove"
+        for row in existing_rows:
+            if row.get("id") not in existing_matched_ids:
+                counts["remove"] += 1
+                sec_entries.append({
+                    "id": f"{section}:rem:{row.get('id')}",
+                    "section": section,
+                    "field": None,
+                    "label": _label(section, row),
+                    "kind": "remove",
+                    "incoming": None,
+                    "existing": row,
+                    "existing_id": row.get("id"),
+                    "existing_source": row.get("source", "manual"),
+                    "note": f"Will be removed (originally from {row.get('source', 'manual')})",
+                    "recommend": "remove",
+                    "diff": None,
+                })
+
+        if sec_entries:
+            section_entries[section] = sec_entries
+
+    for e in profile_entries:
+        counts[e["kind"]] = counts.get(e["kind"], 0) + 1
+
+    return {
+        "mode": "replace",
+        "ai": use_ai,
+        "profile": profile_entries,
+        "sections": section_entries,
         "counts": counts,
     }
