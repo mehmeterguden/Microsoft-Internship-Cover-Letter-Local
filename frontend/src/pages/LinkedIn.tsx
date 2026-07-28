@@ -242,15 +242,15 @@ export function LinkedIn() {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 pt-1 text-[12px] text-fg-mid">
                 <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface px-3 py-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[10.5px] font-bold text-accent-text">1</span>
-                  <span>Go to your LinkedIn profile page</span>
+                  <span>Go to your <strong className="text-fg">LinkedIn Profile</strong></span>
                 </div>
                 <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface px-3 py-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[10.5px] font-bold text-accent-text">2</span>
-                  <span>Click <strong className="text-fg">More (…)</strong> in top section</span>
+                  <span>Click on <strong className="text-fg">Resources</strong></span>
                 </div>
                 <div className="flex items-center gap-2 rounded-[9px] border border-border bg-surface px-3 py-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak font-mono text-[10.5px] font-bold text-accent-text">3</span>
-                  <span>Select <strong className="text-fg">Save to PDF</strong> & upload here</span>
+                  <span>In the menu, click <strong className="text-fg">Save to PDF</strong></span>
                 </div>
               </div>
             </div>
