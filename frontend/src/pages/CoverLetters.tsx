@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, Plus, Search, Trash2, Undo2, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, FileText, Plus, Search, Trash2, Undo2, X } from "lucide-react";
 import { Page } from "@/components/common/Page";
 import { AsyncBoundary } from "@/components/common/AsyncBoundary";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { StatDot } from "@/components/ui/feedback";
+import { Pill, StatDot } from "@/components/ui/feedback";
 import { useAsync } from "@/lib/useAsync";
 import { deleteJob, listJobs, updateJob } from "@/api/jobs";
 import type { Job } from "@/api/types";
@@ -30,20 +30,13 @@ const snippetOf = (job: Job): string => (job.letter?.text ?? "").replace(/\s+/g,
 
 const initialOf = (job: Job): string => job.company.trim().charAt(0).toUpperCase() || "?";
 
-/** Average match score across rows that carry one (else null). */
-function avgMatch(rows: JobWithId[]): number | null {
-  const scores = rows.map((j) => j.match_score).filter((s): s is number => typeof s === "number");
-  if (!scores.length) return null;
-  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+function timeValue(iso?: string | null): number {
+  const parsed = Date.parse(iso ?? "");
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-/* ── Match label (kept subtle — this is not "how compatible you are") ── */
-function MatchPill({ score }: { score: number }) {
-  return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-surface-2 px-2 py-0.5 font-mono text-[10px] tabular-nums text-fg-low">
-      {Math.round(score)} match
-    </span>
-  );
+function sortByRecent(rows: JobWithId[]): JobWithId[] {
+  return [...rows].sort((a, b) => timeValue(b.updated_at ?? b.created_at) - timeValue(a.updated_at ?? a.created_at));
 }
 
 /* ── Filter select ───────────────────────────────────────────────── */
@@ -132,7 +125,7 @@ function RowAction({
       aria-label={label}
       title={label}
       className={cn(
-        "grid h-8 w-8 place-items-center rounded-[9px] text-fg-low transition-colors hover:bg-surface-3 disabled:pointer-events-none disabled:opacity-40",
+        "grid h-8 w-8 place-items-center rounded-[10px] border border-transparent bg-surface text-fg-low transition-colors hover:border-border hover:bg-surface-2 disabled:pointer-events-none disabled:opacity-40",
         danger ? "hover:text-danger" : "hover:text-fg",
       )}
     >
@@ -141,16 +134,38 @@ function RowAction({
   );
 }
 
+function StatusBadge({ completed, hasText }: { completed: boolean; hasText: boolean }) {
+  if (completed) {
+    return (
+      <Pill tone="success" dot mono className="border border-success/20 bg-success/10 px-2 py-0.5 text-success">
+        Completed
+      </Pill>
+    );
+  }
+
+  if (hasText) {
+    return (
+      <Pill tone="warning" dot mono className="border border-warning/20 bg-warning/10 px-2 py-0.5 text-warning">
+        Draft
+      </Pill>
+    );
+  }
+
+  return (
+    <Pill tone="accent" dot mono className="border border-accent/20 bg-accent-weak px-2 py-0.5 text-accent-text">
+      New
+    </Pill>
+  );
+}
+
 /* ── Letter row ──────────────────────────────────────────────────── */
 function LetterRow({
   job,
-  last,
   busy,
   onToggle,
   onDelete,
 }: {
   job: JobWithId;
-  last: boolean;
   busy: boolean;
   onToggle: (job: JobWithId) => void;
   onDelete: (job: JobWithId) => void;
@@ -158,47 +173,140 @@ function LetterRow({
   const completed = isCompleted(job);
   const snippet = snippetOf(job);
   const when = relativeTime(job.updated_at ?? job.created_at);
+  const hasText = snippet.length > 0;
+  const preview = completed
+    ? snippet || "Letter is ready to revisit."
+    : hasText
+      ? snippet
+      : "Saved role, ready for drafting.";
+
   return (
     <div
       className={cn(
-        "flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-surface-2",
-        !last && "border-b border-border",
+        "group rounded-[14px] border border-border bg-surface/88 px-4 py-3.5 transition-all hover:border-border-strong hover:bg-surface-2 hover:shadow-[0_18px_44px_-32px_rgba(41,182,246,0.32)]",
       )}
     >
-      <Link to={`/write?job=${job.id}`} className="flex min-w-0 flex-1 items-center gap-3.5">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] border border-border bg-surface-2 text-[15px] font-bold text-accent-text">
-          {initialOf(job)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-[13.5px] font-semibold text-fg">{job.role}</span>
-            <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low" />
-            <span className="shrink-0 whitespace-nowrap text-[12px] text-fg-mid">{job.company}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <Link to={`/write?job=${job.id}`} className="flex min-w-0 flex-1 items-start gap-3.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] border border-border-strong bg-[linear-gradient(135deg,var(--surface),var(--surface-2))] text-[14px] font-bold text-accent-text shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+            {initialOf(job)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="truncate text-[14px] font-semibold tracking-[-0.02em] text-fg">{job.role}</span>
+              <span className="h-[4px] w-[4px] shrink-0 rounded-full bg-fg-low/70" />
+              <span className="shrink-0 whitespace-nowrap text-[12px] text-fg-mid">{job.company}</span>
+              <StatusBadge completed={completed} hasText={hasText} />
+            </div>
+            <p className="mt-1.5 overflow-hidden text-[12px] leading-[1.5] text-fg-mid [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:1]">
+              {preview}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10.5px] text-fg-low">
+              {when ? (
+                <span className="rounded-full border border-border bg-surface px-2.5 py-1 font-mono">
+                  Updated {when}
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-[12px] text-fg-low">
-            <span className="truncate">{snippet || "Not written yet"}</span>
-            {when ? (
-              <>
-                <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-fg-low/60" />
-                <span className="shrink-0 whitespace-nowrap font-mono text-[10.5px]">{when}</span>
-              </>
-            ) : null}
+        </Link>
+
+        <div className="flex shrink-0 items-center justify-between gap-2.5 pl-[54px] lg:justify-end lg:pl-4">
+          <Link
+            to={`/write?job=${job.id}`}
+            className="inline-flex items-center gap-1 rounded-[10px] border border-border bg-surface px-2.5 py-1.5 text-[11.5px] font-medium text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          >
+            Open
+            <ArrowRight size={12} />
+          </Link>
+          <div className="flex items-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
+            <RowAction
+              onClick={() => onToggle(job)}
+              disabled={busy}
+              label={completed ? "Mark as draft" : "Mark completed"}
+            >
+              {completed ? <Undo2 size={15} /> : <Check size={15} strokeWidth={2.2} />}
+            </RowAction>
+            <RowAction onClick={() => onDelete(job)} disabled={busy} label="Delete letter" danger>
+              <Trash2 size={15} />
+            </RowAction>
           </div>
         </div>
-        {typeof job.match_score === "number" ? <MatchPill score={job.match_score} /> : null}
-      </Link>
-      <div className="flex shrink-0 items-center gap-1">
-        <RowAction
-          onClick={() => onToggle(job)}
-          disabled={busy}
-          label={completed ? "Mark as draft" : "Mark completed"}
-        >
-          {completed ? <Undo2 size={15} /> : <Check size={15} strokeWidth={2.2} />}
-        </RowAction>
-        <RowAction onClick={() => onDelete(job)} disabled={busy} label="Delete letter" danger>
-          <Trash2 size={15} />
-        </RowAction>
       </div>
+    </div>
+  );
+}
+
+function WorkspaceSummary({ jobs }: { jobs: JobWithId[] }) {
+  const drafts = jobs.filter((j) => !isCompleted(j));
+  const completed = jobs.filter((j) => isCompleted(j));
+  const latestDraft = sortByRecent(drafts)[0] ?? null;
+
+  return (
+    <div className="cll-fade relative overflow-hidden rounded-[16px] border border-border bg-[linear-gradient(135deg,var(--surface-2),var(--surface))] px-4 py-3.5">
+      <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-36 w-56 rounded-full bg-[var(--glow-1)] opacity-25 blur-3xl" />
+      <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="text-[17px] font-semibold tracking-[-0.03em] text-fg">
+            {jobs.length} saved letter{jobs.length === 1 ? "" : "s"}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11.5px] text-fg-mid">
+            <span>{drafts.length} draft{drafts.length === 1 ? "" : "s"}</span>
+            <span className="h-[4px] w-[4px] rounded-full bg-fg-low/60" />
+            <span>{completed.length} completed</span>
+          </div>
+        </div>
+        {latestDraft ? (
+          <Link
+            to={`/write?job=${latestDraft.id}`}
+            className="inline-flex items-center gap-2 self-start rounded-[11px] border border-border bg-surface px-3 py-2 text-[11.5px] font-medium text-fg-mid transition-colors hover:border-accent hover:text-fg"
+          >
+            Continue latest draft
+            <span className="truncate text-fg">{latestDraft.role}</span>
+            <ArrowRight size={12} className="shrink-0 text-accent-text" />
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ActiveFilters({
+  query,
+  company,
+  role,
+  segment,
+  clearAll,
+}: {
+  query: string;
+  company: string;
+  role: string;
+  segment: Segment;
+  clearAll: () => void;
+}) {
+  const chips = [
+    query.trim() ? `Search: ${query.trim()}` : null,
+    company ? `Company: ${company}` : null,
+    role ? `Role: ${role}` : null,
+    segment !== "all" ? `Status: ${segment === "draft" ? "Drafts" : "Completed"}` : null,
+  ].filter(Boolean) as string[];
+
+  if (!chips.length) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+      {chips.map((chip) => (
+        <span key={chip} className="rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] text-fg-mid">
+          {chip}
+        </span>
+      ))}
+      <button
+        type="button"
+        onClick={clearAll}
+        className="ml-auto rounded-[9px] border border-border bg-surface px-3 py-1.5 text-[11.5px] font-medium text-fg-mid transition-colors hover:border-accent hover:text-fg"
+      >
+        Clear all
+      </button>
     </div>
   );
 }
@@ -222,21 +330,20 @@ function LetterGroup({
   onDelete: (job: JobWithId) => void;
 }) {
   return (
-    <div>
-      <div className="mb-[11px] flex items-center gap-2.5 px-[3px]">
+    <div className="cll-fade overflow-hidden rounded-[16px] border border-border bg-surface">
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-3.5">
         <StatDot tone={tone} glow size={8} />
-        <span className="text-[13px] font-semibold tracking-[-0.2px] text-fg">{title}</span>
-        <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-fg-low">
+        <span className="text-[13.5px] font-semibold tracking-[-0.2px] text-fg">{title}</span>
+        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-fg-low">
           {rows.length}
         </span>
-        <span className="ml-auto font-mono text-[9px] tracking-[0.02em] text-fg-low">{meta}</span>
+        <span className="ml-auto text-[11px] text-fg-mid">{meta}</span>
       </div>
-      <div className="cll-fade overflow-hidden rounded-[14px] border border-border bg-surface">
-        {rows.map((job, i) => (
+      <div className="flex flex-col gap-2.5 p-2.5">
+        {rows.map((job) => (
           <LetterRow
             key={job.id}
             job={job}
-            last={i === rows.length - 1}
             busy={busyId === job.id}
             onToggle={onToggle}
             onDelete={onDelete}
@@ -312,9 +419,8 @@ function LettersWorkspace({
     };
   }, [jobs, query, company, role]);
 
-  const drafts = matches.filter((j) => !isCompleted(j));
-  const completed = matches.filter((j) => isCompleted(j));
-  const completedAvg = avgMatch(completed);
+  const drafts = sortByRecent(matches.filter((j) => !isCompleted(j)));
+  const completed = sortByRecent(matches.filter((j) => isCompleted(j)));
 
   const hasFilters = query.trim() !== "" || company !== "" || role !== "" || segment !== "all";
 
@@ -326,42 +432,55 @@ function LettersWorkspace({
   };
 
   return (
-    <div className="flex flex-col gap-[18px]">
-      {/* Toolbar */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-        <div className="flex min-w-[220px] max-w-[320px] flex-1 items-center gap-2.5 rounded-[10px] border border-border-strong bg-input px-[13px] py-[9px]">
-          <Search size={15} className="shrink-0 text-fg-low" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by company or role…"
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-low"
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              className="flex shrink-0 text-fg-low transition-colors hover:text-fg"
-            >
-              <X size={14} />
-            </button>
-          ) : null}
+    <div className="flex flex-col gap-5">
+      <WorkspaceSummary jobs={jobs} />
+
+      <div className="cll-fade rounded-[16px] border border-border bg-surface p-3.5">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-[12px] font-semibold text-fg">Filter letters</div>
+            <SegmentFilter value={segment} onChange={setSegment} counts={segmentCounts} />
+          </div>
+
+          <div className="flex flex-col gap-2.5 xl:flex-row">
+            <div className="flex min-w-[220px] flex-1 items-center gap-2.5 rounded-[12px] border border-border-strong bg-input px-[13px] py-[10px]">
+              <Search size={15} className="shrink-0 text-fg-low" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by company or role…"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-low"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                  className="flex shrink-0 text-fg-low transition-colors hover:text-fg"
+                >
+                  <X size={14} />
+                </button>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <FilterSelect value={company} onChange={setCompany} options={companyOptions} />
+              <FilterSelect value={role} onChange={setRole} options={roleOptions} />
+            </div>
+          </div>
+
+          <ActiveFilters query={query} company={company} role={role} segment={segment} clearAll={clearAll} />
         </div>
-        <FilterSelect value={company} onChange={setCompany} options={companyOptions} />
-        <FilterSelect value={role} onChange={setRole} options={roleOptions} />
-        <SegmentFilter value={segment} onChange={setSegment} counts={segmentCounts} />
       </div>
 
       {/* Results / no-results */}
       {matches.length > 0 ? (
-        <div className="flex shrink-0 flex-col gap-[22px]">
+        <div className="flex shrink-0 flex-col gap-4">
           {drafts.length > 0 ? (
             <LetterGroup
               title="Drafts"
               tone="warning"
-              meta={`${drafts.length} in progress`}
+              meta={drafts.length === 1 ? "1 in progress" : `${drafts.length} in progress`}
               rows={drafts}
               busyId={busyId}
               onToggle={onToggle}
@@ -372,7 +491,7 @@ function LettersWorkspace({
             <LetterGroup
               title="Completed"
               tone="success"
-              meta={completedAvg != null ? `avg ${completedAvg} match` : `${completed.length} ready`}
+              meta={completed.length === 1 ? "1 ready to revisit" : `${completed.length} ready to revisit`}
               rows={completed}
               busyId={busyId}
               onToggle={onToggle}
@@ -381,11 +500,11 @@ function LettersWorkspace({
           ) : null}
         </div>
       ) : (
-        <div className="cll-fade mx-auto my-9 max-w-[380px] text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[16px] border border-border bg-surface">
+        <div className="cll-fade mx-auto my-7 max-w-[420px] rounded-[18px] border border-border bg-surface px-6 py-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[16px] border border-border bg-surface-2">
             <Search size={24} strokeWidth={1.5} className="text-fg-low" />
           </div>
-          <div className="text-[16px] font-semibold text-fg">No letters found</div>
+          <div className="text-[17px] font-semibold text-fg">No letters match these filters</div>
           <p className="mt-2 text-[12.5px] leading-relaxed text-fg-mid">
             {query.trim() ? (
               <>
@@ -399,7 +518,7 @@ function LettersWorkspace({
             type="button"
             onClick={clearAll}
             disabled={!hasFilters}
-            className="mt-[18px] rounded-[10px] border border-border-strong bg-surface px-4 py-[9px] text-[12.5px] text-fg transition-colors hover:bg-surface-2 disabled:opacity-45"
+            className="mt-[18px] rounded-[10px] border border-border-strong bg-surface-2 px-4 py-[9px] text-[12.5px] text-fg transition-colors hover:border-accent hover:bg-surface disabled:opacity-45"
           >
             Clear search &amp; filters
           </button>
@@ -413,7 +532,7 @@ function LettersWorkspace({
 function LettersEmpty() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center">
-      <div className="cll-fade mx-auto max-w-[440px] py-5 text-center">
+      <div className="cll-fade mx-auto max-w-[520px] rounded-[18px] border border-border bg-[linear-gradient(135deg,var(--surface-2),var(--surface))] px-8 py-8 text-center">
         <div className="relative mx-auto mb-5 flex h-[66px] w-[66px] items-center justify-center rounded-[18px] border border-border bg-accent-weak">
           <svg
             width="30"
@@ -434,11 +553,18 @@ function LettersEmpty() {
           Generate a tailored, on-device cover letter for any role — grounded in your profile and written in your own
           voice. Your drafts and completed letters will live here.
         </p>
-        <Button asChild variant="primary" size="lg" className="mt-[22px]">
-          <Link to="/write">
-            <Plus size={15} strokeWidth={1.8} /> Write your first cover letter
-          </Link>
-        </Button>
+        <div className="mt-[22px] flex flex-wrap justify-center gap-2.5">
+          <Button asChild variant="primary" size="lg">
+            <Link to="/write">
+              <Plus size={15} strokeWidth={1.8} /> Write your first cover letter
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link to="/onboarding">
+              <FileText size={15} strokeWidth={1.8} /> Add CV first
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -508,6 +634,7 @@ export function CoverLetters() {
     <Page
       eyebrow="Workspace / Cover Letters"
       title="Cover Letters"
+      subtitle="Browse every saved application, resume the right draft fast, and keep finished letters close at hand."
       actions={
         <Button asChild variant="primary">
           <Link to="/write">

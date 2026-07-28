@@ -7,7 +7,6 @@ import { Profile } from "@/pages/Profile";
 import { Github } from "@/pages/Github";
 import { LinkedIn } from "@/pages/LinkedIn";
 import { Voice } from "@/pages/Voice";
-import { Research } from "@/pages/Research";
 import { Write } from "@/pages/Write";
 import { CoverLetters } from "@/pages/CoverLetters";
 import { Settings } from "@/pages/Settings";
@@ -21,8 +20,6 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "write", element: <Write /> },
       { path: "write/:jobId", element: <Write /> },
-      { path: "research", element: <Research /> },
-      { path: "research/:companySlug", element: <Research /> },
       { path: "cover-letters", element: <CoverLetters /> },
       { path: "cover-letters/:jobId", element: <CoverLetters /> },
       { path: "profile", element: <Profile /> },
