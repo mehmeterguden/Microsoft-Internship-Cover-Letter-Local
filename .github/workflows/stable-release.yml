@@ -1,0 +1,78 @@
+name: Stable Release
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the green main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Package the stable bundle
+        run: scripts/package-release.sh stable
+
+      - name: Move the stable tag to this commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa stable -m "Stable release for ${GITHUB_SHA}" "${GITHUB_SHA}"
+          git push origin refs/tags/stable --force
+
+      - name: Write release notes
+        run: |
+          cat > release-notes.md <<EOF
+          ## Stable release
+
+          This repository intentionally keeps a single moving GitHub release: **Stable**.
+          Every successful push to \`main\` replaces the bundle on this page and moves the
+          \`stable\` tag to the latest verified commit.
+
+          - Updated commit: \`${GITHUB_SHA}\`
+          - Updated at: $(date -u +"%Y-%m-%d %H:%M UTC")
+          - Install: download either \`cover-letter-local-stable-bundle.tar.gz\` or \`cover-letter-local-stable-bundle.zip\`, extract it, then run \`docker compose up --build\`
+          - Read the repository README for model setup, manual installation, and troubleshooting
+
+          ## Assets
+
+          - \`cover-letter-local-stable-bundle.tar.gz\`: the packaged app bundle with Docker support
+          - \`cover-letter-local-stable-bundle.zip\`: the same bundle in ZIP form for easier extraction on Windows
+          - \`SHA256SUMS.txt\`: checksum file for the bundle
+          - GitHub also keeps the auto-generated source archives on this release page
+          EOF
+
+      - name: Create or update the single stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BUNDLE_TGZ="release-artifacts/cover-letter-local-stable-bundle.tar.gz"
+          BUNDLE_ZIP="release-artifacts/cover-letter-local-stable-bundle.zip"
+          CHECKSUMS="release-artifacts/SHA256SUMS.txt"
+
+          if gh release view stable >/dev/null 2>&1; then
+            gh release upload stable "$BUNDLE_TGZ" "$BUNDLE_ZIP" "$CHECKSUMS" --clobber
+            gh release edit stable \
+              --title "Stable" \
+              --notes-file release-notes.md \
+              --latest
+          else
+            gh release create stable "$BUNDLE_TGZ" "$BUNDLE_ZIP" "$CHECKSUMS" \
+              --title "Stable" \
+              --notes-file release-notes.md \
+              --latest
+          fi
