@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Check, MousePointer } from "lucide-react";
-// TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
-import { useDevFeedbackStore } from "@/store/devFeedback";
+import { Check } from "lucide-react";
+
 import { useTheme } from "@/lib/theme";
 import { useAsync } from "@/lib/useAsync";
 import { useSettingsStore } from "@/store/settings";
@@ -281,8 +280,7 @@ function NewCoverLetterButton() {
 export function Sidebar() {
   const { theme, toggle } = useTheme();
 
-  // TEMPORARY: Developer Feedback Store
-  const { inspectorActive, toggleInspector, items: devItems } = useDevFeedbackStore();
+
 
   // Reactive settings store
   const { settings, health, loading, fetchSettings } = useSettingsStore();
@@ -363,29 +361,6 @@ export function Sidebar() {
           ))}
         </div>
 
-        <div className="mx-1 my-3.5 h-px bg-border" />
-        <div className="mb-2 px-[11px] text-[11px] font-semibold tracking-[0.01em] text-fg-low flex items-center justify-between">
-          <span>Developer Tools</span>
-          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">Temp</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => toggleInspector()}
-          className={cn(
-            "relative flex w-full items-center gap-3 rounded-[9px] px-2.5 py-2 text-[13px] font-medium transition-all outline-none cursor-pointer",
-            inspectorActive
-              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
-              : "text-indigo-400 hover:bg-indigo-500/10 border border-indigo-500/20",
-          )}
-        >
-          <MousePointer size={16} className={cn("shrink-0", inspectorActive && "animate-pulse")} />
-          <span className="flex-1 text-left truncate font-semibold">Feedback Inspector</span>
-          {devItems.length > 0 && (
-            <span className="rounded-full bg-indigo-500/20 px-1.5 py-0.5 font-mono text-[10px] text-indigo-300 font-bold">
-              {devItems.length}
-            </span>
-          )}
-        </button>
       </nav>
 
       {/* footer */}

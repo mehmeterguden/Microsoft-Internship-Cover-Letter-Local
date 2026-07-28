@@ -42,9 +42,9 @@ export function DialogContent({
 }
 
 export function DialogTitle({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn("pr-6 text-[17px] font-bold tracking-[-0.01em] text-fg", className)} {...props} />;
+  return <DialogPrimitive.Title className={cn("pr-6 text-[18px] font-bold tracking-[-0.01em] text-fg", className)} {...props} />;
 }
 
 export function DialogDescription({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) {
-  return <DialogPrimitive.Description className={cn("mt-1.5 text-[13.5px] leading-relaxed text-fg-mid", className)} {...props} />;
+  return <DialogPrimitive.Description className={cn("mt-1.5 text-[15px] leading-relaxed text-fg-mid", className)} {...props} />;
 }

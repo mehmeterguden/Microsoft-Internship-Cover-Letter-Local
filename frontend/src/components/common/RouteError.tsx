@@ -53,8 +53,8 @@ export function RouteError() {
               <Icon size={26} />
             </span>
 
-            <h1 className="text-[24px] font-extrabold tracking-tight text-fg">{title}</h1>
-            <p className="mt-2 text-[15px] leading-relaxed text-fg-mid">
+            <h1 className="text-[28px] font-extrabold tracking-tight text-fg">{title}</h1>
+            <p className="mt-2 text-[16px] leading-relaxed text-fg-mid">
               {notFound
                 ? message
                 : "The app hit an unexpected error. Your data is safe and stays on your machine — try reloading, or head back home."}
@@ -65,13 +65,13 @@ export function RouteError() {
                 <button
                   type="button"
                   onClick={() => setShowDetails((v) => !v)}
-                  className="flex items-center gap-1.5 text-[12.5px] font-semibold text-fg-low transition-colors hover:text-fg-mid"
+                  className="flex items-center gap-1.5 text-[13px] font-semibold text-fg-low transition-colors hover:text-fg-mid"
                 >
                   <ChevronDown size={14} className={cn("transition-transform", showDetails && "rotate-180")} />
                   {showDetails ? "Hide" : "Show"} technical details
                 </button>
                 {showDetails && (
-                  <pre className="mt-2 max-h-56 overflow-auto rounded-[12px] border border-border bg-surface-2 p-3 text-[12px] leading-relaxed text-fg-mid">
+                  <pre className="mt-2 max-h-56 overflow-auto rounded-[12px] border border-border bg-surface-2 p-3 text-[13px] leading-relaxed text-fg-mid">
                     <code>{stack || message}</code>
                   </pre>
                 )}
