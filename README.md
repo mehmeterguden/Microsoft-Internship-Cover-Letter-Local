@@ -149,7 +149,61 @@ Two mechanisms enforce this rather than merely documenting it:
 
 ---
 
-## Quick start
+## Install from the Stable release
+
+If you just want to **run the app**, use the single moving GitHub release instead of
+cloning the repo. The release page always stays the same and is updated in place after
+successful pushes to `main`.
+
+**Release page:** [Stable](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/releases/tag/stable)
+
+**What to download**
+
+- `cover-letter-local-stable-bundle.tar.gz` — the packaged app bundle
+- `cover-letter-local-stable-bundle.zip` — the same bundle in ZIP form
+- `SHA256SUMS.txt` — optional checksum file
+
+**Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) or a
+local Docker Engine with `docker compose`.
+
+**Run it**
+
+`.tar.gz` path:
+
+```bash
+tar -xzf cover-letter-local-stable-bundle.tar.gz
+cd cover-letter-local-stable-bundle
+docker compose up --build
+```
+
+`.zip` path:
+
+```bash
+unzip cover-letter-local-stable-bundle.zip
+cd cover-letter-local-stable-bundle
+docker compose up --build
+```
+
+Then open **[http://localhost:8080](http://localhost:8080)**.
+
+**What gets persisted**
+
+- Your database, Chroma index, settings, and generated local state live in `runtime-data/`
+- You can keep that folder when you update to a newer stable bundle
+
+**How updates work**
+
+- There is intentionally **one** GitHub release: `Stable`
+- New updates replace the assets on that same release page
+- The `stable` tag moves to the newest verified `main` commit
+- You do **not** need to hunt for `v1`, `v2`, `v3` release pages
+
+---
+
+## Manual development setup
+
+If you want to develop on the project instead of just running it, clone the repository
+and start the backend and frontend separately.
 
 **Prerequisites:** Python 3.11+, Node 18+, and a local model runtime
 ([Foundry Local](https://github.com/microsoft/Foundry-Local) or
@@ -182,6 +236,16 @@ no `.env` to edit — provider, model, and keys live in the local database, so y
 them from the UI at any time.
 
 Then: add your CV → paste a past letter or two → run research on a company → generate.
+
+---
+
+## Troubleshooting
+
+- `docker compose up --build` fails immediately: make sure Docker Desktop or Docker Engine is running
+- The UI opens but generation does not work: open **Settings** and pick a valid local or cloud model provider
+- OCR does not work in a manual local install: install the `tesseract` binary on your machine
+- Port `8080` is busy: run `APP_PORT=3000 docker compose up --build` and then open `http://localhost:3000`
+- You want a clean update from the Stable release: download the newest bundle from the same release page and keep your old `runtime-data/` folder if you want to preserve local state
 
 ---
 
