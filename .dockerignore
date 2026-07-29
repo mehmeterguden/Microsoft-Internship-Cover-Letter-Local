@@ -2,6 +2,13 @@
 .github
 .agents
 .claude
+.gemini
+.githooks
+.gitmessage
+.mailmap
+CLAUDE.md
+AGENTS.md
+docs
 .pytest_cache
 .mypy_cache
 .ruff_cache
@@ -14,6 +21,11 @@ __pycache__
 *.pyo
 *.pyd
 *.log
+.env
+.env.*
+*.key
+*.pem
+secrets.*
 .DS_Store
 backend/data
 data

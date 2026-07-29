@@ -1,404 +1,651 @@
 <div align="center">
 
-<img src="assets/hero.png" alt="Cover Letter Local — your CV never leaves your machine" width="100%">
+<img src="assets/readme-hero.svg" alt="Cover Letter Local — a local-first, evidence-grounded AI engineering project" width="100%">
 
 <br>
 
 [![CI](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/actions/workflows/ci.yml/badge.svg)](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-2ea44f.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Stable release](https://img.shields.io/badge/download-Stable_Release-2ea8e5?logo=github&logoColor=white)](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/releases/tag/stable)
+[![Microsoft Foundry Local](https://img.shields.io/badge/Microsoft-Foundry_Local-0078D4?logo=microsoft&logoColor=white)](https://github.com/microsoft/Foundry-Local)
+[![Local-first](https://img.shields.io/badge/AI-local--first-20b486)](#privacy-and-data-boundaries)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![Foundry Local](https://img.shields.io/badge/Microsoft-Foundry%20Local-0078D4?logo=microsoft&logoColor=white)](https://github.com/microsoft/Foundry-Local)
-[![Runs offline](https://img.shields.io/badge/runs-offline-0ea5e9)](#-privacy)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2ea44f.svg)](LICENSE)
 
-**An AI job-application assistant that runs entirely on your own machine.**
+**An end-to-end AI engineering project built during my Microsoft AI internship.**
 
-It reads your CV, learns how *you* write, researches the company, drafts a cover letter in your
-voice — then audits its own output claim by claim. Your personal data never leaves the device.
+Cover Letter Local turns a CV, professional profile, writing samples, and public company
+information into an evidence-backed cover letter. It combines hybrid RAG, local inference,
+parallel company research, streaming AI interfaces, and claim-level verification in one
+privacy-conscious application.
+
+[Download Stable](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/releases/tag/stable)
+·
+[Run with Docker](#run-the-stable-release)
+·
+[Explore the architecture](#architecture)
+·
+[What I learned](#what-i-learned)
 
 </div>
 
----
+> [!NOTE]
+> This is an independent internship project built during my Microsoft AI internship. It is
+> not an official Microsoft product.
 
-## Contents
+<details>
+<summary><b>Contents</b></summary>
+<br>
 
-**[Why](#-why-i-built-this)** · **[How it works](#-how-it-works)** · **[Walkthrough](#-walkthrough)** · **[Privacy](#-privacy)** · **[Engineering decisions](#-engineering-decisions--trade-offs)** · **[Responsible AI](#-responsible-ai)** · **[Quick start](#-quick-start)** · **[Stack](#-tech-stack)** · **[Structure](#-project-structure)** · **[Tests](#-testing--ci)** · **[What I learned](#-what-i-learned)**
+- [The internship project](#the-internship-project)
+- [Run the Stable release](#run-the-stable-release)
+- [How it works](#how-it-works)
+- [Product walkthrough](#product-walkthrough)
+- [Architecture](#architecture)
+- [Privacy and data boundaries](#privacy-and-data-boundaries)
+- [Engineering decisions and trade-offs](#engineering-decisions-and-trade-offs)
+- [What I learned](#what-i-learned)
+- [Development setup](#development-setup)
+- [Testing and CI](#testing-and-ci)
+- [Limitations](#limitations)
 
----
-
-## 🎯 Why I built this
-
-Every AI cover-letter tool asks for the same thing first: **upload your CV**. That single step
-hands your full employment history, contact details and career context to a third-party server —
-to be logged, retained, and quite possibly trained on. For a document you only wanted help
-*phrasing*.
-
-I wanted to find out whether it could work the other way round: **the model comes to your data,
-not your data to the model.**
-
-So this runs the whole pipeline locally. The CV is parsed on-device. The writing style is learned
-on-device. The retrieval index lives in a local database. Generation runs against a local model —
-Microsoft's **Foundry Local** by default. The only thing that ever goes out is a **company name
-and the employer's own public job text**, and a byte-level firewall inspects every outgoing
-request to prove it.
-
-The interesting engineering question was never *"can an LLM write a cover letter"* — obviously it
-can. It was: **how much quality do you give up to keep everything local, and how much of that can
-you win back with better engineering instead of a bigger model?**
+</details>
 
 ---
 
-## 🔧 How it works
+## The internship project
 
-<img src="assets/how-it-works.png" alt="Full system flow: four import sources, local review and storage, voice learning and vector indexing, parallel company research behind a privacy firewall, hybrid retrieval, generation through a provider gateway, then verification and export" width="100%">
+The project started with a practical question:
 
-Six stages, all inside the device boundary. Only two paths ever cross it — one carries a company
-name and public job text; the other carries prompts, and only if you deliberately choose a cloud
-provider. Your CV, profile, past letters and generated letters have no route out at all.
+> Can a smaller model running on a personal device produce a useful, personalized cover
+> letter without treating private career data as a cloud upload?
+
+Answering that question required much more than connecting a text box to an LLM. The system
+needed to understand several document formats, reconcile conflicting profile data, learn a
+writing voice, retrieve relevant evidence, research a company without leaking the applicant's
+profile, stream slow operations clearly, and verify the final output before it could be trusted.
+
+That made Cover Letter Local an opportunity to study AI as a complete engineering discipline:
+retrieval, orchestration, evaluation, privacy, resilience, model integration, and user experience
+all had to work as one system.
+
+## What this project demonstrates
+
+| Area | Implementation |
+|---|---|
+| **Hybrid RAG** | BM25 lexical retrieval and local dense retrieval are fused with Reciprocal Rank Fusion, then optionally reranked with a cross-encoder. |
+| **Local inference** | Microsoft Foundry Local is the default path, with Ollama and LM Studio also supported. |
+| **Provider abstraction** | One metered gateway supports three local and four explicit opt-in cloud providers without restarting the app. |
+| **Company intelligence** | Six specialized agents gather public evidence concurrently; reconciliation, caching, retry/backoff, and a shared tool budget keep the run bounded and resilient. |
+| **Grounded generation** | The draft is built from local profile context, learned voice, retrieved examples, and a cached company report, then audited claim by claim. |
+| **Streaming AI UX** | CV import, LinkedIn import, voice analysis, company research, and letter generation expose real progress instead of hiding local-model latency behind a spinner. |
+| **Responsible AI** | Review-before-write imports, field provenance, outbound request inspection, local PII checks, cited research, and visible provider status make system behavior inspectable. |
 
 ---
 
-## 📸 Walkthrough
+## Run the Stable release
 
-### 1 · Build a profile from what you already have
+The repository maintains **one moving GitHub release named Stable**. Every successful push to
+`main` replaces its bundles and moves the `stable` tag to the latest CI-verified commit. This keeps
+one download page instead of accumulating versioned releases.
 
-Four independent sources, all parsed on your machine. Nothing is written to your profile until you
-approve it.
+### Requirements
 
-<img src="assets/cv-import.png" alt="CV import annotated: parsed on-device with pdfplumber, python-docx and Tesseract OCR; the model's JSON streams live while the form fills in field by field; per-field confidence; 32 items individually checkable before saving" width="100%">
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with Compose
+- A configured inference provider
+- Internet access for the first image/model download and for company research
 
-<img src="assets/github-import.png" alt="GitHub import annotated: only the username is sent, READMEs analysed in batches, evidence counts per detected skill, and a per-repo breakdown of what the model extracted" width="100%">
+### 1. Download and start
 
-<img src="assets/linkedin-import.png" alt="LinkedIn import annotated: profile PDF structured by the model or .zip export parsed deterministically, live counters, and every item classified fill / same / new / conflict for review" width="100%">
+Download either bundle from the
+[Stable release](https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local/releases/tag/stable),
+extract it, open a terminal in the extracted directory, and run:
 
-### 2 · Teach it how you write
+```bash
+docker compose up --build
+```
 
-Add cover letters you've written before. The model reverse-engineers a fingerprint *and* a reusable
-playbook — the ordered moves you make to open, argue and close.
+Open [http://localhost:8080](http://localhost:8080). To stop the application:
 
-<img src="assets/writing-voice.png" alt="Writing voice annotated: the learned fingerprint, the letter playbook, rating-weighted learning where 4-5 star letters are the gold standard, and refinement rather than rebuilding on each new letter" width="100%">
+```bash
+docker compose down
+```
 
-### 3 · Bring in a role, research the company
+The SQLite database and ChromaDB index are stored in `runtime-data/`. Keep that directory when
+updating the application if you want to preserve your profile, settings, research cache, and
+letters.
 
-Paste a job link and the posting is fetched and parsed. Then nine agents research the company in
-parallel over public sources — and a fit analysis runs locally, with no network and no model at all.
+> [!IMPORTANT]
+> The Stable bundle is a Docker-ready application package, not a native `.dmg`, `.msi`, or
+> desktop installer.
 
-<img src="assets/job-import.png" alt="Job import and application tracking annotated: paste a job URL and the company, role and description are extracted locally; tone pre-selected from the learned voice; targeted application questions; and per-application status tracking" width="100%">
+### 2. Start a local model
 
-<img src="assets/company-research.png" alt="Company research annotated: nine agents running concurrently, live reasoning streamed over server-sent events, every source cited, and only public data leaving the device" width="100%">
+Microsoft Foundry Local is the primary on-device path. Install the CLI using the official
+[Foundry Local documentation](https://learn.microsoft.com/en-us/azure/foundry-local/how-to/how-to-use-foundry-local-cli):
 
-<img src="assets/fit-analysis.png" alt="Fit analysis annotated: the company tech stack split into what you know and what is worth learning, matched skills versus gaps, fully explainable lexical matching, computed with zero network" width="100%">
+```powershell
+# Windows
+winget install Microsoft.FoundryLocal
+```
 
-### 4 · Write it, then verify it
+```bash
+# macOS
+brew tap microsoft/foundrylocal
+brew install foundrylocal
+```
 
-Generation streams token by token. A second pass then audits every concrete claim against your real
-profile and labels it — so a confident false statement on a real application becomes a visible,
-fixable list instead of an invisible risk.
+Then inspect the available models, run one that fits your hardware, and retrieve the active
+service endpoint:
 
-<img src="assets/generation.png" alt="Generation and verification annotated: written from the learned voice fingerprint and retrieved passages, grounded in the cached company report, per-claim verification, and local PDF and Word export" width="100%">
+```bash
+foundry model list
+foundry model run phi-4-mini
+foundry service status
+```
+
+In Cover Letter Local, open **Settings → Model & inference**, select **Foundry Local**, enter the
+endpoint reported by `foundry service status`, select the installed model, and run the connection
+test.
+
+When the application runs in Docker, `localhost` inside the backend container means the container
+itself. On Docker Desktop, use `host.docker.internal` with the Foundry Local port reported by the
+CLI, for example:
+
+```text
+http://host.docker.internal:<PORT>/v1
+```
+
+Linux Docker users must additionally expose the host gateway or run the backend directly during
+development. A local runtime that listens only on host loopback may also reject container traffic;
+in that case, run the backend directly or configure the runtime to expose a Docker-reachable
+endpoint. Ollama and LM Studio follow the same host-address rule.
+
+### 3. Build your first letter
+
+1. Import your CV and approve the proposed profile changes.
+2. Add one or more past letters so the app can learn your writing voice.
+3. Create a cover letter from either a job-posting link or manual company, role, and description fields.
+4. Optionally run company deep search and answer tailoring questions.
+5. Generate, review the claim check, edit, save, or export the letter.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    subgraph Device["On your device"]
+        A["CV, LinkedIn, GitHub<br/>and past letters"] --> B["Review and reconcile"]
+        B --> C["SQLite profile<br/>and provenance"]
+        C --> D["Local embeddings<br/>and ChromaDB"]
+        D --> E["Hybrid RAG<br/>BM25 + dense → RRF → rerank"]
+        C --> F["Voice fingerprint<br/>and writing playbook"]
+        F --> E
+        E --> G["Configured LLM gateway"]
+        H["Cached company report<br/>and letter hooks"] --> G
+        G --> I["Streaming draft"]
+        I --> J["Groundedness audit<br/>and PII scan"]
+        J --> K["PDF / Word / saved letter"]
+    end
+
+    L["Public company sources"] --> M["Outbound guard"]
+    M --> H
+    G -. "only when explicitly selected" .-> N["Cloud LLM provider"]
+```
+
+The primary path uses a local model. Public-source research uses the network, and cloud inference
+is available only when the user deliberately selects a cloud provider. The exact data boundaries
+are documented in [Privacy and data boundaries](#privacy-and-data-boundaries).
+
+## Product walkthrough
+
+### 1. Build a profile from existing evidence
+
+CV, LinkedIn, and GitHub imports end in a review step. The application classifies proposed changes
+as fill, same, new, or conflict; nothing is merged into the profile until the user approves it.
+
+<img src="assets/cv-import.png" alt="CV import with live structured output and reviewable profile fields" width="100%">
+
+<details>
+<summary><b>More profile sources</b></summary>
+<br>
+
+<img src="assets/github-import.png" alt="GitHub repository import with detected skills and supporting evidence" width="100%">
+
+<img src="assets/linkedin-import.png" alt="LinkedIn profile import with live counters and structured extraction" width="100%">
+
+</details>
+
+### 2. Learn a writing voice
+
+Past letters are analyzed into two complementary artifacts: a measurable voice fingerprint and an
+ordered writing playbook. User ratings influence the analysis, and later samples refine the existing
+profile instead of rebuilding it blindly.
+
+<img src="assets/writing-voice.png" alt="Writing voice fingerprint, playbook, and rating-weighted learning" width="100%">
+
+### 3. Import a role and research the company
+
+A job-posting link can populate the company, role, and description automatically; the same fields
+can also be entered manually. Deep search runs inside the cover-letter workflow rather than on a
+separate research page.
+
+The active research fleet contains six parallel agents:
+
+| Agent | Responsibility |
+|---|---|
+| Company profile | Firmographics, overview, mission, and values |
+| Culture | Workplace and engineering-culture evidence |
+| Tech stack | Technologies and open-source signals |
+| Recent signals | Current company developments |
+| Interview preparation | Evidence-backed interview context |
+| Role analysis | Responsibilities and requirements from the job description |
+
+Their outputs are reconciled into one cited report. Two additional stages then run locally:
+explainable fit analysis and letter-hook composition.
+
+<img src="assets/job-import.png" alt="Job-posting import and cover-letter configuration" width="100%">
+
+<img src="assets/fit-analysis.png" alt="Local fit analysis with matched skills, gaps, and explainable scoring" width="100%">
+
+### 4. Retrieve, generate, and verify
+
+The generation prompt combines compact profile evidence, the learned voice guide, role-relevant
+past-letter passages, optional tailoring answers, and the cached company report. Tokens stream as
+the configured model produces them.
+
+The finished draft can be checked against the local profile. Concrete claims are labelled supported,
+partly supported, or unsupported; flagged claims can be revised without rewriting unrelated parts
+of the letter. Export to PDF and Word is rendered locally.
+
+<img src="assets/generation.png" alt="Cover-letter generation, company grounding, claim checking, editing, and export" width="100%">
 
 <details>
 <summary><b>Profile management and provider controls</b></summary>
 <br>
 
-<img src="assets/profile.png" alt="Profile and control annotated: one profile merged from four sources with field-level attribution, self-rated skills, retrieval controls, and privacy controls" width="100%">
+<img src="assets/profile.png" alt="Unified local profile with field provenance and retrieval controls" width="100%">
 
-<img src="assets/workspace.png" alt="Workspace and providers annotated: the application pipeline, local counters, seven interchangeable inference providers with local and cloud badges, and usage metering" width="100%">
+<img src="assets/workspace.png" alt="Application workspace and configurable inference providers" width="100%">
 
 </details>
 
 ---
 
-## 🔒 Privacy
+## Architecture
 
-<img src="assets/privacy.png" alt="Privacy data-flow: everything inside the device boundary, with exactly two labelled crossings and four categories of data that never cross at all" width="100%">
+### Application layers
 
-| Data | Where it goes |
+```text
+React 19 + TypeScript + Vite
+        │
+        │ typed REST and Server-Sent Events
+        ▼
+FastAPI routers
+        │
+        ├── import and reconciliation
+        ├── voice learning and hybrid retrieval
+        ├── company research orchestration
+        ├── generation, verification, and export
+        └── provider discovery, health, and metering
+        │
+        ▼
+SQLite + ChromaDB + local document/model tooling
+```
+
+### Retrieval pipeline
+
+The writing-style RAG path is intentionally small enough to inspect:
+
+```text
+role + company + job description
+              │
+              ├── dense retrieval from ChromaDB
+              └── BM25 over the local exemplar corpus
+                           │
+                           ▼
+               Reciprocal Rank Fusion
+                           │
+                           ▼
+           optional cross-encoder reranking
+                           │
+                           ▼
+            relevant past-letter passages
+```
+
+Dense retrieval captures paraphrases; BM25 preserves exact technologies and role terms. RRF combines
+the rankings without requiring comparable score scales. The optional cross-encoder improves
+precision and degrades to the fused order if its model is unavailable.
+
+### Research orchestration
+
+The research fleet runs concurrently and streams structured progress through SSE. A shared tool
+budget bounds the run; transient failures use retry and backoff; individual agent failures produce
+a partial report instead of cancelling the entire workflow. Reports are reconciled, cited, cached
+according to the user's retention setting, and can be explicitly refreshed.
+
+Seven built-in public-data tools cover web search, readable-page extraction, Wikidata,
+GDELT news, GitHub organizations, Hacker News, and Wikipedia. Optional MCP servers can register
+additional tools at startup.
+
+### Inference gateway
+
+| Local providers | Cloud providers — explicit opt-in |
 |---|---|
-| CV, profile, skills, past letters | **Never leaves the device.** Parsed, embedded and stored locally. |
-| Embeddings + vector index | **Local** — `sentence-transformers` + ChromaDB on disk. |
-| Fit score, match breakdown, letter hooks | **Local** — computed with no network and no model at all. |
-| Prompts + generated letters | Stay local with **Foundry Local / Ollama / LM Studio**. Reach a vendor only if *you* select a cloud provider. |
-| Company research queries | Company name, role title, and the employer's public job text — **never your CV**. |
+| Microsoft Foundry Local · Ollama · LM Studio | Azure AI Foundry · OpenAI · Claude · Gemini |
 
-Two mechanisms enforce this rather than merely documenting it:
-
-**`outbound_guard`** — a single choke point every outbound request passes through. Before a request
-leaves, it scans the exact bytes for the user's private identifiers (name, email, phone, handles,
-CV summary). If any appear it raises `OutboundLeakError` and sends nothing. The allowlist is the
-primary defence — research code is built around a `ResearchInput` whose fields are public by
-construction — and this denylist is the backstop for when a bug defeats the design.
-
-**PII scan** — a local, regex-based check that flags sensitive identifiers in a draft before export,
-with three sensitivity levels (off / high-risk only / always).
-
-> Selecting OpenAI, Claude, Gemini or Azure AI Foundry is an explicit opt-in, and the UI says so at
-> the point of choice. Local providers remain the default.
+Provider, endpoint, model, and credentials are read from the local settings database on each call,
+so the active route can change from the UI without restarting the application. Health checks,
+installed-model discovery, latency, estimated token counts, and estimated cost are surfaced through
+the same gateway.
 
 ---
 
-## 🧭 Engineering decisions & trade-offs
+## Privacy and data boundaries
 
-The constraints made most of the interesting decisions. These are the ones I'd defend in a design
-review.
+“Local-first” is a default and an architectural option, not a claim that every feature is
+network-free. The behavior depends on the feature and the provider the user selects.
+
+| Feature | What can leave the device |
+|---|---|
+| CV and LinkedIn file import | The file is parsed locally. Structuring uses the configured LLM, so it remains on-device with a local provider and reaches the selected vendor with a cloud provider. |
+| Profile, skills, past letters, and saved letters | Stored in local SQLite and ChromaDB. They are not sent by public-source research tools. |
+| Embeddings | Produced locally through sentence-transformers or Foundry Local. The default sentence-transformer model downloads once, then runs offline. |
+| GitHub import | The username, optional token-authenticated API requests, and public repository content are requested from GitHub. AI analysis follows the configured LLM provider. |
+| Job import | The public job-posting URL is fetched so its text can be extracted locally. |
+| Company research | Public company, role, job, and source queries pass through `outbound_guard`. The applicant profile is not part of the research input. |
+| Cover-letter generation | Prompt context remains local with Foundry Local, Ollama, or LM Studio. It is sent to the selected vendor when a cloud provider is explicitly chosen. |
+| Export | PDF and Word files are rendered on-device. |
+
+### Enforcement
+
+**`outbound_guard`** is the shared HTTP boundary for built-in research tools. It uses a public-data
+input model and scans the exact outgoing URL or request body for strong private identifiers from
+the local profile. A match raises `OutboundLeakError` before the request is sent.
+
+**Claim verification** compares the draft with local profile evidence and the cached company report.
+It makes unsupported or partly supported claims visible instead of treating fluent output as truth.
+
+**PII scan** runs locally before export and can flag sensitive identifiers according to the user's
+selected sensitivity.
+
+**Review-before-write imports** keep extracted profile changes provisional until the user accepts
+them. Field provenance records where imported information came from.
+
+> [!WARNING]
+> The application is designed for one user on a trusted machine. It has no authentication layer and
+> should not be exposed directly to the public internet. Provider credentials are stored locally in
+> the SQLite settings database; the database is not an encrypted secrets vault.
+
+---
+
+## Engineering decisions and trade-offs
 
 <details open>
-<summary><b>1 · Build the RAG pipeline from scratch instead of using LangChain / LlamaIndex</b></summary>
+<summary><b>Build the RAG pipeline directly instead of hiding it behind a framework</b></summary>
 <br>
 
-**Trade-off:** slower to a first working version, in exchange for understanding and control.
-
-The retrieval flow here is genuinely simple — chunk, embed, retrieve, fuse, rerank — and wrapping it
-in a framework would have hidden exactly the parts I needed to reason about: what's in the prompt,
-what's retrieved and why, where the failure modes are. It also avoided a dependency whose
-abstractions change faster than this project would.
-
-**Where it cost me:** I had to write my own SSE plumbing, provider abstraction and streaming JSON
-parser. **Where it paid off:** when generation quality was poor, I could see precisely which
-retrieved passage caused it.
+The retrieval path is compact: chunk, embed, retrieve, rank, fuse, optionally rerank. Implementing
+those steps directly made prompt context and retrieval failures observable, at the cost of writing
+the provider gateway, SSE plumbing, and incremental parsing in the project itself.
 
 </details>
 
 <details>
-<summary><b>2 · Hybrid retrieval (BM25 + dense → RRF → cross-encoder) instead of pure embeddings</b></summary>
+<summary><b>Fuse lexical and semantic retrieval</b></summary>
 <br>
 
-**Problem:** dense retrieval alone missed exact-term matches — a specific framework name in a past
-letter; BM25 alone missed paraphrases.
-
-**Decision:** run both rankings and fuse them with **Reciprocal Rank Fusion**, then optionally
-re-order the shortlist with a **cross-encoder reranker**.
-
-**Trade-off:** more moving parts and a slower retrieval path, for measurably more relevant exemplars.
-The reranker is opt-in in Settings because it downloads a model on first use — so the default install
-stays lightweight and the quality ceiling is available to anyone who wants it.
-
-Every stage degrades to a no-op rather than breaking: without `sentence-transformers`, retrieval
-falls back to lexical; if the cross-encoder can't load, the fused order is used as-is.
+Dense retrieval alone missed exact framework and product names; BM25 alone missed paraphrases.
+Running both and combining their rankings with RRF produced more useful writing exemplars. The
+cross-encoder remains optional because it adds another first-use model download and more latency.
 
 </details>
 
 <details>
-<summary><b>3 · Run the fit analysis with no model and no network at all</b></summary>
+<summary><b>Keep fit analysis deterministic and local</b></summary>
 <br>
 
-This is the one step that has to read the user's actual CV *and* the target role. Sending that
-combination anywhere would break the product's core promise.
-
-**Decision:** compute it locally with normalised lexical matching and a small alias table — no
-embeddings, no LLM, no network.
-
-**Trade-off:** deliberately less clever than a semantic match, and it will miss synonyms an embedding
-model would catch. In exchange it is **impossible to leak** and **fully explainable** — every number
-traces back to a matched token. For a feature whose output the user has to trust *about themselves*,
-a transparent 85%-correct answer beat an opaque 95%-correct one.
+Fit analysis is the point where a private profile and a target role meet. It therefore uses
+normalized lexical matching and an alias table rather than a network service or LLM. This is less
+semantically flexible, but every score can be traced to a matched or missing term.
 
 </details>
 
 <details>
-<summary><b>4 · Always-on groundedness verification instead of trusting the generation</b></summary>
+<summary><b>Treat verification as part of generation</b></summary>
 <br>
 
-A local 14B model hallucinates more than a frontier model. Rather than pretending otherwise, I made
-the hallucination visible.
-
-**Decision:** after generation, a **second LLM pass** audits every concrete claim against the only
-things we actually know — the local profile and the cached research — and returns a per-claim verdict
-(supported / partly / unsupported). A companion `revise` pass rewrites *only* the flagged claims.
-
-**Trade-off:** roughly doubles time-to-final-letter. Worth it: the failure mode of this product is a
-confident false claim on a real job application, and this turns that from an invisible risk into a
-visible, fixable list.
+A fluent cover letter can still contain an invented achievement. The application performs a second
+pass that evaluates concrete claims against known evidence and supports targeted revision. This
+adds latency, but it addresses the most consequential failure mode directly.
 
 </details>
 
 <details>
-<summary><b>5 · Provider config in the database, not <code>.env</code></b></summary>
+<summary><b>Stream structured operations, not only prose</b></summary>
 <br>
 
-**Decision:** provider, model, endpoint and keys live in a SQLite `settings` table, read by the
-gateway on **every** call.
-
-**Trade-off:** slightly more code than reading env vars once at boot, and a per-call read. In return,
-switching from a local model to Azure AI Foundry is a click in the UI with no restart, and the app
-can honestly show which provider is active. For a tool whose whole point is *"you choose where your
-data goes"*, burying that choice in a file the user has to edit would have undermined the premise.
+Local models can take time to structure a CV or LinkedIn profile. The frontend renders partial JSON,
+live counters, and provisional fields while tokens arrive. A tolerant parser repeatedly recovers the
+largest valid JSON prefix, making model latency visible and useful rather than ambiguous.
 
 </details>
 
 <details>
-<summary><b>6 · Stream everything the user is waiting on</b></summary>
+<summary><b>Make research partial-failure tolerant</b></summary>
 <br>
 
-Local models are slow. A long wait behind a spinner feels broken; the same wait with visible progress
-feels like watching something work.
-
-**Decision:** stream the structured output too, not just the prose. CV import, LinkedIn import and
-voice learning all render **the model's JSON as it is written**, beside the form filling in field by
-field. This needed a tolerant incremental parser that closes unbalanced brackets and parses the
-largest valid prefix on every token.
-
-**Trade-off:** significantly more frontend complexity than awaiting a finished response. It's also the
-single thing that made the local-model experience feel acceptable rather than slow.
-
-</details>
-
-<details>
-<summary><b>7 · Rating-weighted, incremental voice learning</b></summary>
-<br>
-
-The first version re-learned the voice from scratch on every new letter and weighted all samples
-equally. Both were wrong: adding a mediocre letter could *degrade* the fingerprint.
-
-**Decision:** letters carry a user rating; the analysis prompt is ordered best-first, treats 4–5★
-letters as the gold standard and mines 1–2★ letters for the avoid-list. When a fingerprint already
-exists it is passed back in and the model is asked to **refine** it — keep what holds, sharpen what's
-clarified, drop what's contradicted.
-
-**Trade-off:** a longer, more complex prompt and a dependency on honest self-rating. It made the
-feature improve with use instead of drifting.
+Public sources are unreliable. Agents run independently, tools fail soft, transient errors retry
+with backoff, a shared budget limits total calls, and completed sections survive when another agent
+fails. The result can be explicitly marked partial instead of disappearing.
 
 </details>
 
 ---
 
-## 🛡️ Responsible AI
+## What I learned
 
-Privacy was the starting constraint, but not the whole of it. Three further properties were treated
-as requirements rather than nice-to-haves:
+This internship project changed how I think about AI engineering. The hardest part was not calling
+a model or finding the right wording for a prompt. It was building the systems around the model:
+selecting evidence, controlling data movement, handling partial output, recovering from failure,
+measuring behavior, and designing an interface that helps a person judge the result.
 
-| Principle | How it shows up in the code |
-|---|---|
-| **Groundedness** | Every generated letter is audited claim-by-claim against the real profile and cached research. Unsupported claims are surfaced, not hidden — and revised in place. |
-| **Transparency** | The fit score uses explainable lexical matching, not an opaque embedding distance, so every number can be traced. Research cites its sources. The active provider — and whether it is local or cloud — is always visible. |
-| **Data minimisation** | Only a company name and public job text ever leave the device, enforced by an allowlist plus a byte-level denylist. Research-cache retention is user-configurable, including *off*. |
-| **User control** | Nothing reaches the profile without an explicit review step — CV, GitHub and LinkedIn imports all end in a diff the user approves. The PII shield warns before export. |
+### RAG is a pipeline, not a vector-database checkbox
+
+The largest retrieval improvements came from treating lexical search, embeddings, ranking, fusion,
+and reranking as separate decisions. Exact technical terms and semantic similarity solve different
+problems. Inspecting the retrieved passages made generation quality debuggable in a way that
+“use a larger model” never could.
+
+### Retrieval quality can matter more than model size
+
+A smaller local model with relevant profile evidence, role-specific writing examples, and a compact
+company report often produced a better draft than a more capable model with weak context. This
+shifted my attention from parameter count to evidence selection and prompt construction.
+
+### Local AI changes the product design
+
+On-device inference improves control and privacy, but it also introduces model downloads, hardware
+constraints, dynamic endpoints, and noticeable latency. Provider health indicators, model discovery,
+streamed progress, graceful fallbacks, and clear local/cloud labels are product requirements, not
+implementation details.
+
+### Structured generation needs defensive parsing
+
+Streaming prose is straightforward; streaming JSON is not. The UI cannot assume that the current
+token ends at a valid object boundary. Building incremental parsing and reviewable provisional state
+taught me to design for incomplete model output rather than only successful final responses.
+
+### Multi-agent systems need orchestration more than personas
+
+Parallel agents become useful when they have distinct responsibilities, bounded tools, shared
+budgets, provenance, caching, reconciliation, and partial-failure behavior. Concurrency alone does
+not make a system reliable; the surrounding control plane does.
+
+### Responsible AI becomes real at system boundaries
+
+Privacy labels and warnings are valuable, but stronger guarantees come from architecture: public-only
+research inputs, a shared outbound choke point, local deterministic analysis where private and public
+data meet, explicit cloud opt-in, and review steps before imported data becomes authoritative.
+
+### Groundedness should be visible
+
+The most dangerous failure is not awkward prose; it is a confident false claim in a real application.
+Claim-level verdicts turn that hidden risk into something the user can inspect and correct. This
+reinforced a broader lesson: AI interfaces should expose uncertainty where it changes a decision.
+
+### Streaming is part of AI usability
+
+A long spinner feels broken. The same wait with real tokens, structured progress, completed agents,
+and visible intermediate fields feels understandable. Streaming did not make the model faster, but
+it made the system more trustworthy and easier to use.
+
+Building Cover Letter Local during my Microsoft AI internship gave me the opportunity to connect
+these lessons in one end-to-end product: RAG, local models, provider integration, agent orchestration,
+privacy engineering, evaluation, backend resilience, and frontend experience had to reinforce one
+another rather than exist as isolated demos.
 
 ---
 
-## 🚀 Quick start
+## Development setup
 
-**Prerequisites:** Python 3.11+, Node 18+, and a local model runtime
-([Foundry Local](https://github.com/microsoft/Foundry-Local) or [Ollama](https://ollama.com)).
-Optional: `tesseract` for image OCR.
+Use this path when changing the application rather than running the packaged Stable release.
+
+### Requirements
+
+- Python 3.12 recommended; 3.11 or newer supported
+- Node.js 20 recommended
+- A running local model, or credentials for an explicitly selected cloud provider
+- Optional: Tesseract for image OCR
 
 ```bash
 git clone https://github.com/mehmeterguden/Microsoft-Internship-Cover-Letter-Local.git
 cd Microsoft-Internship-Cover-Letter-Local
 ```
 
-**1 · Backend**
+### Backend
 
 ```bash
 cd backend
-python -m venv venv && source venv/bin/activate    # Windows: venv\Scripts\activate
+python -m venv venv
+source venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-uvicorn main:app --reload                          # → http://localhost:8000
+uvicorn main:app --reload
 ```
 
-**2 · Frontend** (new terminal)
+On Windows PowerShell, activate the environment with:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+The API runs at [http://localhost:8000](http://localhost:8000).
+
+### Frontend
+
+Open another terminal from the repository root:
 
 ```bash
 cd frontend
-npm install
-npm run dev                                        # → http://localhost:5173
+npm ci
+npm run dev
 ```
 
-**3 · Pick a model.** Open **Settings → Model & inference** and choose a provider. There is no `.env`
-to edit — provider, model and keys live in the local database, so you can change them from the UI at
-any time.
+The application runs at [http://localhost:5173](http://localhost:5173).
 
-Then: add your CV → paste a past letter or two → paste a job link → generate.
+No provider `.env` file is required. Configure the provider, endpoint, model, and credentials from
+**Settings → Model & inference**.
 
 ---
 
-## 🧰 Tech stack
+## Technology
 
-**Backend** — Python 3.11+ · FastAPI · Uvicorn · Pydantic v2 · SQLite · ChromaDB ·
+**Backend:** Python · FastAPI · Pydantic · Uvicorn · SQLite · ChromaDB ·
 sentence-transformers · pdfplumber · python-docx · reportlab · pytesseract · trafilatura
 
-**Frontend** — React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · Zustand · React Router ·
+**Frontend:** React 19 · TypeScript · Vite · Tailwind CSS v4 · Zustand · React Router ·
 Radix UI · Motion · axios
 
-**Inference** — one gateway, seven interchangeable providers:
+**AI and retrieval:** Microsoft Foundry Local · Ollama · LM Studio · Azure AI Foundry · OpenAI ·
+Claude · Gemini · BM25 · Reciprocal Rank Fusion · cross-encoder reranking
 
-| Local (default) | Cloud (explicit opt-in) |
-|---|---|
-| Microsoft **Foundry Local** · **Ollama** · **LM Studio** | **Azure AI Foundry** · **OpenAI** · **Claude** · **Gemini** |
+## Project structure
 
-**Deliberately absent:** LangChain and LlamaIndex — see
-[decision 1](#-engineering-decisions--trade-offs).
-
----
-
-## 📁 Project structure
-
-```
+```text
 backend/
-├── api/routers/         26 routers — cv · style · research · cover_letter · settings · …
+├── api/routers/          HTTP and SSE endpoints
 ├── core/
-│   ├── llm/             7 providers behind one interface + metering gateway
-│   ├── research/        orchestrator · 9 agents · 9 tools (incl. MCP) · outbound_guard
-│   ├── prompts/         prompt builders, one module per task
-│   ├── style.py         voice learning — rating-weighted, incremental
-│   ├── verification.py  groundedness audit + targeted revision
-│   ├── rerank.py        BM25 · RRF · cross-encoder
-│   └── pii.py           local PII scanner
-├── db/                  schema + queries (SQLite)
-└── tests/               30 test modules
+│   ├── llm/              provider implementations and metered gateway
+│   ├── research/         agents, tools, orchestration, fit, hooks, and outbound guard
+│   ├── prompts/          task-specific prompt builders
+│   ├── style.py          voice learning and exemplar retrieval
+│   ├── rerank.py         BM25, RRF, and cross-encoder helpers
+│   ├── verification.py   groundedness audit and targeted revision
+│   ├── document_parser.py
+│   └── pii.py
+├── db/                   SQLite schema and query layer
+└── tests/                backend behavior and privacy tests
 
 frontend/src/
-├── pages/               11 routes
-├── components/          design-system primitives + feature components
-├── api/                 typed client, one module per router, SSE helpers
-└── lib/, store/         hooks, utilities, Zustand slices
+├── pages/                product workflows
+├── components/           shared UI and review components
+├── api/                  typed clients and SSE helpers
+├── store/                Zustand state
+└── lib/                  parsing, navigation, theme, and utilities
 ```
 
----
+## Testing and CI
 
-## 🧪 Testing & CI
+Run the backend suite:
 
 ```bash
-cd backend && pytest -q
+cd backend
+pytest -q
 ```
 
-CI runs the backend suite plus a full frontend type-check and production build on every push and pull
-request. Coverage is concentrated where correctness isn't obvious, rather than spread thin for a
-number:
+Verify the frontend:
 
-- **the privacy firewall** — that `outbound_guard` actually blocks a leaking request
-- **PII detection** — precision and recall on realistic identifiers
-- **agent orchestration** — parallel execution, partial failure, caching, resilience
-- **retrieval fusion** — BM25 scoring and RRF ordering
-- **the provider gateway** — provider switching, metering, structured output
-- **document parsing** — PDF / Word / image / text, including multi-page joins
+```bash
+cd frontend
+npm ci
+npm run typecheck
+npm run build
+```
+
+CI executes the backend suite and a production frontend build on every push to `main` and every pull
+request. A successful `main` run triggers the workflow that rebuilds the single Stable release.
+
+Coverage is concentrated around privacy enforcement, PII detection, research orchestration and
+resilience, retrieval ranking, provider behavior, document parsing, reconciliation, generation,
+verification, and export.
+
+## Limitations
+
+- Local generation speed and output quality depend on the selected model and hardware.
+- Foundry Local is evolving, and its service endpoint can change between runs; use
+  `foundry service status` instead of assuming a fixed port.
+- The default sentence-transformer and optional cross-encoder need a first-use model download.
+- Company research depends on public sources and can return a partial report when sources are
+  unavailable or rate-limited.
+- Deterministic fit analysis favors explainability and privacy over full semantic matching.
+- Cloud providers receive the prompt context required for the selected action.
+- The application is single-user, has no authentication, and is intended for a trusted local machine.
+- Provider credentials are stored locally in SQLite and are not protected by a dedicated secret vault.
 
 ---
 
-## 📚 What I learned
-
-The parts that changed how I think, rather than the parts that were just work:
-
-- **Prompt design is engineering, not phrasing.** The largest single quality jump in this project came
-  from restructuring the voice-analysis prompt to extract an *ordered playbook* instead of adjectives
-  — same model, same data, dramatically better letters.
-- **Constraints produce better designs.** "Nothing leaves the device" forced the local fit analysis,
-  the byte-level firewall and the hybrid retrieval — and each is more interesting than the version I'd
-  have built without the constraint.
-- **A smaller model plus better retrieval beats a bigger model plus none.** Most of the quality gap I
-  expected from running locally turned out to be a retrieval problem, not a parameter-count problem.
-- **Design for the failure mode.** LLM output is probabilistic, so the honest interface isn't a
-  confident answer — it's a claim-by-claim verdict the user can act on.
-- **Streaming is a UX feature, not a technical detail.** Making the model's work visible is what made
-  a slow local pipeline feel good to use.
-
----
-
-## 📄 License
+## License
 
 [MIT](LICENSE)
 
 <div align="center">
 <br>
-<sub>Built by <a href="https://github.com/mehmeterguden">Mehmet Can Ergüden</a> during a Microsoft internship.</sub>
+<sub>
+Built by <a href="https://github.com/mehmeterguden">Mehmet Can Ergüden</a>
+during a Microsoft AI internship.
+</sub>
+<br>
+<sub>Independent internship project · Not an official Microsoft product</sub>
 </div>

@@ -22,6 +22,13 @@ rsync -a \
   --exclude '.github' \
   --exclude '.agents' \
   --exclude '.claude' \
+  --exclude '.gemini' \
+  --exclude '.githooks' \
+  --exclude '.gitmessage' \
+  --exclude '.mailmap' \
+  --exclude 'CLAUDE.md' \
+  --exclude 'AGENTS.md' \
+  --exclude 'docs' \
   --exclude '.pytest_cache' \
   --exclude '.mypy_cache' \
   --exclude '.ruff_cache' \
@@ -37,6 +44,11 @@ rsync -a \
   --exclude 'backend/data' \
   --exclude '__pycache__' \
   --exclude '*.pyc' \
+  --exclude '.env' \
+  --exclude '.env.*' \
+  --exclude '*.key' \
+  --exclude '*.pem' \
+  --exclude 'secrets.*' \
   --exclude '.DS_Store' \
   "$ROOT_DIR/" "$STAGE_DIR/"
 
