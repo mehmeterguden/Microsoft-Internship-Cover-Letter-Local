@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="800" viewBox="0 0 2400 800" role="img" aria-labelledby="title desc">
+  <title id="title">Cover Letter Local</title>
+  <desc id="desc">A local-first, evidence-grounded AI engineering project built during a Microsoft AI internship.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111c"/>
+      <stop offset="0.55" stop-color="#050a12"/>
+      <stop offset="1" stop-color="#071323"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#32d6e8"/>
+      <stop offset="1" stop-color="#4388ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0V80" fill="none" stroke="#274057" stroke-opacity=".2" stroke-width="1"/>
+    </pattern>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="2400" height="800" fill="url(#bg)"/>
+  <rect width="2400" height="800" fill="url(#grid)"/>
+  <ellipse cx="310" cy="160" rx="430" ry="360" fill="url(#glow)" opacity=".65"/>
+  <ellipse cx="1920" cy="420" rx="560" ry="470" fill="url(#glow)" opacity=".45"/>
+
+  <g transform="translate(116 86)">
+    <rect width="12" height="12" rx="3" fill="#34d7e8"/>
+    <text x="34" y="13" fill="#91a7bd" font-family="'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace" font-size="23" letter-spacing="7">
+      MICROSOFT AI INTERNSHIP PROJECT
+    </text>
+
+    <text x="0" y="225" fill="#f2f7fb" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="116" font-weight="700" letter-spacing="-5">
+      Cover Letter <tspan fill="url(#accent)">Local</tspan>
+    </text>
+    <text x="0" y="302" fill="#adbed0" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="40" font-weight="400">
+      Local-first. Evidence-grounded. Built to make AI accountable.
+    </text>
+    <text x="0" y="366" fill="#7f94aa" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="27">
+      RAG, local inference, multi-agent research, streaming UX, and Responsible AI
+    </text>
+
+    <g transform="translate(0 430)" font-family="'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace" font-size="19" letter-spacing="2">
+      <rect width="245" height="54" rx="9" fill="#0a1b29" stroke="#1f6f81"/>
+      <circle cx="24" cy="27" r="6" fill="#42d9a6"/>
+      <text x="43" y="34" fill="#8fdff0">LOCAL BY DEFAULT</text>
+
+      <g transform="translate(263)">
+        <rect width="224" height="54" rx="9" fill="#0a1b29" stroke="#1f6f81"/>
+        <text x="22" y="34" fill="#8fdff0">HYBRID RAG</text>
+      </g>
+
+      <g transform="translate(505)">
+        <rect width="294" height="54" rx="9" fill="#0a1b29" stroke="#1f6f81"/>
+        <text x="22" y="34" fill="#8fdff0">CLAIM VERIFICATION</text>
+      </g>
+    </g>
+
+    <text x="0" y="601" fill="#758ba1" font-family="'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace" font-size="19" letter-spacing="2">
+      CV + PROFILE  /  VOICE LEARNING  /  COMPANY INTELLIGENCE  /  VERIFIED LETTER
+    </text>
+  </g>
+
+  <g transform="translate(1570 111)">
+    <rect x="0" y="0" width="690" height="572" rx="35" fill="#081522" stroke="#1e7790" stroke-width="2"/>
+    <rect x="22" y="22" width="646" height="528" rx="26" fill="#0a1726" stroke="#173149"/>
+    <text x="58" y="75" fill="#67dced" font-family="'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace" font-size="17" letter-spacing="4">
+      EVIDENCE PIPELINE
+    </text>
+
+    <g font-family="'Segoe UI', 'Helvetica Neue', sans-serif">
+      <g transform="translate(58 113)">
+        <rect width="190" height="94" rx="16" fill="#111f30" stroke="#28435d"/>
+        <text x="24" y="38" fill="#f0f6fb" font-size="23" font-weight="600">Your evidence</text>
+        <text x="24" y="68" fill="#89a1b8" font-size="17">CV · profile · letters</text>
+      </g>
+
+      <path d="M258 160H332" stroke="url(#accent)" stroke-width="4"/>
+      <path d="M321 151L336 160 321 169" fill="none" stroke="#3bd5e9" stroke-width="4"/>
+
+      <g transform="translate(346 113)">
+        <rect width="244" height="94" rx="16" fill="#111f30" stroke="#287d93"/>
+        <text x="24" y="38" fill="#f0f6fb" font-size="23" font-weight="600">Hybrid retrieval</text>
+        <text x="24" y="68" fill="#77cfe0" font-size="17">BM25 + dense → RRF</text>
+      </g>
+
+      <path d="M468 218V271" stroke="url(#accent)" stroke-width="4"/>
+      <path d="M459 260L468 275 477 260" fill="none" stroke="#3bd5e9" stroke-width="4"/>
+
+      <g transform="translate(182 286)">
+        <rect width="408" height="102" rx="18" fill="#0d2231" stroke="#2ca0b8" stroke-width="2"/>
+        <circle cx="45" cy="51" r="15" fill="#33d5e6" opacity=".2" filter="url(#softGlow)"/>
+        <circle cx="45" cy="51" r="6" fill="#42d9a6"/>
+        <text x="78" y="45" fill="#f0f6fb" font-size="25" font-weight="650">Configured LLM gateway</text>
+        <text x="78" y="75" fill="#8da5bc" font-size="17">local by default · cloud by choice</text>
+      </g>
+
+      <path d="M386 399V447" stroke="url(#accent)" stroke-width="4"/>
+      <path d="M377 436L386 451 395 436" fill="none" stroke="#3bd5e9" stroke-width="4"/>
+
+      <g transform="translate(182 461)">
+        <rect width="408" height="70" rx="16" fill="#111f30" stroke="#28435d"/>
+        <text x="27" y="43" fill="#f0f6fb" font-size="22" font-weight="600">Draft → claim check → export</text>
+      </g>
+    </g>
+
+    <g transform="translate(-54 252)">
+      <rect width="208" height="58" rx="11" fill="#07101b" stroke="#24455e"/>
+      <text x="20" y="24" fill="#7d95ad" font-family="'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace" font-size="13" letter-spacing="2">PUBLIC CONTEXT</text>
+      <text x="20" y="44" fill="#b8c8d8" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="15">company research</text>
+      <path d="M208 29H235" stroke="#3bd5e9" stroke-width="3"/>
+      <path d="M226 21L239 29 226 37" fill="none" stroke="#3bd5e9" stroke-width="3"/>
+    </g>
+  </g>
+</svg>

@@ -17,6 +17,8 @@
 # ─── Local dev conveniences (kept out of the public repo) ────────
 # commit template — wired via local git config, not published
 /.gitmessage
+/.githooks/
+/.mailmap
 *.local.md
 
 # ─── Secrets / environment ───────────────────────────────────────
