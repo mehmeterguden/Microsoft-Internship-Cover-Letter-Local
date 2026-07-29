@@ -186,26 +186,7 @@ endpoint. Ollama and LM Studio follow the same host-address rule.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    subgraph Device["On your device"]
-        A["CV, LinkedIn, GitHub<br/>and past letters"] --> B["Review and reconcile"]
-        B --> C["SQLite profile<br/>and provenance"]
-        C --> D["Local embeddings<br/>and ChromaDB"]
-        D --> E["Hybrid RAG<br/>BM25 + dense → RRF → rerank"]
-        C --> F["Voice fingerprint<br/>and writing playbook"]
-        F --> E
-        E --> G["Configured LLM gateway"]
-        H["Cached company report<br/>and letter hooks"] --> G
-        G --> I["Streaming draft"]
-        I --> J["Groundedness audit<br/>and PII scan"]
-        J --> K["PDF / Word / saved letter"]
-    end
-
-    L["Public company sources"] --> M["Outbound guard"]
-    M --> H
-    G -. "only when explicitly selected" .-> N["Cloud LLM provider"]
-```
+<img src="assets/how-it-works.svg" alt="Cover Letter Local workflow from reviewed evidence through hybrid RAG, generation, verification, and export" width="100%">
 
 The primary path uses a local model. Public-source research uses the network, and cloud inference
 is available only when the user deliberately selects a cloud provider. The exact data boundaries
