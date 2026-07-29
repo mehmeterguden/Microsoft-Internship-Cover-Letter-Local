@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Check, MousePointer } from "lucide-react";
-// TEMPORARY: Developer Feedback System (TO BE REMOVED BEFORE PRODUCTION)
-import { useDevFeedbackStore } from "@/store/devFeedback";
+import { Check } from "lucide-react";
+
 import { useTheme } from "@/lib/theme";
 import { useAsync } from "@/lib/useAsync";
 import { useSettingsStore } from "@/store/settings";
@@ -257,21 +256,19 @@ function NewCoverLetterButton() {
             </svg>
           </span>
 
-          <span className="relative flex-1 text-left tracking-tight">New Cover Letter</span>
+          <span className="relative flex flex-1 flex-col text-left leading-tight">
+            <span className="tracking-tight">Create Cover Letter</span>
+            <span className="mt-0.5 text-[10px] font-medium text-white/72">Start a fresh draft</span>
+          </span>
 
-          {/* Active vs Normal/Hover Badge */}
-          {isActive ? (
-            <span className="relative flex items-center gap-1.5 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-              Active
-            </span>
-          ) : (
+          {/* Resting arrow affordance */}
+          {!isActive ? (
             <span className="relative text-white/70 group-hover:text-white group-hover:translate-x-0.5 transition-all">
               <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M7 4l6 6-6 6" />
               </svg>
             </span>
-          )}
+          ) : null}
         </>
       )}
     </NavLink>
@@ -281,11 +278,10 @@ function NewCoverLetterButton() {
 export function Sidebar() {
   const { theme, toggle } = useTheme();
 
-  // TEMPORARY: Developer Feedback Store
-  const { inspectorActive, toggleInspector, items: devItems } = useDevFeedbackStore();
+
 
   // Reactive settings store
-  const { settings, health, loading, fetchSettings } = useSettingsStore();
+  const { settings, health, loading, healthLoading, fetchSettings } = useSettingsStore();
 
   useEffect(() => {
     if (!settings && !loading) {
@@ -299,15 +295,16 @@ export function Sidebar() {
   const navStatusState = useAsync(fetchNavStatus, [pathname]);
 
   const provider = settings ? PROVIDER_META[settings.llm_provider] : undefined;
-  const modelName = settings?.llm_model?.trim() || (loading ? "Loading…" : "Not configured");
-
-  // Status dot color calculation:
-  // Green when health ping check is OK (or configured), Red if ping check fails (health.ok === false).
-  const isHealthy = health ? health.ok : !!settings?.llm_model;
-  const dotColor = isHealthy ? "var(--success)" : "var(--danger)";
-  const statusTitle = health
-    ? `Model: ${modelName} (${provider?.name || "Provider"}) — Status: ${health.ok ? "Connected & Healthy" : `Unreachable: ${health.detail}`}`
-    : `Model: ${modelName}${provider ? ` (${provider.name})` : ""} — Click to manage in Settings`;
+  const configuredModelName = settings?.llm_model?.trim() || (loading ? "Loading…" : "Not configured");
+  const modelName = configuredModelName;
+  const providerName = provider?.name || (loading ? "Loading…" : "Unknown provider");
+  const dotColor = loading || healthLoading ? "var(--warning)" : health?.ok ? "var(--success)" : "var(--danger)";
+  const statusTitle =
+    loading || healthLoading
+      ? `Checking model health: ${configuredModelName}${provider ? ` (${provider.name})` : ""}`
+      : health
+      ? `Configured runtime: ${configuredModelName}${provider ? ` (${provider.name})` : ""} — ${health.ok ? "Connected & healthy" : `Unreachable: ${health.detail}`}`
+      : `Configured runtime: ${configuredModelName}${provider ? ` (${provider.name})` : ""}`;
 
   return (
     <aside
@@ -363,29 +360,6 @@ export function Sidebar() {
           ))}
         </div>
 
-        <div className="mx-1 my-3.5 h-px bg-border" />
-        <div className="mb-2 px-[11px] text-[11px] font-semibold tracking-[0.01em] text-fg-low flex items-center justify-between">
-          <span>Developer Tools</span>
-          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">Temp</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => toggleInspector()}
-          className={cn(
-            "relative flex w-full items-center gap-3 rounded-[9px] px-2.5 py-2 text-[13px] font-medium transition-all outline-none cursor-pointer",
-            inspectorActive
-              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
-              : "text-indigo-400 hover:bg-indigo-500/10 border border-indigo-500/20",
-          )}
-        >
-          <MousePointer size={16} className={cn("shrink-0", inspectorActive && "animate-pulse")} />
-          <span className="flex-1 text-left truncate font-semibold">Feedback Inspector</span>
-          {devItems.length > 0 && (
-            <span className="rounded-full bg-indigo-500/20 px-1.5 py-0.5 font-mono text-[10px] text-indigo-300 font-bold">
-              {devItems.length}
-            </span>
-          )}
-        </button>
       </nav>
 
       {/* footer */}
@@ -404,9 +378,13 @@ export function Sidebar() {
               animation: "cll-pulse 2.4s ease-in-out infinite",
             }}
           />
-          <span className="min-w-0 flex-1 truncate text-[11.5px] leading-tight">
-            <span className="font-semibold text-fg">{modelName}</span>
-            {provider ? <span className="text-fg-low"> · {provider.name}</span> : null}
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="mb-1 block truncate text-[9.5px] font-semibold uppercase tracking-[0.14em] text-accent-text">
+              {providerName}
+            </span>
+            <span className="block truncate text-[11.5px] font-semibold text-fg">
+              {modelName}
+            </span>
           </span>
           <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-fg-low transition group-hover:text-fg-mid">
             <path d="M8 5l4 5-4 5" />

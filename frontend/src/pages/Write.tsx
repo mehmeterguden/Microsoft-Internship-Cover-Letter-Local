@@ -153,6 +153,13 @@ const TONES: { value: Tone; label: string }[] = [
   { value: "concise", label: "Concise" },
 ];
 
+type InputMethod = "manual" | "url";
+
+const INPUT_METHODS: { value: InputMethod; label: string }[] = [
+  { value: "manual", label: "Enter manually" },
+  { value: "url", label: "Import from link" },
+];
+
 function lengthFor(pct: number): { length: LetterLength; label: string; words: number } {
   if (pct < 34) return { length: "short", label: "Brief", words: 210 };
   if (pct > 66) return { length: "detailed", label: "Detailed", words: 430 };
@@ -1548,14 +1555,15 @@ function ResearchRunningInline({
    Research prompt button
 ────────────────────────────────────────────────────────────────────*/
 function ResearchPromptButton({
-  company, onRun, onReRun, checking, cachedAt, onViewCache,
+  company, onRun, onReRun, checking, cachedAt, onViewCache, className,
 }: {
   company: string; onRun: () => void; onReRun: () => void; checking: boolean;
   cachedAt: string | null; onViewCache: () => void;
+  className?: string;
 }) {
   if (cachedAt) {
     return (
-      <div className="cll-fade mt-3 flex items-center justify-between gap-3 rounded-[12px] border border-accent/40 bg-surface-2 px-3.5 py-2.5 shadow-sm">
+      <div className={cn("cll-fade flex items-center justify-between gap-3 rounded-[12px] border border-accent/40 bg-surface-2 px-3.5 py-2.5 shadow-sm", className)}>
         <div className="flex items-center gap-2 min-w-0">
           <StatDot tone="accent" pulse size={7} />
           <span className="text-[12px] font-semibold text-fg truncate">Researched & Brainstormed</span>
@@ -1577,10 +1585,11 @@ function ResearchPromptButton({
       onClick={onRun}
       disabled={!active}
       className={cn(
-        "cll-fade mt-3 flex w-full items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5 text-left transition-all duration-200",
+        "cll-fade flex w-full items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5 text-left transition-all duration-200",
         active
           ? "border-accent/40 bg-gradient-to-r from-accent-weak/30 via-surface to-surface hover:border-accent hover:shadow-[0_4px_16px_-4px_var(--accent-shadow)] cursor-pointer"
           : "border-border/50 bg-surface-2/40 opacity-65 cursor-not-allowed",
+        className,
       )}
     >
       <span className="flex items-center gap-2.5 min-w-0">
@@ -1618,10 +1627,12 @@ function TailoringQuestionsButton({
   company,
   answeredCount,
   onClick,
+  className,
 }: {
   company: string;
   answeredCount: number;
   onClick: () => void;
+  className?: string;
 }) {
   const active = Boolean(company.trim());
   return (
@@ -1630,10 +1641,11 @@ function TailoringQuestionsButton({
       onClick={onClick}
       disabled={!active}
       className={cn(
-        "cll-fade mt-2 flex w-full items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5 text-left transition-all duration-200",
+        "cll-fade flex w-full items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5 text-left transition-all duration-200",
         active
           ? "border-accent/40 bg-gradient-to-r from-accent-weak/30 via-surface to-surface hover:border-accent hover:shadow-[0_4px_16px_-4px_var(--accent-shadow)] cursor-pointer"
           : "border-border/50 bg-surface-2/40 opacity-65 cursor-not-allowed",
+        className,
       )}
     >
       <span className="flex items-center gap-2.5 min-w-0">
@@ -1996,6 +2008,7 @@ export function Write() {
   const [role, setRole] = useState("");
   const [jobPosting, setJobPosting] = useState("");
   const [jobUrl, setJobUrl] = useState("");
+  const [inputMethod, setInputMethod] = useState<InputMethod>("manual");
   const [importingUrl, setImportingUrl] = useState(false);
   const [tone, setTone] = useState<Tone>("warm");
   const [toneAutoDetected, setToneAutoDetected] = useState(false);
@@ -2014,6 +2027,7 @@ export function Write() {
   const handleJobUrlImport = async () => {
     const url = jobUrl.trim();
     if (!url) return;
+    setInputMethod("url");
     setImportingUrl(true);
     try {
       const data = await autofillFromJobUrl(url);
@@ -2599,6 +2613,7 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
 
   const hasLetter = letter.trim().length > 0;
   const researchDoneCount = researchAgents.filter((a) => a.status === "done").length;
+  const hasTargetDetails = Boolean(company.trim() || role.trim() || jobPosting.trim());
 
   return (
     <Page
@@ -2659,70 +2674,123 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Company Name">
-                <Input
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="e.g. Anthropic, Google, Stripe"
-                  className="h-10 text-sm"
-                />
-              </Field>
-              <Field label="Role Title">
-                <Input
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  placeholder="e.g. Senior Software Engineer"
-                  className="h-10 text-sm"
-                />
-              </Field>
-            </div>
-
-            {/* Job Posting Link Import */}
-            <div>
-              <Field label={<>Job posting link <span className="text-fg-low">· optional auto-fill</span></>}>
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      value={jobUrl}
-                      onChange={(e) => setJobUrl(e.target.value)}
-                      placeholder="Paste job posting URL (LinkedIn, Greenhouse, Lever…)"
-                      className="pl-9 h-10 text-sm"
-                    />
-                    <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-low" />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="md"
-                    loading={importingUrl}
-                    disabled={!jobUrl.trim() || importingUrl}
-                    onClick={handleJobUrlImport}
-                    className="shrink-0 h-10 px-4 text-xs font-semibold"
-                  >
-                    <Download size={14} /> Import
-                  </Button>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="font-semibold text-fg">Application Input</Label>
+                  <span className="text-[11px] font-medium text-fg-low">Choose one path to start</span>
                 </div>
-              </Field>
-            </div>
+                <Segmented options={INPUT_METHODS} value={inputMethod} onChange={setInputMethod} />
+              </div>
 
-            <div>
-              <Field label={<>Job Description <span className="text-fg-low">· optional</span></>}>
-                <Textarea
-                  value={jobPosting}
-                  onChange={(e) => setJobPosting(e.target.value)}
-                  placeholder="Paste full job description or key requirements to tailor experience match..."
-                  className="min-h-[110px] text-xs"
-                />
-              </Field>
+              {inputMethod === "url" ? (
+                <div className="space-y-4 rounded-[14px] border border-accent/30 bg-gradient-to-br from-accent-weak/20 via-surface to-surface p-4">
+                  <Field label={<>Job posting link <span className="text-fg-low">· auto-fill company, role, and description</span></>}>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          value={jobUrl}
+                          onChange={(e) => setJobUrl(e.target.value)}
+                          placeholder="Paste job posting URL (LinkedIn, Greenhouse, Lever…)"
+                          className="pl-9 h-10 text-sm"
+                        />
+                        <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-low" />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="md"
+                        loading={importingUrl}
+                        disabled={!jobUrl.trim() || importingUrl}
+                        onClick={handleJobUrlImport}
+                        className="shrink-0 h-10 px-4 text-xs font-semibold"
+                      >
+                        <Download size={14} /> Import
+                      </Button>
+                    </div>
+                  </Field>
+
+                  {hasTargetDetails ? (
+                    <div className="rounded-[12px] border border-border bg-surface-2/80 p-3.5">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-[12px] font-semibold text-fg">Imported Preview</span>
+                        <button
+                          type="button"
+                          onClick={() => setInputMethod("manual")}
+                          className="text-[11px] font-semibold text-accent-text hover:underline"
+                        >
+                          Switch to manual edit
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-[10px] border border-border/70 bg-surface px-3 py-2.5">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-low">Company</div>
+                          <div className="mt-1 text-[12.5px] font-semibold text-fg">{company || "Not detected yet"}</div>
+                        </div>
+                        <div className="rounded-[10px] border border-border/70 bg-surface px-3 py-2.5">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-low">Role</div>
+                          <div className="mt-1 text-[12.5px] font-semibold text-fg">{role || "Not detected yet"}</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 rounded-[10px] border border-border/70 bg-surface px-3 py-2.5">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-low">Job Description</div>
+                        <p className="mt-1 line-clamp-4 text-[11.5px] leading-relaxed text-fg-mid">
+                          {jobPosting || "Import a link to preview the extracted description here."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-[12px] border border-dashed border-border bg-surface-2/50 px-3.5 py-3 text-[11.5px] text-fg-mid">
+                      Import a job link to fill the company, role title, and description automatically.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4 rounded-[14px] border border-border bg-surface-2/35 p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Company Name">
+                      <Input
+                        value={company}
+                        onChange={(e) => setCompany(e.target.value)}
+                        placeholder="e.g. Anthropic, Google, Stripe"
+                        className="h-10 text-sm"
+                      />
+                    </Field>
+                    <Field label="Role Title">
+                      <Input
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        placeholder="e.g. Senior Software Engineer"
+                        className="h-10 text-sm"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Job Description">
+                    <Textarea
+                      value={jobPosting}
+                      onChange={(e) => setJobPosting(e.target.value)}
+                      placeholder="Paste full job description or key requirements to tailor experience match..."
+                      className="min-h-[110px] text-xs"
+                    />
+                  </Field>
+                </div>
+              )}
             </div>
 
             {/* Deep Research Section */}
             {researchPhase === "idle" ? (
-              <ResearchPromptButton
-                company={company} onRun={handleResearchRun} onReRun={() => startResearch(true)} checking={checkingCache}
-                cachedAt={researchCacheHit} onViewCache={loadCachedResearch}
-              />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ResearchPromptButton
+                  company={company} onRun={handleResearchRun} onReRun={() => startResearch(true)} checking={checkingCache}
+                  cachedAt={researchCacheHit} onViewCache={loadCachedResearch}
+                />
+                <TailoringQuestionsButton
+                  company={company}
+                  answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
+                  onClick={handleOpenTailoringModal}
+                />
+              </div>
             ) : researchPhase === "running" ? (
               <ResearchRunningInline
                 agents={researchAgents} company={company} doneCount={researchDoneCount}
@@ -2737,28 +2805,35 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
                 onOpenModal={() => setModalOpen(true)}
               />
             ) : researchPhase === "done" && researchReport ? (
-              <CompactIntelCard
-                report={researchReport} cachedAt={researchCachedAt}
-                expanded={researchExpanded} onToggle={() => setResearchExpanded((v) => !v)}
-                onRerun={() => startResearch(true)}
-                onViewDetails={() => setModalOpen(true)}
-              />
+              <div className="space-y-3">
+                <CompactIntelCard
+                  report={researchReport} cachedAt={researchCachedAt}
+                  expanded={researchExpanded} onToggle={() => setResearchExpanded((v) => !v)}
+                  onRerun={() => startResearch(true)}
+                  onViewDetails={() => setModalOpen(true)}
+                />
+                <TailoringQuestionsButton
+                  company={company}
+                  answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
+                  onClick={handleOpenTailoringModal}
+                />
+              </div>
             ) : researchPhase === "error" ? (
-              <div className="cll-fade mt-3 flex items-center gap-2.5 rounded-[10px] border border-danger/30 bg-danger-weak px-3 py-2.5">
-                <AlertTriangle size={14} className="shrink-0 text-danger" />
-                <span className="flex-1 text-[11.5px] text-fg-mid">Research failed</span>
-                <Button type="button" variant="outline" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={() => startResearch(true)}>
-                  <RotateCw size={10} /> Retry
-                </Button>
+              <div className="space-y-3">
+                <div className="cll-fade flex items-center gap-2.5 rounded-[10px] border border-danger/30 bg-danger-weak px-3 py-2.5">
+                  <AlertTriangle size={14} className="shrink-0 text-danger" />
+                  <span className="flex-1 text-[11.5px] text-fg-mid">Research failed</span>
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 h-7 px-2.5 text-[11px]" onClick={() => startResearch(true)}>
+                    <RotateCw size={10} /> Retry
+                  </Button>
+                </div>
+                <TailoringQuestionsButton
+                  company={company}
+                  answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
+                  onClick={handleOpenTailoringModal}
+                />
               </div>
             ) : null}
-
-            {/* Tailoring Questions Wizard Section */}
-            <TailoringQuestionsButton
-              company={company}
-              answeredCount={Object.values(tailoringAnswers).filter((v) => v.trim()).length}
-              onClick={handleOpenTailoringModal}
-            />
           </section>
 
           {/* Tone & Length Preferences */}
@@ -3320,45 +3395,76 @@ ${letter ? letter.slice(0, 500) : "No draft created yet"}
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Company Name">
-                  <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Anthropic" />
-                </Field>
-                <Field label="Role Title">
-                  <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. ML Engineer" />
-                </Field>
+              <div className="space-y-2">
+                <Label className="font-semibold text-fg">Application Input</Label>
+                <Segmented options={INPUT_METHODS} value={inputMethod} onChange={setInputMethod} />
               </div>
 
-              <Field label={<>Job posting link <span className="text-fg-low">· auto-fill</span></>}>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={jobUrl}
-                    onChange={(e) => setJobUrl(e.target.value)}
-                    placeholder="Paste URL (LinkedIn, Greenhouse…)"
-                    className="text-xs"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    loading={importingUrl}
-                    disabled={!jobUrl.trim() || importingUrl}
-                    onClick={handleJobUrlImport}
-                    className="shrink-0 text-xs"
-                  >
-                    Import
-                  </Button>
-                </div>
-              </Field>
+              {inputMethod === "url" ? (
+                <div className="space-y-4 rounded-[12px] border border-accent/30 bg-gradient-to-br from-accent-weak/20 via-surface to-surface p-3.5">
+                  <Field label={<>Job posting link <span className="text-fg-low">· auto-fill company, role, and description</span></>}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={jobUrl}
+                        onChange={(e) => setJobUrl(e.target.value)}
+                        placeholder="Paste URL (LinkedIn, Greenhouse…)"
+                        className="text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        loading={importingUrl}
+                        disabled={!jobUrl.trim() || importingUrl}
+                        onClick={handleJobUrlImport}
+                        className="shrink-0 text-xs"
+                      >
+                        Import
+                      </Button>
+                    </div>
+                  </Field>
 
-              <Field label="Job Description">
-                <Textarea
-                  value={jobPosting}
-                  onChange={(e) => setJobPosting(e.target.value)}
-                  placeholder="Paste full job description text..."
-                  className="min-h-[120px] text-xs"
-                />
-              </Field>
+                  {hasTargetDetails ? (
+                    <div className="rounded-[10px] border border-border bg-surface-2/70 p-3 text-[11.5px]">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="font-semibold text-fg">Imported Preview</span>
+                        <button
+                          type="button"
+                          onClick={() => setInputMethod("manual")}
+                          className="font-semibold text-accent-text hover:underline"
+                        >
+                          Switch to manual edit
+                        </button>
+                      </div>
+                      <div className="space-y-1.5 text-fg-mid">
+                        <div><span className="font-semibold text-fg">Company:</span> {company || "Not detected yet"}</div>
+                        <div><span className="font-semibold text-fg">Role:</span> {role || "Not detected yet"}</div>
+                        <div className="line-clamp-4"><span className="font-semibold text-fg">Description:</span> {jobPosting || "No description extracted yet"}</div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-4 rounded-[12px] border border-border bg-surface-2/35 p-3.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Company Name">
+                      <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Anthropic" />
+                    </Field>
+                    <Field label="Role Title">
+                      <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. ML Engineer" />
+                    </Field>
+                  </div>
+
+                  <Field label="Job Description">
+                    <Textarea
+                      value={jobPosting}
+                      onChange={(e) => setJobPosting(e.target.value)}
+                      placeholder="Paste full job description text..."
+                      className="min-h-[120px] text-xs"
+                    />
+                  </Field>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/80">

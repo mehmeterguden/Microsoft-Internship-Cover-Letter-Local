@@ -15,13 +15,17 @@ and adds what's genuinely new, so CV / manual / GitHub data is always preserved.
 
 from __future__ import annotations
 
+import json
 import sqlite3
+import time
 import urllib.parse
 from datetime import date
 from secrets import token_urlsafe
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import RedirectResponse
+from fastapi.concurrency import iterate_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import config
@@ -92,6 +96,83 @@ async def import_profile(file: UploadFile = File(...)) -> dict:
             detail=f"LLM request failed ({type(exc).__name__}): {exc}",
         ) from exc
     return {"filename": file.filename, **result}
+
+
+@router.post("/import/stream")
+async def import_profile_stream(file: UploadFile = File(...)) -> StreamingResponse:
+    """Turn an uploaded LinkedIn profile into structured data and stream JSON tokens.
+
+    Mirrors `/cv/import/stream` so the UI can show the model's JSON incrementally
+    while a PDF/Word/image is being structured. A LinkedIn data-export `.zip`
+    still takes the deterministic path and emits an immediate `done`.
+    """
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty.")
+    if len(data) > MAX_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File is larger than 25 MB.")
+
+    if (file.filename or "").lower().endswith(".zip"):
+        try:
+            extraction = linkedin.parse_export(data)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+        payload = extraction.model_dump(mode="json")
+
+        async def zip_stream():
+            yield f"data: {json.dumps({'type': 'meta', 'filename': file.filename, 'source_type': 'zip', 'num_pages': 1, 'char_count': 0})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'ok': True, 'structured': payload, 'raw_output': json.dumps(payload), 'duration_s': 0.0})}\n\n"
+
+        return StreamingResponse(
+            zip_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    if document_parser.detect_type(file.filename, file.content_type) is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Upload your LinkedIn profile PDF — open your profile, click Resources, then Save to PDF.",
+        )
+    try:
+        parsed = document_parser.extract(file.filename, file.content_type, data)
+    except Exception as exc:  # noqa: BLE001 — a damaged/unreadable file, not a server bug
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Couldn't read that PDF ({type(exc).__name__}). Re-download it from LinkedIn and try again.",
+        ) from exc
+    text = parsed.get("text") or "\n\n".join(p["text"] for p in parsed.get("pages", []))
+    if not text.strip():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No readable text in that PDF. Make sure it's the LinkedIn 'Save to PDF' export.",
+        )
+
+    async def event_stream():
+        meta = {
+            "type": "meta",
+            "filename": file.filename,
+            "source_type": parsed.get("source_type"),
+            "num_pages": parsed.get("num_pages"),
+            "char_count": len(text),
+        }
+        yield f"data: {json.dumps(meta)}\n\n"
+        start = time.monotonic()
+        try:
+            generator = cv_structuring.structure_stream(text)
+            async for event in iterate_in_threadpool(generator):
+                if event.get("type") == "done":
+                    event["duration_s"] = round(time.monotonic() - start, 1)
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"data: {json.dumps({'type': 'fatal', 'error': f'{type(exc).__name__}: {exc}'})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class ParseTextRequest(BaseModel):
