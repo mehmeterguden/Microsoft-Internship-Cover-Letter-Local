@@ -45,51 +45,53 @@
   <rect width="2400" height="880" fill="url(#rightGlow)"/>
   <path d="M0 0H2400" stroke="url(#accent)" stroke-width="8"/>
 
-  <g transform="translate(120 102)">
+  <g transform="translate(120 82)">
     <g>
-      <rect width="14" height="14" rx="4" fill="#34d7e8"/>
-      <text x="38" y="16" fill="#9bb1c5" font-family="'SFMono-Regular', Consolas, monospace" font-size="25" font-weight="600" letter-spacing="6">
+      <rect width="760" height="72" rx="18" fill="#0b2735" stroke="#35cfe2" stroke-width="3"/>
+      <rect x="22" y="23" width="26" height="26" rx="7" fill="url(#accent)"/>
+      <text x="70" y="46" fill="#c7f3f8" font-family="'SFMono-Regular', Consolas, monospace" font-size="27" font-weight="700" letter-spacing="4">
         MICROSOFT AI INTERNSHIP PROJECT
       </text>
     </g>
 
-    <text x="0" y="212" fill="#f3f8fc" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="126" font-weight="750" letter-spacing="-5">
+    <text x="0" y="220" fill="#f3f8fc" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="126" font-weight="750" letter-spacing="-5">
       Cover Letter <tspan fill="url(#accent)">Local</tspan>
     </text>
 
-    <text x="0" y="298" fill="#c0cfdd" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="44" font-weight="500" letter-spacing="-.5">
-      Private evidence. Local intelligence. Verifiable writing.
+    <text x="0" y="308" fill="#d2dfE9" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="45" font-weight="600" letter-spacing="-.7">
+      A cover letter grounded in your real experience.
     </text>
 
-    <text x="0" y="372" fill="#8299ae" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="29">
-      A local-first AI workspace for grounded, role-specific cover letters.
+    <text x="0" y="372" fill="#a8bdcd" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="29">
+      Bring your profile, target role, and writing voice.
+      <tspan x="0" dy="40">Generate locally, review every claim, and export with confidence.</tspan>
     </text>
 
-    <g transform="translate(0 430)" font-family="'SFMono-Regular', Consolas, monospace" font-size="22" font-weight="600" letter-spacing="2">
+    <g transform="translate(0 468)" font-family="'SFMono-Regular', Consolas, monospace" font-size="21" font-weight="650" letter-spacing="2">
       <g>
-        <rect width="276" height="64" rx="14" fill="#0a202d" stroke="#24768a" stroke-width="2"/>
+        <rect width="245" height="64" rx="14" fill="#0a202d" stroke="#24768a" stroke-width="2"/>
         <circle cx="31" cy="32" r="8" fill="#42d9a6"/>
-        <text x="55" y="40" fill="#a7e8f1">ON-DEVICE FIRST</text>
+        <text x="55" y="40" fill="#a7e8f1">LOCAL-FIRST</text>
       </g>
 
-      <g transform="translate(298)">
-        <rect width="245" height="64" rx="14" fill="#0a202d" stroke="#24768a" stroke-width="2"/>
+      <g transform="translate(267)">
+        <rect width="234" height="64" rx="14" fill="#0a202d" stroke="#24768a" stroke-width="2"/>
         <text x="31" y="40" fill="#a7e8f1">HYBRID RAG</text>
       </g>
 
-      <g transform="translate(565)">
-        <rect width="289" height="64" rx="14" fill="#0a202d" stroke="#24768a" stroke-width="2"/>
-        <text x="31" y="40" fill="#a7e8f1">CLAIM CHECKS</text>
+      <g transform="translate(523)">
+        <rect width="344" height="64" rx="14" fill="#0a202d" stroke="#24768a" stroke-width="2"/>
+        <text x="31" y="40" fill="#a7e8f1">CLAIM VERIFICATION</text>
       </g>
     </g>
 
-    <g transform="translate(0 562)">
-      <rect width="1244" height="112" rx="22" fill="#07131f" fill-opacity=".82" stroke="#1b3a50"/>
+    <g transform="translate(0 590)">
+      <rect width="1244" height="116" rx="22" fill="#07131f" fill-opacity=".88" stroke="#1b3a50" stroke-width="2"/>
       <text x="32" y="43" fill="#6fd9e8" font-family="'SFMono-Regular', Consolas, monospace" font-size="20" font-weight="600" letter-spacing="3">
-        END-TO-END EVIDENCE FLOW
+        BUILT TO KEEP YOU IN CONTROL
       </text>
-      <text x="32" y="83" fill="#aabccc" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="27" font-weight="500">
-        Import profile  /  retrieve context  /  research company  /  generate  /  verify
+      <text x="32" y="86" fill="#b7c8d6" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="28" font-weight="500">
+        Choose local inference, inspect the evidence, and approve the final draft.
       </text>
     </g>
   </g>
@@ -98,52 +100,53 @@
     <rect width="784" height="720" rx="38" fill="#07131f" stroke="#1d7890" stroke-width="3"/>
     <rect x="24" y="24" width="736" height="672" rx="28" fill="url(#panel)" stroke="#193b52" stroke-width="2"/>
 
-    <text x="64" y="82" fill="#68deed" font-family="'SFMono-Regular', Consolas, monospace" font-size="23" font-weight="600" letter-spacing="5">
-      EVIDENCE PIPELINE
+    <text x="64" y="78" fill="#68deed" font-family="'SFMono-Regular', Consolas, monospace" font-size="23" font-weight="700" letter-spacing="5">
+      FROM PROFILE TO PROOF
     </text>
-    <text x="64" y="124" fill="#839aaf" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="25">
-      Every draft stays connected to its sources.
+    <text x="64" y="120" fill="#93a9bb" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="25">
+      A clear, reviewable path to the final letter.
     </text>
 
     <g font-family="'Segoe UI', 'Helvetica Neue', sans-serif">
-      <g transform="translate(64 164)">
+      <g transform="translate(64 150)">
+        <rect width="656" height="94" rx="20" fill="#101f2e" stroke="#2a4a62" stroke-width="2"/>
+        <rect x="20" y="17" width="60" height="60" rx="15" fill="#0b3040" stroke="#287b91"/>
+        <text x="38" y="57" fill="#66deed" font-size="28" font-weight="700">01</text>
+        <text x="106" y="40" fill="#f1f7fb" font-size="29" font-weight="650">Bring your evidence</text>
+        <text x="106" y="72" fill="#9aafc1" font-size="23">CV, LinkedIn, GitHub, and writing samples</text>
+      </g>
+
+      <path d="M392 252V272" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M382 263L392 275 402 263" fill="none" stroke="#43cee3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <g transform="translate(64 284)">
+        <rect width="656" height="94" rx="20" fill="#101f2e" stroke="#2a4a62" stroke-width="2"/>
+        <rect x="20" y="17" width="60" height="60" rx="15" fill="#0b3040" stroke="#287b91"/>
+        <text x="38" y="57" fill="#66deed" font-size="28" font-weight="700">02</text>
+        <text x="106" y="40" fill="#f1f7fb" font-size="29" font-weight="650">Add the target role</text>
+        <text x="106" y="72" fill="#9aafc1" font-size="23">Job posting plus public company context</text>
+      </g>
+
+      <path d="M392 386V406" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M382 397L392 409 402 397" fill="none" stroke="#43cee3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <g transform="translate(64 418)">
+        <rect width="656" height="94" rx="20" fill="#0d2634" stroke="#2a9bb2" stroke-width="3"/>
+        <rect x="20" y="17" width="60" height="60" rx="15" fill="#0b3542" stroke="#2eb2c5"/>
+        <circle cx="50" cy="47" r="9" fill="#42d9a6" filter="url(#dotGlow)"/>
+        <text x="106" y="40" fill="#f1f7fb" font-size="29" font-weight="650">Generate locally</text>
+        <text x="106" y="72" fill="#83d9e7" font-size="23">Foundry Local first, other providers optional</text>
+      </g>
+
+      <path d="M392 520V540" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M382 531L392 543 402 531" fill="none" stroke="#43cee3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <g transform="translate(64 552)">
         <rect width="656" height="104" rx="20" fill="#101f2e" stroke="#2a4a62" stroke-width="2"/>
-        <rect x="22" y="22" width="60" height="60" rx="15" fill="#0b3040" stroke="#287b91"/>
-        <text x="40" y="62" fill="#66deed" font-size="28" font-weight="700">01</text>
-        <text x="108" y="46" fill="#f1f7fb" font-size="29" font-weight="650">Collect private evidence</text>
-        <text x="108" y="78" fill="#8da4b8" font-size="23">CV, profile, GitHub, LinkedIn, writing samples</text>
-      </g>
-
-      <path d="M392 276V306" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
-      <path d="M382 296L392 308 402 296" fill="none" stroke="#43cee3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-
-      <g transform="translate(64 318)">
-        <rect width="656" height="104" rx="20" fill="#101f2e" stroke="#2a4a62" stroke-width="2"/>
-        <rect x="22" y="22" width="60" height="60" rx="15" fill="#0b3040" stroke="#287b91"/>
-        <text x="40" y="62" fill="#66deed" font-size="28" font-weight="700">02</text>
-        <text x="108" y="46" fill="#f1f7fb" font-size="29" font-weight="650">Build grounded context</text>
-        <text x="108" y="78" fill="#8da4b8" font-size="23">Hybrid RAG plus cited company intelligence</text>
-      </g>
-
-      <path d="M392 430V460" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
-      <path d="M382 450L392 462 402 450" fill="none" stroke="#43cee3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-
-      <g transform="translate(64 472)">
-        <rect width="656" height="104" rx="20" fill="#0d2634" stroke="#2a9bb2" stroke-width="3"/>
-        <rect x="22" y="22" width="60" height="60" rx="15" fill="#0b3542" stroke="#2eb2c5"/>
-        <circle cx="52" cy="52" r="9" fill="#42d9a6" filter="url(#dotGlow)"/>
-        <text x="108" y="46" fill="#f1f7fb" font-size="29" font-weight="650">Generate on your terms</text>
-        <text x="108" y="78" fill="#83d9e7" font-size="23">Foundry Local by default, cloud only by choice</text>
-      </g>
-
-      <path d="M392 584V614" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
-      <path d="M382 604L392 616 402 604" fill="none" stroke="#43cee3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-
-      <g transform="translate(64 626)">
-        <rect width="656" height="52" rx="16" fill="#121f2d" stroke="#31526a" stroke-width="2"/>
-        <text x="328" y="35" text-anchor="middle" fill="#dce8f1" font-size="25" font-weight="650">
-          Verify claims  /  revise  /  export
-        </text>
+        <rect x="20" y="22" width="60" height="60" rx="15" fill="#0b3040" stroke="#287b91"/>
+        <text x="38" y="62" fill="#66deed" font-size="28" font-weight="700">04</text>
+        <text x="106" y="46" fill="#f1f7fb" font-size="29" font-weight="650">Verify and export</text>
+        <text x="106" y="78" fill="#9aafc1" font-size="23">Check claims, revise, download PDF or Word</text>
       </g>
     </g>
   </g>
