@@ -1,4 +1,5 @@
 import { API_BASE, client } from "./client";
+import { streamSSERequest } from "./sse";
 import type { CVExtraction } from "./types";
 
 /** OAuth config + connection state, plus the redirect URI to register in the LinkedIn app. */
@@ -37,6 +38,12 @@ export interface ImportProfileResult {
   raw_output?: string;
 }
 
+export type LinkedinImportEvent =
+  | { type: "meta"; filename: string; source_type: string; num_pages: number; char_count: number }
+  | { type: "token"; text: string }
+  | { type: "done"; ok: boolean; structured?: CVExtraction; error?: string; raw_output: string; duration_s: number }
+  | { type: "fatal"; error: string };
+
 /**
  * Upload a LinkedIn profile PDF (profile → Resources → Save to PDF) — its text is
  * extracted locally and structured by the configured model. A data-export .zip is
@@ -49,6 +56,16 @@ export async function importLinkedinProfile(file: File): Promise<ImportProfileRe
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data;
+}
+
+export function streamImportLinkedinProfile(
+  file: File,
+  onEvent: (event: LinkedinImportEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+  return streamSSERequest<LinkedinImportEvent>("/linkedin/import/stream", { method: "POST", body: form }, onEvent, signal);
 }
 
 export interface ParseTextResult {

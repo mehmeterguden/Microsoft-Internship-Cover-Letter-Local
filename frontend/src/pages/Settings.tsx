@@ -53,7 +53,7 @@ import type {
    sensible defaults applied when a provider is picked — the field
    stays editable and its real value lives in settings. `curatedModels`
    is the fallback list shown when live discovery fails. */
-type Tab = "model" | "integrations" | "data" | "dev";
+type Tab = "model" | "integrations" | "data";
 
 type ProviderMeta = {
   id: LLMProviderId;
@@ -151,7 +151,6 @@ const NAV: { value: Tab; label: string }[] = [
   { value: "model", label: "Model & inference" },
   { value: "integrations", label: "Integrations" },
   { value: "data", label: "Data" },
-  { value: "dev", label: "Developer Feedback 🛠️" },
 ];
 
 const RETENTION_OPTIONS: { value: ResearchCacheRetention; label: string }[] = [
@@ -210,7 +209,7 @@ export function Settings() {
 function SettingsForm({ initial }: { initial: SettingsModel }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab") as Tab | null;
-  const tab: Tab = rawTab && ["model", "integrations", "data", "dev"].includes(rawTab) ? rawTab : "model";
+  const tab: Tab = rawTab && ["model", "integrations", "data"].includes(rawTab) ? rawTab : "model";
   const setTab = (nextTab: Tab) => {
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
