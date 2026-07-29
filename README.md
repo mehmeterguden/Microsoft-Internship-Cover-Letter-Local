@@ -12,7 +12,7 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2ea44f.svg)](LICENSE)
 
-**An end-to-end AI engineering project built during my Microsoft AI internship.**
+**An end-to-end AI engineering project independently developed from scratch during my Microsoft AI internship.**
 
 Cover Letter Local turns a CV, professional profile, writing samples, and public company
 information into an evidence-backed cover letter. It combines hybrid RAG, local inference,
@@ -55,19 +55,27 @@ privacy-conscious application.
 
 ## The internship project
 
-The project started with a practical question:
+Writing a tailored cover letter repeatedly took more time than I expected. Each application meant
+explaining the same background again, finding the relevant parts of my experience, researching a
+new company, and trying to keep the result personal without introducing claims I could not support.
+That led me to a practical question:
 
-> Can a smaller model running on a personal device produce a useful, personalized cover
-> letter without treating private career data as a cloud upload?
+> Why keep rebuilding every cover letter manually when a local application could understand my
+> own evidence, research the target company, write in my voice, and avoid inventing details?
 
-Answering that question required much more than connecting a text box to an LLM. The system
-needed to understand several document formats, reconcile conflicting profile data, learn a
-writing voice, retrieve relevant evidence, research a company without leaking the applicant's
-profile, stream slow operations clearly, and verify the final output before it could be trusted.
+I chose to define and build this project independently instead of using one of the suggested
+internship project briefs. The goal was not to retrain a model for every application. It was to
+create a reusable local system that could maintain a structured profile, derive a writing guide
+from past letters, retrieve the most relevant evidence with RAG, and analyze each company when
+needed. Although the idea came from my own application process, the workflow is designed for any
+applicant who wants a more grounded and reusable way to prepare cover letters.
 
-That made Cover Letter Local an opportunity to study AI as a complete engineering discipline:
-retrieval, orchestration, evaluation, privacy, resilience, model integration, and user experience
-all had to work as one system.
+Turning that idea into a complete application required much more than connecting a text box to an
+LLM. The system needed to understand several document formats, reconcile profile data, build a
+writing-voice guide, retrieve relevant experience, research a company without exposing private
+profile data to public research tools, stream slow operations clearly, and verify the final draft.
+This made Cover Letter Local a practical way to learn how retrieval, local inference, orchestration,
+privacy, resilience, and user experience fit together in one AI product.
 
 ## What this project demonstrates
 
@@ -401,9 +409,10 @@ the provider gateway, SSE plumbing, and incremental parsing in the project itsel
 <summary><b>Fuse lexical and semantic retrieval</b></summary>
 <br>
 
-Dense retrieval alone missed exact framework and product names; BM25 alone missed paraphrases.
-Running both and combining their rankings with RRF produced more useful writing exemplars. The
-cross-encoder remains optional because it adds another first-use model download and more latency.
+Dense retrieval handles semantic similarity, while BM25 preserves exact framework, product, and
+role terms. Combining both rankings with RRF lets the pipeline use these complementary signals.
+The cross-encoder remains optional because it adds another first-use model download and more
+latency.
 
 </details>
 
@@ -451,65 +460,61 @@ fails. The result can be explicitly marked partial instead of disappearing.
 
 ## What I learned
 
-This internship project changed how I think about AI engineering. The hardest part was not calling
-a model or finding the right wording for a prompt. It was building the systems around the model:
-selecting evidence, controlling data movement, handling partial output, recovering from failure,
-measuring behavior, and designing an interface that helps a person judge the result.
+Before this internship project, I had not built a RAG pipeline, worked with embeddings, or used
+Microsoft Foundry Local. Developing Cover Letter Local gave me a practical introduction to these
+areas and helped me understand how their individual pieces connect inside a complete application.
+My strongest prior experience was in general software development, including React; the largest
+learning curve in this project was the AI engineering layer.
 
-### RAG is a pipeline, not a vector-database checkbox
+### Building a RAG pipeline
 
-The largest retrieval improvements came from treating lexical search, embeddings, ranking, fusion,
-and reranking as separate decisions. Exact technical terms and semantic similarity solve different
-problems. Inspecting the retrieved passages made generation quality debuggable in a way that
-“use a larger model” never could.
+Implementing the writing-style retrieval path taught me that RAG is not a single database call.
+Documents must be prepared, embedded, stored, retrieved, ranked, and converted into useful prompt
+context. I learned why lexical matching and semantic similarity solve different retrieval problems,
+how Reciprocal Rank Fusion combines their rankings, and where optional reranking fits into the
+pipeline.
 
-### Retrieval quality can matter more than model size
+### Understanding embeddings and retrieval context
 
-A smaller local model with relevant profile evidence, role-specific writing examples, and a compact
-company report often produced a better draft than a more capable model with weak context. This
-shifted my attention from parameter count to evidence selection and prompt construction.
+Working with embeddings for the first time made semantic retrieval concrete. The project uses local
+embeddings and ChromaDB to find related writing examples, while BM25 protects exact role and
+technology terms. Building this flow helped me understand that model output depends not only on the
+model, but also on which evidence is retrieved, how much context is supplied, and how clearly that
+context is structured.
 
-### Local AI changes the product design
+### Working with Microsoft Foundry Local
 
-On-device inference improves control and privacy, but it also introduces model downloads, hardware
-constraints, dynamic endpoints, and noticeable latency. Provider health indicators, model discovery,
-streamed progress, graceful fallbacks, and clear local/cloud labels are product requirements, not
-implementation details.
+This was my first project with Microsoft Foundry Local. I learned how a local model runtime is
+discovered, configured, health-checked, and used through an OpenAI-compatible interface. I also
+learned that local inference affects the whole product: model availability, downloads, hardware
+limits, dynamic endpoints, and latency all need to be represented clearly in the interface.
 
-### Structured generation needs defensive parsing
+### Designing around AI latency and incomplete output
 
-Streaming prose is straightforward; streaming JSON is not. The UI cannot assume that the current
-token ends at a valid object boundary. Building incremental parsing and reviewable provisional state
-taught me to design for incomplete model output rather than only successful final responses.
+Building streaming flows for document import, research, and generation taught me to design for
+partial output rather than only a final response. Streamed JSON may be temporarily invalid, local
+models may respond slowly, and individual operations may fail. Incremental parsing, visible progress,
+retry behavior, and reviewable intermediate state make those conditions understandable to the user.
 
-### Multi-agent systems need orchestration more than personas
+### Coordinating specialized research agents
 
-Parallel agents become useful when they have distinct responsibilities, bounded tools, shared
-budgets, provenance, caching, reconciliation, and partial-failure behavior. Concurrency alone does
-not make a system reliable; the surrounding control plane does.
+The company-research workflow gave me practical experience with a multi-agent design. I learned why
+agents need distinct responsibilities, bounded tools, shared budgets, source tracking, caching, and
+reconciliation. Running tasks concurrently is only one part of the design; their partial results and
+failures also need to be combined into one usable report.
 
-### Responsible AI becomes real at system boundaries
+### Grounding and privacy are architectural concerns
 
-Privacy labels and warnings are valuable, but stronger guarantees come from architecture: public-only
-research inputs, a shared outbound choke point, local deterministic analysis where private and public
-data meet, explicit cloud opt-in, and review steps before imported data becomes authoritative.
-
-### Groundedness should be visible
-
-The most dangerous failure is not awkward prose; it is a confident false claim in a real application.
-Claim-level verdicts turn that hidden risk into something the user can inspect and correct. This
-reinforced a broader lesson: AI interfaces should expose uncertainty where it changes a decision.
-
-### Streaming is part of AI usability
-
-A long spinner feels broken. The same wait with real tokens, structured progress, completed agents,
-and visible intermediate fields feels understandable. Streaming did not make the model faster, but
-it made the system more trustworthy and easier to use.
+The project taught me to treat privacy and groundedness as system design problems. Public company
+research should not receive a private profile, cloud inference should be an explicit choice, and
+imported data should be reviewed before it becomes authoritative. Claim-level verification also
+showed me how an interface can expose whether generated statements are supported instead of asking
+the user to trust fluent text automatically.
 
 Building Cover Letter Local during my Microsoft AI internship gave me the opportunity to connect
-these lessons in one end-to-end product: RAG, local models, provider integration, agent orchestration,
-privacy engineering, evaluation, backend resilience, and frontend experience had to reinforce one
-another rather than exist as isolated demos.
+these new AI concepts in one end-to-end product. More importantly, it helped me understand the logic
+behind RAG, embeddings, local models, provider integration, research orchestration, streaming, and
+verification by seeing how they behave together in a working application.
 
 ---
 
