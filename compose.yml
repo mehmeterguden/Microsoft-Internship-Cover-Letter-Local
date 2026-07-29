@@ -3,8 +3,8 @@ name: cover-letter-local
 services:
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       DATA_DIR: /app/data
       DATABASE_PATH: /app/data/cover_letter_local.db
@@ -22,8 +22,8 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
       args:
         VITE_API_BASE: /api
     depends_on:
