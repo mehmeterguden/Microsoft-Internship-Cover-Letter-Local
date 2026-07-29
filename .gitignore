@@ -30,6 +30,7 @@ secrets.*
 
 # ─── Runtime data — ChromaDB + SQLite, never commit ──────────────
 data/
+runtime-data/
 *.db
 *.sqlite
 *.sqlite3
@@ -64,6 +65,7 @@ ENV/
 .eggs/
 build/
 dist/
+release-artifacts/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

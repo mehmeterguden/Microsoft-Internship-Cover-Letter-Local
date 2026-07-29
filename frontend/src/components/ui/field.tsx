@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn("text-[11px] font-semibold tracking-[0.01em] text-fg-mid", className)}
+      className={cn("text-[13px] font-semibold tracking-[0.01em] text-fg-mid", className)}
       {...props}
     />
   );
 }
 
 const fieldBase =
-  "w-full rounded-[9px] border border-border bg-input text-[13px] text-fg placeholder:text-fg-low outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak disabled:opacity-50";
+  "w-full rounded-[9px] border border-border bg-input text-[14px] text-fg placeholder:text-fg-low outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent-weak disabled:opacity-50";
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
@@ -42,7 +42,7 @@ export function Field({ label, hint, htmlFor, children, className }: FieldProps)
     <div className={cn("flex flex-col gap-2", className)}>
       {label ? <Label htmlFor={htmlFor}>{label}</Label> : null}
       {children}
-      {hint ? <p className="text-[11px] leading-snug text-fg-low">{hint}</p> : null}
+      {hint ? <p className="text-[13px] leading-snug text-fg-low">{hint}</p> : null}
     </div>
   );
 }

@@ -282,7 +282,7 @@ function Section({ title, aside, children }: { title: string; aside?: ReactNode;
   return (
     <Panel className="cll-fade p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="text-[14px] font-semibold text-fg">{title}</div>
+        <div className="text-[15px] font-semibold text-fg">{title}</div>
         {aside}
       </div>
       {children}
@@ -308,8 +308,8 @@ function AgentRow({ agent }: { agent: AgentUi }) {
     <div className="flex w-full items-center gap-2.5 rounded-[9px] px-2 py-2 text-left">
       <AgentIcon status={agent.status} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12.5px] text-fg">{agent.label}</div>
-        {agent.note ? <div className={cn("font-mono text-[10px]", noteColor)}>{truncate(agent.note)}</div> : null}
+        <div className="truncate text-[13px] text-fg">{agent.label}</div>
+        {agent.note ? <div className={cn("font-mono text-[12px]", noteColor)}>{truncate(agent.note)}</div> : null}
         {agent.sources.length ? (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {agent.sources.slice(0, 4).map((s) => (
@@ -319,7 +319,7 @@ function AgentRow({ agent }: { agent: AgentUi }) {
         ) : null}
       </div>
       {agent.durationLabel ? (
-        <span className={cn("font-mono text-[9px]", agent.status === "error" ? "text-danger" : "text-fg-low")}>
+        <span className={cn("font-mono text-[12px]", agent.status === "error" ? "text-danger" : "text-fg-low")}>
           {agent.durationLabel}
         </span>
       ) : null}
@@ -332,8 +332,8 @@ function AgentsPanel({ agents, count, pct }: { agents: AgentUi[]; count: string;
   return (
     <Panel className="p-4">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">Agents</span>
-        <span className="font-mono text-[10px] text-accent-text">{count}</span>
+        <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-mid">Agents</span>
+        <span className="font-mono text-[12px] text-accent-text">{count}</span>
       </div>
       <div className="mb-4 h-1 overflow-hidden rounded-full bg-input">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent-grad)" }} />
@@ -350,20 +350,20 @@ function AgentsPanel({ agents, count, pct }: { agents: AgentUi[]; count: string;
 function SourcesPanel({ sources }: { sources: UiSource[] }) {
   return (
     <Panel className="p-4">
-      <div className="mb-3 text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">Sources</div>
+      <div className="mb-3 text-[12px] font-semibold tracking-[0.01em] text-fg-mid">Sources</div>
       {sources.length ? (
         <div className="flex flex-col gap-2.5">
           {sources.map((s, i) => {
             const inner = (
               <>
-                <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] bg-accent-weak font-mono text-[9px] text-accent-text">
+                <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] bg-accent-weak font-mono text-[12px] text-accent-text">
                   {i + 1}
                 </span>
                 <span className="truncate">{s.label}</span>
                 {s.url ? <ExternalLink size={11} className="ml-auto shrink-0 text-fg-low" /> : null}
               </>
             );
-            const cls = "flex w-full items-center gap-2 text-left text-[11.5px] text-fg-mid transition-colors hover:text-fg";
+            const cls = "flex w-full items-center gap-2 text-left text-[13px] text-fg-mid transition-colors hover:text-fg";
             return s.url ? (
               <a key={`${s.label}-${i}`} href={s.url} target="_blank" rel="noopener noreferrer" className={cls}>
                 {inner}
@@ -376,7 +376,7 @@ function SourcesPanel({ sources }: { sources: UiSource[] }) {
           })}
         </div>
       ) : (
-        <p className="text-[11.5px] leading-relaxed text-fg-low">Sources appear here as agents cite them.</p>
+        <p className="text-[13px] leading-relaxed text-fg-low">Sources appear here as agents cite them.</p>
       )}
     </Panel>
   );
@@ -388,8 +388,8 @@ function PendingSection({ name }: { name: string }) {
     <Panel className="cll-fade p-5">
       <div className="mb-3 flex items-center gap-2">
         <StatDot tone="neutral" size={6} />
-        <span className="text-[13px] font-semibold text-fg-mid">{name}</span>
-        <span className="ml-auto font-mono text-[9px] text-fg-low">queued</span>
+        <span className="text-[14px] font-semibold text-fg-mid">{name}</span>
+        <span className="ml-auto font-mono text-[12px] text-fg-low">queued</span>
       </div>
       <div className="flex flex-col gap-2">
         <Skeleton className="h-3 w-full" />
@@ -403,14 +403,14 @@ function PendingSection({ name }: { name: string }) {
 function StreamingSectionCard({ label, text }: { label: string; text?: string }) {
   return (
     <Panel className="cll-fade relative p-5">
-      <div className="absolute right-[18px] top-4 flex items-center gap-1.5 font-mono text-[9.5px] text-accent-text">
+      <div className="absolute right-[18px] top-4 flex items-center gap-1.5 font-mono text-[12px] text-accent-text">
         <StatDot tone="accent" pulse size={6} /> Writing
       </div>
-      <div className="mb-2.5 flex items-center gap-2 text-[13px] font-semibold text-fg">
+      <div className="mb-2.5 flex items-center gap-2 text-[14px] font-semibold text-fg">
         <Loader2 size={13} className="animate-spin text-accent" /> {label}
       </div>
       {text ? (
-        <pre className="max-h-[140px] overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-fg-low">
+        <pre className="max-h-[140px] overflow-y-auto whitespace-pre-wrap break-words font-mono text-[13px] leading-relaxed text-fg-low">
           {text}
           <span className="cll-caret" aria-hidden />
         </pre>
@@ -430,8 +430,8 @@ function ReadySectionCard({ label, sources }: { label: string; sources: string[]
     <Panel className="cll-fade p-5">
       <div className="flex items-center gap-2">
         <Check size={13} strokeWidth={2.6} className="text-success" />
-        <span className="text-[13px] font-semibold text-fg">{label}</span>
-        <span className="ml-auto font-mono text-[9px] text-fg-low">gathered</span>
+        <span className="text-[14px] font-semibold text-fg">{label}</span>
+        <span className="ml-auto font-mono text-[12px] text-fg-low">gathered</span>
       </div>
       {sources.length ? (
         <div className="mt-2.5 flex flex-wrap gap-1">
@@ -454,12 +454,12 @@ function FailedSection({ label, note, onRetry }: { label: string; note?: string;
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-fg">{label}</span>
-            <Pill tone="danger" mono className="text-[9px]">
+            <span className="text-[14px] font-semibold text-fg">{label}</span>
+            <Pill tone="danger" mono className="text-[12px]">
               Failed
             </Pill>
           </div>
-          <p className="mt-1 text-[12px] leading-relaxed text-fg-mid">
+          <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">
             {note ?? "This agent could not complete. The rest of the report continues without it."}
           </p>
         </div>
@@ -476,22 +476,22 @@ function ReportMetaBar({ report, cachedAt }: { report: WireReport; cachedAt: str
   const m = report.meta;
   return (
     <div className="cll-fade flex flex-wrap items-center gap-2">
-      <span className="text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Report</span>
-      <Pill tone="success" mono className="text-[9px]">
+      <span className="text-[12px] font-semibold tracking-[0.01em] text-fg-low">Report</span>
+      <Pill tone="success" mono className="text-[12px]">
         Complete
       </Pill>
       {m.completeness > 0 ? (
-        <Pill tone="accent" mono className="text-[9px]">
+        <Pill tone="accent" mono className="text-[12px]">
           {Math.round(m.completeness * 100)}% Filled
         </Pill>
       ) : null}
       {m.from_cache ? (
-        <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 font-mono text-[9px] text-fg-low">
+        <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 font-mono text-[12px] text-fg-low">
           From cache{cachedAt ? ` · ${formatWhen(cachedAt)}` : ""}
         </span>
       ) : null}
-      {m.duration_s != null ? <span className="font-mono text-[9px] text-fg-low">· {m.duration_s}s</span> : null}
-      {m.agents.length ? <span className="font-mono text-[9px] text-fg-low">· {m.agents.length} agents</span> : null}
+      {m.duration_s != null ? <span className="font-mono text-[12px] text-fg-low">· {m.duration_s}s</span> : null}
+      {m.agents.length ? <span className="font-mono text-[12px] text-fg-low">· {m.agents.length} agents</span> : null}
     </div>
   );
 }
@@ -513,18 +513,18 @@ function FitCard({ fit }: { fit: WireFit }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-[10.5px] font-semibold tracking-[0.01em] text-accent-text">Your fit to this posting</span>
+          <span className="text-[12px] font-semibold tracking-[0.01em] text-accent-text">Your fit to this posting</span>
           {fit.verdict ? (
-            <Pill tone={tone} mono className="text-[9px]">
+            <Pill tone={tone} mono className="text-[12px]">
               {fit.verdict}
             </Pill>
           ) : null}
         </div>
-        <p className="mt-2 text-[15px] leading-[1.55] text-fg">
+        <p className="mt-2 text-[16px] leading-[1.55] text-fg">
           {fit.recommendation ??
             "Your profile was scored against this posting on-device — your CV never left the machine."}
         </p>
-        <p className="mt-1.5 font-mono text-[9.5px] text-fg-low">
+        <p className="mt-1.5 font-mono text-[12px] text-fg-low">
           Computed locally · lives in research, never printed on the cover letter itself.
         </p>
       </div>
@@ -534,11 +534,11 @@ function FitCard({ fit }: { fit: WireFit }) {
 
 function FitBreakdown({ dims }: { dims: WireFitDimension[] }) {
   return (
-    <Section title="Fit breakdown" aside={<span className="font-mono text-[9px] text-fg-low">you vs role need</span>}>
+    <Section title="Fit breakdown" aside={<span className="font-mono text-[12px] text-fg-low">you vs role need</span>}>
       <div className="flex flex-col gap-3.5">
         {dims.map((b) => (
           <div key={b.name}>
-            <div className="mb-1.5 flex justify-between text-[12px]">
+            <div className="mb-1.5 flex justify-between text-[13px]">
               <span className="text-fg">{b.name}</span>
               <span className="font-mono text-accent-text">
                 {b.you} / {b.role_need}
@@ -581,8 +581,8 @@ function FirmographicsCard({ f }: { f: WireFirmographics }) {
     <Panel className="cll-fade grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
       {items.map((it) => (
         <div key={it.k}>
-          <div className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{it.k}</div>
-          <div className="mt-1 text-[12.5px] font-semibold text-fg">{it.v}</div>
+          <div className="whitespace-nowrap text-[12px] font-semibold tracking-[0.01em] text-fg-low">{it.k}</div>
+          <div className="mt-1 text-[13px] font-semibold text-fg">{it.v}</div>
         </div>
       ))}
     </Panel>
@@ -592,17 +592,17 @@ function FirmographicsCard({ f }: { f: WireFirmographics }) {
 function OverviewCard({ o }: { o: WireOverview }) {
   return (
     <Section title="Company overview">
-      <div className="flex flex-col gap-3 text-[13px] leading-[1.7] text-fg-mid">
+      <div className="flex flex-col gap-3 text-[14px] leading-[1.7] text-fg-mid">
         {o.summary ? <p>{o.summary}</p> : null}
         {o.mission ? (
           <div>
-            <div className="mb-1 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Mission</div>
+            <div className="mb-1 text-[12px] font-semibold tracking-[0.01em] text-fg-low">Mission</div>
             <p>{o.mission}</p>
           </div>
         ) : null}
         {o.division_context ? (
           <div>
-            <div className="mb-1 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Your team / division</div>
+            <div className="mb-1 text-[12px] font-semibold tracking-[0.01em] text-fg-low">Your team / division</div>
             <p>{o.division_context}</p>
           </div>
         ) : null}
@@ -620,15 +620,15 @@ function RoleCard({ r }: { r: WireRoleAnalysis }) {
   return (
     <Section
       title="Role analysis"
-      aside={r.title ? <span className="max-w-[45%] truncate font-mono text-[9px] text-fg-low">{r.title}</span> : undefined}
+      aside={r.title ? <span className="max-w-[45%] truncate font-mono text-[12px] text-fg-low">{r.title}</span> : undefined}
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {cols
           .filter((c) => c.list.length)
           .map((c) => (
             <div key={c.label}>
-              <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">{c.label}</div>
-              <ul className="flex flex-col gap-1.5 text-[12.5px] leading-[1.5] text-fg-mid">
+              <div className="mb-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">{c.label}</div>
+              <ul className="flex flex-col gap-1.5 text-[13px] leading-[1.5] text-fg-mid">
                 {c.list.map((x) => (
                   <li key={x} className="flex gap-2">
                     <span className="text-accent">—</span>
@@ -641,10 +641,10 @@ function RoleCard({ r }: { r: WireRoleAnalysis }) {
       </div>
       {r.keywords.length ? (
         <div className="mt-4">
-          <div className="mb-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">Keywords</div>
+          <div className="mb-2 text-[12px] font-semibold tracking-[0.01em] text-fg-low">Keywords</div>
           <div className="flex flex-wrap gap-1.5">
             {r.keywords.map((k) => (
-              <span key={k} className="rounded-[7px] bg-surface-2 px-2.5 py-1 text-[11.5px] text-fg-mid">
+              <span key={k} className="rounded-[7px] bg-surface-2 px-2.5 py-1 text-[13px] text-fg-mid">
                 {k}
               </span>
             ))}
@@ -664,8 +664,8 @@ function ValuesCard({ values }: { values: WireValueSignal[] }) {
           return (
             <div key={v.name}>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] text-fg">{v.name}</span>
-                {v.weight ? <span className="font-mono text-[9px] text-fg-low">{clampPct(v.weight)}</span> : null}
+                <span className="text-[14px] text-fg">{v.name}</span>
+                {v.weight ? <span className="font-mono text-[12px] text-fg-low">{clampPct(v.weight)}</span> : null}
               </div>
               {v.weight ? (
                 <div className="mt-1.5 h-1 rounded-full bg-input">
@@ -694,7 +694,7 @@ function CultureCard({ c }: { c: WireCulture }) {
   return (
     <Section title="Culture">
       {c.ways_of_working.length ? (
-        <div className="flex flex-col gap-2.5 text-[13px] leading-[1.6] text-fg-mid">
+        <div className="flex flex-col gap-2.5 text-[14px] leading-[1.6] text-fg-mid">
           {c.ways_of_working.map((w) => (
             <div key={w} className="flex gap-2.5">
               <span className="text-accent">—</span>
@@ -707,7 +707,7 @@ function CultureCard({ c }: { c: WireCulture }) {
         <div className="mt-3 flex flex-col gap-2">
           {c.notes.map((n) => (
             <div key={n.text} className="rounded-[9px] bg-surface-2 p-2.5">
-              <p className="text-[12px] leading-[1.6] text-fg-mid">{n.text}</p>
+              <p className="text-[13px] leading-[1.6] text-fg-mid">{n.text}</p>
               {n.source?.label ? (
                 <div className="mt-1.5">
                   <SourceChip label={n.source.label} href={n.source.url ?? undefined} />
@@ -726,7 +726,7 @@ function TechStackCard({ tech }: { tech: WireTechItem[] }) {
     <Section
       title="Tech stack"
       aside={
-        <div className="flex gap-3 font-mono text-[9px] text-fg-mid">
+        <div className="flex gap-3 font-mono text-[12px] text-fg-mid">
           <span className="flex items-center gap-1.5">
             <span className="h-[7px] w-[7px] rounded-[2px]" style={{ background: "var(--success)" }} /> you know
           </span>
@@ -741,7 +741,7 @@ function TechStackCard({ tech }: { tech: WireTechItem[] }) {
           <span
             key={t.name}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1 text-[11.5px]",
+              "inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1 text-[13px]",
               t.you_know ? "bg-success-weak text-fg" : "bg-accent-weak text-accent-text",
             )}
           >
@@ -762,37 +762,37 @@ function SkillsCard({ matched, gaps }: { matched: string[]; gaps: string[] }) {
     <Section title="Your skills vs the role">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <div className="mb-2.5 text-[10.5px] font-semibold tracking-[0.01em] text-success">Matched · {matched.length}</div>
+          <div className="mb-2.5 text-[12px] font-semibold tracking-[0.01em] text-success">Matched · {matched.length}</div>
           <div className="flex flex-wrap gap-1.5">
             {matched.length ? (
               matched.map((s) => (
                 <span
                   key={s}
-                  className="inline-flex items-center gap-1.5 rounded-[7px] bg-success-weak px-2.5 py-1 text-[11.5px] text-fg"
+                  className="inline-flex items-center gap-1.5 rounded-[7px] bg-success-weak px-2.5 py-1 text-[13px] text-fg"
                 >
                   <Check size={11} strokeWidth={2.4} className="text-success" />
                   {s}
                 </span>
               ))
             ) : (
-              <span className="text-[12px] text-fg-low">None detected.</span>
+              <span className="text-[13px] text-fg-low">None detected.</span>
             )}
           </div>
         </div>
         <div>
-          <div className="mb-2.5 text-[10.5px] font-semibold tracking-[0.01em] text-warning">Gaps · {gaps.length}</div>
+          <div className="mb-2.5 text-[12px] font-semibold tracking-[0.01em] text-warning">Gaps · {gaps.length}</div>
           <div className="flex flex-wrap gap-1.5">
             {gaps.length ? (
               gaps.map((s) => (
                 <span
                   key={s}
-                  className="rounded-[7px] border border-dashed border-border-strong bg-input px-2.5 py-1 text-[11.5px] text-fg-mid"
+                  className="rounded-[7px] border border-dashed border-border-strong bg-input px-2.5 py-1 text-[13px] text-fg-mid"
                 >
                   {s}
                 </span>
               ))
             ) : (
-              <span className="text-[12px] text-fg-low">No major gaps.</span>
+              <span className="text-[13px] text-fg-low">No major gaps.</span>
             )}
           </div>
         </div>
@@ -813,16 +813,16 @@ function SignalsCard({ signals }: { signals: WireNewsSignal[] }) {
                   href={s.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[13px] font-medium text-fg transition-colors hover:text-accent-text"
+                  className="text-[14px] font-medium text-fg transition-colors hover:text-accent-text"
                 >
                   {s.headline}
                 </a>
               ) : (
-                <span className="text-[13px] font-medium text-fg">{s.headline}</span>
+                <span className="text-[14px] font-medium text-fg">{s.headline}</span>
               )}
-              {s.date ? <span className="shrink-0 font-mono text-[9px] text-fg-low">{s.date}</span> : null}
+              {s.date ? <span className="shrink-0 font-mono text-[12px] text-fg-low">{s.date}</span> : null}
             </div>
-            {s.why_it_matters ? <p className="mt-1 text-[12px] leading-[1.6] text-fg-mid">{s.why_it_matters}</p> : null}
+            {s.why_it_matters ? <p className="mt-1 text-[13px] leading-[1.6] text-fg-mid">{s.why_it_matters}</p> : null}
           </div>
         ))}
       </div>
@@ -834,7 +834,7 @@ function InterviewCard({ items }: { items: WireInterviewFocus[] }) {
   const sorted = [...items].sort((a, b) => a.order - b.order);
   return (
     <Section title="Interview prep">
-      <div className="flex flex-col gap-2.5 text-[13px] leading-[1.6] text-fg-mid">
+      <div className="flex flex-col gap-2.5 text-[14px] leading-[1.6] text-fg-mid">
         {sorted.map((it) => (
           <div key={`${it.order}-${it.area}`} className="flex gap-2.5">
             <span className="font-mono text-accent">{String(it.order).padStart(2, "0")}</span>
@@ -852,13 +852,13 @@ function InterviewCard({ items }: { items: WireInterviewFocus[] }) {
 function AmmoCard({ ammo }: { ammo: WireLetterHook[] }) {
   return (
     <Section title="Letter hooks · ammo">
-      <div className="flex flex-col gap-2.5 text-[13px] leading-[1.6] text-fg-mid">
+      <div className="flex flex-col gap-2.5 text-[14px] leading-[1.6] text-fg-mid">
         {ammo.map((h, i) => (
           <div key={h.hook} className="flex gap-2.5">
             <span className="font-mono text-accent">{String(i + 1).padStart(2, "0")}</span>
             <span>
               <span className="text-fg">{h.hook}</span>
-              {h.use_in_letter ? <span className="mt-0.5 block text-[12px] text-fg-low">{h.use_in_letter}</span> : null}
+              {h.use_in_letter ? <span className="mt-0.5 block text-[13px] text-fg-low">{h.use_in_letter}</span> : null}
             </span>
           </div>
         ))}
@@ -907,7 +907,7 @@ function DoneBody({ report, cachedAt }: { report: WireReport; cachedAt: string |
       {report.interview.length ? <InterviewCard items={report.interview} /> : null}
       {report.ammo.length ? <AmmoCard ammo={report.ammo} /> : null}
       {report.meta.missing.length ? (
-        <p className="px-1 text-[11px] leading-relaxed text-fg-low">
+        <p className="px-1 text-[13px] leading-relaxed text-fg-low">
           Sections with no data: {report.meta.missing.map(prettySection).join(", ")}.
         </p>
       ) : null}
@@ -937,8 +937,8 @@ function RunningBody({
       <Panel className="cll-fade flex items-center gap-3 p-4">
         <StatDot tone="accent" pulse glow size={8} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold text-fg">Researching {company || "company"}…</div>
-          <div className="font-mono text-[10px] text-fg-mid">
+          <div className="truncate text-[14px] font-semibold text-fg">Researching {company || "company"}…</div>
+          <div className="font-mono text-[12px] text-fg-mid">
             {doneCount} / {total || fleet.length + 2} agents complete · your CV never leaves the device
           </div>
         </div>
@@ -966,8 +966,8 @@ function ErrorBody({ message, onRetry, onReset }: { message: string | null; onRe
         <span className="mb-4 grid h-14 w-14 place-items-center rounded-[16px] border border-border-strong bg-danger-weak text-danger">
           <AlertTriangle size={22} />
         </span>
-        <h3 className="text-[16px] font-bold text-fg">Research could not complete</h3>
-        <p className="mt-1.5 max-w-md text-[13px] leading-relaxed text-fg-mid">
+        <h3 className="text-[18px] font-bold text-fg">Research could not complete</h3>
+        <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-fg-mid">
           {message ??
             "Something went wrong while researching. Check that the backend and your LLM provider are reachable, then try again."}
         </p>
@@ -1018,7 +1018,7 @@ function SuggestAvatar({ name, logo }: { name: string; logo?: string | null }) {
     );
   }
   return (
-    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-surface-2 font-mono text-[12px] text-accent-text">
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-surface-2 font-mono text-[13px] text-accent-text">
       {name.charAt(0).toUpperCase()}
     </span>
   );
@@ -1067,8 +1067,8 @@ function IdleForm({
             <Search size={16} />
           </span>
           <div>
-            <div className="text-[13px] font-semibold text-fg">Local multi-agent research</div>
-            <p className="mt-1 text-[12px] leading-relaxed text-fg-mid">
+            <div className="text-[14px] font-semibold text-fg">Local multi-agent research</div>
+            <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">
               Eight agents gather firmographics, culture, tech and hiring signals in parallel, then a local fit analysis
               scores you against the posting. Only the company name and the job text leave your device — your CV never
               does.
@@ -1077,7 +1077,7 @@ function IdleForm({
         </div>
       </Panel>
       <Panel className="cll-fade p-6">
-        <div className="mb-4 text-[10.5px] font-semibold tracking-[0.01em] text-fg-low">New research</div>
+        <div className="mb-4 text-[12px] font-semibold tracking-[0.01em] text-fg-low">New research</div>
         <form
           className="flex max-w-[540px] flex-col gap-4"
           onSubmit={(e) => {
@@ -1127,11 +1127,11 @@ function IdleForm({
                     >
                       <SuggestAvatar name={c.name} logo={c.logo} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12.5px] text-fg">{c.name}</span>
+                        <span className="block truncate text-[13px] text-fg">{c.name}</span>
                         {c.domain ? (
-                          <span className="block truncate font-mono text-[10px] text-fg-low">{c.domain}</span>
+                          <span className="block truncate font-mono text-[12px] text-fg-low">{c.domain}</span>
                         ) : c.description ? (
-                          <span className="block truncate text-[10px] text-fg-low">{c.description}</span>
+                          <span className="block truncate text-[12px] text-fg-low">{c.description}</span>
                         ) : null}
                       </span>
                     </button>
@@ -1175,10 +1175,10 @@ function IdleForm({
 
           {cacheHit ? (
             <div className="rounded-[10px] border border-border-strong bg-surface-2 p-3.5">
-              <div className="flex items-center gap-2 text-[10.5px] font-semibold tracking-[0.01em] text-fg-mid">
+              <div className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.01em] text-fg-mid">
                 <StatDot tone="accent" size={6} /> Already researched · cached {formatWhen(cacheHit.cached_at)}
               </div>
-              <p className="mt-1 text-[12px] leading-relaxed text-fg-mid">
+              <p className="mt-1 text-[13px] leading-relaxed text-fg-mid">
                 Open the saved report instantly, or re-run for fresh results.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1214,9 +1214,9 @@ function IdleForm({
 /* ── Header pieces ───────────────────────────────────────────────── */
 function CompanyChip({ company }: { company: string }) {
   return (
-    <span className="flex items-center gap-2 rounded-[10px] border border-border-strong bg-surface px-3.5 py-2 text-[13px] text-fg">
+    <span className="flex items-center gap-2 rounded-[10px] border border-border-strong bg-surface px-3.5 py-2 text-[14px] text-fg">
       {company}
-      <span className="font-mono text-[10px] text-fg-low">· editable</span>
+      <span className="font-mono text-[12px] text-fg-low">· editable</span>
     </span>
   );
 }
