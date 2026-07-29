@@ -115,6 +115,11 @@ The SQLite database and ChromaDB index are stored in `runtime-data/`. Keep that 
 updating the application if you want to preserve your profile, settings, research cache, and
 letters.
 
+Each service is built from its own isolated context. Local databases, credentials, model caches,
+test artifacts, and frontend dependencies never enter the Docker build context. The backend image
+also installs the CPU-only PyTorch distribution, avoiding an unnecessary CUDA runtime for this
+local-first deployment.
+
 > [!IMPORTANT]
 > The Stable bundle is a Docker-ready application package, not a native `.dmg`, `.msi`, or
 > desktop installer.
@@ -575,6 +580,7 @@ Claude · Gemini · BM25 · Reciprocal Rank Fusion · cross-encoder reranking
 
 ```text
 backend/
+├── Dockerfile            production API image
 ├── api/routers/          HTTP and SSE endpoints
 ├── core/
 │   ├── llm/              provider implementations and metered gateway
@@ -588,12 +594,17 @@ backend/
 ├── db/                   SQLite schema and query layer
 └── tests/                backend behavior and privacy tests
 
-frontend/src/
-├── pages/                product workflows
-├── components/           shared UI and review components
-├── api/                  typed clients and SSE helpers
-├── store/                Zustand state
-└── lib/                  parsing, navigation, theme, and utilities
+frontend/
+├── Dockerfile            multi-stage web image
+├── nginx/                SPA hosting and API proxy
+└── src/
+    ├── pages/            product workflows
+    ├── components/       shared UI and review components
+    ├── api/              typed clients and SSE helpers
+    ├── store/            Zustand state
+    └── lib/              parsing, navigation, theme, and utilities
+
+compose.yml               one-command local stack
 ```
 
 ## Testing and CI
